@@ -20,6 +20,13 @@
       }
     },
 
+    "Players": {
+      "$className": "Players",
+      "$properties": {
+        "ChatEnabled": false
+      }
+    },
+
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
