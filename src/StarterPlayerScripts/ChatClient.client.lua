@@ -76,9 +76,9 @@ inputGui.Parent         = PlayerGui
 
 local inputFrame = Instance.new("Frame")
 inputFrame.Name                   = "InputFrame"
-inputFrame.AnchorPoint            = Vector2.new(0.5, 1)
+inputFrame.AnchorPoint            = Vector2.new(1, 0)
 inputFrame.Size                   = UDim2.new(0.52, 0, 0, BAR_H)
-inputFrame.Position               = UDim2.new(0.5, 0, 1, -14)
+inputFrame.Position               = UDim2.new(1, -8, 0, 8)
 inputFrame.BackgroundColor3       = Color3.fromRGB(10, 12, 22)
 inputFrame.BackgroundTransparency = 0.18
 inputFrame.BorderSizePixel        = 0
