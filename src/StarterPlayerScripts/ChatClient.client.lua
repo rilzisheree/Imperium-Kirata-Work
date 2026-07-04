@@ -64,8 +64,8 @@ local CFG = {
 }
 
 -- ─── Input bar (bottom-center, matches reference design) ─────────────────────
-local BAR_H   = 44
-local BTN_W   = 40
+local BAR_H   = 36
+local BTN_W   = 34
 
 local inputGui = Instance.new("ScreenGui")
 inputGui.Name           = "ChatInput"
@@ -77,7 +77,7 @@ inputGui.Parent         = PlayerGui
 local inputFrame = Instance.new("Frame")
 inputFrame.Name                   = "InputFrame"
 inputFrame.AnchorPoint            = Vector2.new(0, 0)
-inputFrame.Size                   = UDim2.new(0.28, 0, 0, BAR_H)
+inputFrame.Size                   = UDim2.new(0.20, 0, 0, BAR_H)
 inputFrame.Position               = UDim2.new(0, 8, 0, 62)   -- top-left, just below Roblox icon buttons
 inputFrame.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
 inputFrame.BackgroundTransparency = 0.25
@@ -123,9 +123,9 @@ sendBtn.Position               = UDim2.new(1, -5, 0.5, 0)
 sendBtn.BackgroundColor3       = Color3.fromRGB(18, 18, 18)
 sendBtn.BackgroundTransparency = 0
 sendBtn.BorderSizePixel        = 0
-sendBtn.Text                   = "▶"
-sendBtn.Font                   = Enum.Font.SourceSansBold
-sendBtn.TextSize               = 20
+sendBtn.Text                   = "❯"
+sendBtn.Font                   = Enum.Font.GothamBlack
+sendBtn.TextSize               = 18
 sendBtn.TextColor3             = Color3.fromRGB(210, 210, 210)
 sendBtn.AutoButtonColor        = false
 sendBtn.Parent                 = inputFrame
