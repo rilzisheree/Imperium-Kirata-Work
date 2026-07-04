@@ -151,8 +151,11 @@ local function getOrCreateBillboard(character: Model)
         local billboard = Instance.new("BillboardGui")
         billboard.Name             = "ImperiumBubbleGui"
         billboard.Adornee          = head
-        billboard.Size                  = UDim2.new(0, CFG.BUBBLE_MAX_WIDTH + CFG.BUBBLE_PADDING_H * 2 + 16, 0, 220)
-        billboard.StudsOffsetWorldSpace = Vector3.new(0, 3.2, 0)
+        -- Height in STUDS (Y scale) so the bottom of the frame is pinned to the
+        -- same world-space point above the head regardless of camera zoom.
+        -- Bottom = StudsOffsetWorldSpace.Y - (height/2) = 3 - 2 = 1 stud above head.
+        billboard.Size                  = UDim2.new(0, CFG.BUBBLE_MAX_WIDTH + CFG.BUBBLE_PADDING_H * 2 + 16, 4, 0)
+        billboard.StudsOffsetWorldSpace = Vector3.new(0, 3, 0)
         billboard.AlwaysOnTop           = false
         billboard.ResetOnSpawn          = false
         billboard.ClipsDescendants      = false
