@@ -44,11 +44,11 @@ local CFG = {
         BUBBLE_BG_TRANS     = 0.06,
         BUBBLE_TEXT_COLOR   = Color3.fromRGB(25, 25, 25),
         BUBBLE_FONT         = Enum.Font.GothamSemibold,
-        BUBBLE_TEXT_SIZE    = 13,
-        BUBBLE_MAX_WIDTH    = 160,
-        BUBBLE_PADDING_H    = 10,
-        BUBBLE_PADDING_V    = 6,
-        BUBBLE_CORNER       = 8,
+        BUBBLE_TEXT_SIZE    = 16,
+        BUBBLE_MAX_WIDTH    = 200,
+        BUBBLE_PADDING_H    = 12,
+        BUBBLE_PADDING_V    = 7,
+        BUBBLE_CORNER       = 10,
 
         -- Timing
         HOLD_DURATION       = 7,
@@ -151,12 +151,12 @@ local function getOrCreateBillboard(character: Model)
         local billboard = Instance.new("BillboardGui")
         billboard.Name             = "ImperiumBubbleGui"
         billboard.Adornee          = head
-        billboard.Size             = UDim2.new(0, CFG.BUBBLE_MAX_WIDTH + CFG.BUBBLE_PADDING_H * 2 + 16, 0, 200)
-        billboard.StudsOffset      = Vector3.new(0, 2.2, 0)
-        billboard.AlwaysOnTop      = false
-        billboard.ResetOnSpawn     = false
-        billboard.ClipsDescendants = false
-        billboard.Parent           = head
+        billboard.Size                  = UDim2.new(0, CFG.BUBBLE_MAX_WIDTH + CFG.BUBBLE_PADDING_H * 2 + 16, 0, 220)
+        billboard.StudsOffsetWorldSpace = Vector3.new(0, 3.2, 0)
+        billboard.AlwaysOnTop           = false
+        billboard.ResetOnSpawn          = false
+        billboard.ClipsDescendants      = false
+        billboard.Parent                = head
 
         local stack = Instance.new("Frame")
         stack.Name                   = "BubbleStack"
