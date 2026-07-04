@@ -61,76 +61,85 @@ local CFG = {
         FADE_OUT_TIME       = 0.8,
         SLIDE_DISTANCE      = 0.5,   -- studs the bubble rises during entrance
 
-        -- Input bar
-        INPUT_BG_COLOR      = Color3.fromRGB(20, 20, 20),
-        INPUT_BG_TRANS      = 0.45,
-        INPUT_TEXT_COLOR    = Color3.fromRGB(255, 255, 255),
-        INPUT_PLACEHOLDER   = Color3.fromRGB(180, 180, 180),
-        INPUT_FONT          = Enum.Font.GothamSemibold,
-        INPUT_TEXT_SIZE     = 14,
-        INPUT_WIDTH         = 260,
-        INPUT_HEIGHT        = 28,
 }
 
--- ─── Input bar (top-left, matches screenshot style) ──────────────────────────
+-- ─── Input bar (bottom-center, matches reference design) ─────────────────────
+local BAR_H   = 44
+local BTN_W   = 40
+
 local inputGui = Instance.new("ScreenGui")
 inputGui.Name           = "ChatInput"
 inputGui.DisplayOrder   = 20
 inputGui.ResetOnSpawn   = false
-inputGui.IgnoreGuiInset = true   -- bypass the 36px inset so we control exact position
+inputGui.IgnoreGuiInset = true
 inputGui.Parent         = PlayerGui
 
 local inputFrame = Instance.new("Frame")
-inputFrame.Name                 = "InputFrame"
-inputFrame.Size                 = UDim2.new(0, CFG.INPUT_WIDTH, 0, CFG.INPUT_HEIGHT)
-inputFrame.Position             = UDim2.new(0, 4, 0, 60)   -- just below the Roblox topbar
-inputFrame.BackgroundColor3     = CFG.INPUT_BG_COLOR
-inputFrame.BackgroundTransparency = CFG.INPUT_BG_TRANS
-inputFrame.BorderSizePixel      = 0
-inputFrame.Parent               = inputGui
+inputFrame.Name                   = "InputFrame"
+inputFrame.AnchorPoint            = Vector2.new(0.5, 1)
+inputFrame.Size                   = UDim2.new(0.52, 0, 0, BAR_H)
+inputFrame.Position               = UDim2.new(0.5, 0, 1, -14)
+inputFrame.BackgroundColor3       = Color3.fromRGB(10, 12, 22)
+inputFrame.BackgroundTransparency = 0.18
+inputFrame.BorderSizePixel        = 0
+inputFrame.Parent                 = inputGui
 
 local inputCorner = Instance.new("UICorner")
-inputCorner.CornerRadius = UDim.new(0, 6)
+inputCorner.CornerRadius = UDim.new(0, 7)
 inputCorner.Parent = inputFrame
 
 local inputStroke = Instance.new("UIStroke")
-inputStroke.Color        = Color3.fromRGB(160, 160, 160)
-inputStroke.Thickness    = 1.5
-inputStroke.Transparency = 0.3
+inputStroke.Color           = Color3.fromRGB(48, 58, 95)
+inputStroke.Thickness       = 1.5
+inputStroke.Transparency    = 0
 inputStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-inputStroke.Parent       = inputFrame
+inputStroke.Parent          = inputFrame
 
+-- Text box (leaves room on the right for the send button)
 local inputBox = Instance.new("TextBox")
 inputBox.Name                   = "InputBox"
-inputBox.Size                   = UDim2.new(1, -10, 1, 0)
-inputBox.Position               = UDim2.new(0, 8, 0, 0)
+inputBox.Size                   = UDim2.new(1, -(BTN_W + 18), 1, 0)
+inputBox.Position               = UDim2.new(0, 14, 0, 0)
 inputBox.BackgroundTransparency = 1
 inputBox.BorderSizePixel        = 0
 inputBox.ClearTextOnFocus       = false
-inputBox.Font                   = CFG.INPUT_FONT
-inputBox.TextSize               = CFG.INPUT_TEXT_SIZE
-inputBox.TextColor3             = CFG.INPUT_TEXT_COLOR
-inputBox.PlaceholderText        = "Press / to chat…"
-inputBox.PlaceholderColor3      = CFG.INPUT_PLACEHOLDER
+inputBox.Font                   = Enum.Font.GothamSemibold
+inputBox.TextSize               = 14
+inputBox.TextColor3             = Color3.fromRGB(225, 225, 240)
+inputBox.PlaceholderText        = "To chat click here or press / key"
+inputBox.PlaceholderColor3      = Color3.fromRGB(120, 128, 160)
 inputBox.Text                   = ""
 inputBox.TextXAlignment         = Enum.TextXAlignment.Left
 inputBox.TextYAlignment         = Enum.TextYAlignment.Center
 inputBox.MultiLine              = false
 inputBox.Parent                 = inputFrame
 
--- Character counter label (right side)
-local charCounter = Instance.new("TextLabel")
-charCounter.Name                = "CharCounter"
-charCounter.Size                = UDim2.new(0, 28, 1, 0)
-charCounter.Position            = UDim2.new(1, -30, 0, 0)
-charCounter.BackgroundTransparency = 1
-charCounter.Font                = Enum.Font.Gotham
-charCounter.TextSize            = 11
-charCounter.TextColor3          = CFG.INPUT_PLACEHOLDER
-charCounter.Text                = ""
-charCounter.TextXAlignment      = Enum.TextXAlignment.Right
-charCounter.TextYAlignment      = Enum.TextYAlignment.Center
-charCounter.Parent              = inputFrame
+-- Send button (►) on the right
+local sendBtn = Instance.new("TextButton")
+sendBtn.Name                   = "SendBtn"
+sendBtn.AnchorPoint            = Vector2.new(1, 0.5)
+sendBtn.Size                   = UDim2.new(0, BTN_W, 1, -10)
+sendBtn.Position               = UDim2.new(1, -5, 0.5, 0)
+sendBtn.BackgroundColor3       = Color3.fromRGB(22, 26, 45)
+sendBtn.BackgroundTransparency = 0
+sendBtn.BorderSizePixel        = 0
+sendBtn.Text                   = "▶"
+sendBtn.Font                   = Enum.Font.GothamBold
+sendBtn.TextSize               = 14
+sendBtn.TextColor3             = Color3.fromRGB(180, 188, 220)
+sendBtn.AutoButtonColor        = false
+sendBtn.Parent                 = inputFrame
+
+local sendCorner = Instance.new("UICorner")
+sendCorner.CornerRadius = UDim.new(0, 5)
+sendCorner.Parent = sendBtn
+
+local sendStroke = Instance.new("UIStroke")
+sendStroke.Color           = Color3.fromRGB(48, 58, 95)
+sendStroke.Thickness       = 1
+sendStroke.Transparency    = 0.3
+sendStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+sendStroke.Parent          = sendBtn
 
 -- ─── Bubble system — ScreenGui + Camera:WorldToScreenPoint ────────────────────
 --
@@ -332,12 +341,6 @@ local MAX_CHARS = 200
 
 inputBox:GetPropertyChangedSignal("Text"):Connect(function()
         local len = #inputBox.Text
-        if len > 0 then
-                charCounter.Text = tostring(math.min(len, MAX_CHARS))
-        else
-                charCounter.Text = ""
-        end
-        -- Hard-cap length client-side too
         if len > MAX_CHARS then
                 inputBox.Text = inputBox.Text:sub(1, MAX_CHARS)
         end
@@ -349,9 +352,18 @@ local function submitMessage()
                 ChatRemotes.MessageSent:FireServer(text)
         end
         inputBox.Text = ""
-        charCounter.Text = ""
         inputBox:ReleaseFocus()
 end
+
+-- Send button click
+sendBtn.MouseButton1Click:Connect(submitMessage)
+
+-- Clicking anywhere on the bar focuses the text box
+inputFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                inputBox:CaptureFocus()
+        end
+end)
 
 inputBox.FocusLost:Connect(function(enterPressed)
         if enterPressed then
@@ -366,7 +378,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
                 inputBox:CaptureFocus()
         elseif input.KeyCode == Enum.KeyCode.Escape then
                 inputBox.Text = ""
-                charCounter.Text = ""
                 inputBox:ReleaseFocus()
         end
 end)
