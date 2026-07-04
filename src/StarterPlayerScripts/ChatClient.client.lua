@@ -76,11 +76,11 @@ inputGui.Parent         = PlayerGui
 
 local inputFrame = Instance.new("Frame")
 inputFrame.Name                   = "InputFrame"
-inputFrame.AnchorPoint            = Vector2.new(1, 0)
-inputFrame.Size                   = UDim2.new(0.52, 0, 0, BAR_H)
-inputFrame.Position               = UDim2.new(1, -8, 0, 8)
-inputFrame.BackgroundColor3       = Color3.fromRGB(10, 12, 22)
-inputFrame.BackgroundTransparency = 0.18
+inputFrame.AnchorPoint            = Vector2.new(0, 0)
+inputFrame.Size                   = UDim2.new(0.28, 0, 0, BAR_H)
+inputFrame.Position               = UDim2.new(0, 8, 0, 68)   -- top-left, just below Roblox icon buttons
+inputFrame.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
+inputFrame.BackgroundTransparency = 0.25
 inputFrame.BorderSizePixel        = 0
 inputFrame.Parent                 = inputGui
 
@@ -89,7 +89,7 @@ inputCorner.CornerRadius = UDim.new(0, 7)
 inputCorner.Parent = inputFrame
 
 local inputStroke = Instance.new("UIStroke")
-inputStroke.Color           = Color3.fromRGB(48, 58, 95)
+inputStroke.Color           = Color3.fromRGB(35, 35, 35)
 inputStroke.Thickness       = 1.5
 inputStroke.Transparency    = 0
 inputStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -120,13 +120,13 @@ sendBtn.Name                   = "SendBtn"
 sendBtn.AnchorPoint            = Vector2.new(1, 0.5)
 sendBtn.Size                   = UDim2.new(0, BTN_W, 1, -10)
 sendBtn.Position               = UDim2.new(1, -5, 0.5, 0)
-sendBtn.BackgroundColor3       = Color3.fromRGB(22, 26, 45)
+sendBtn.BackgroundColor3       = Color3.fromRGB(18, 18, 18)
 sendBtn.BackgroundTransparency = 0
 sendBtn.BorderSizePixel        = 0
 sendBtn.Text                   = "▶"
 sendBtn.Font                   = Enum.Font.GothamBold
 sendBtn.TextSize               = 14
-sendBtn.TextColor3             = Color3.fromRGB(180, 188, 220)
+sendBtn.TextColor3             = Color3.fromRGB(200, 200, 200)
 sendBtn.AutoButtonColor        = false
 sendBtn.Parent                 = inputFrame
 
@@ -135,7 +135,7 @@ sendCorner.CornerRadius = UDim.new(0, 5)
 sendCorner.Parent = sendBtn
 
 local sendStroke = Instance.new("UIStroke")
-sendStroke.Color           = Color3.fromRGB(48, 58, 95)
+sendStroke.Color           = Color3.fromRGB(35, 35, 35)
 sendStroke.Thickness       = 1
 sendStroke.Transparency    = 0.3
 sendStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
