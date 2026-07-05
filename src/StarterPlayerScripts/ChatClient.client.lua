@@ -53,12 +53,12 @@ local MUFFLED_DISTANCE = 33     -- studs: [Inaudible]
 local HOLD_DURATION    = 7      -- seconds bubble stays on screen
 local MAX_CHARS        = 200
 
-local BUBBLE_W    = 240           -- max bubble pixel width
-local BUBBLE_H    = 400           -- billboard height in pixels (room for stacked bubbles)
-local HEAD_TOP    = 0.65          -- studs from Head centre to top of head
-local HEAD_GAP    = 0.10          -- extra gap above head top (studs)
-local PAD_H       = 12
-local PAD_V       = 7
+local BUBBLE_W      = 240   -- max bubble pixel width
+local BUBBLE_MAX_H  = 400   -- pixel height of the bubble stack area
+local HEAD_TOP      = 0.65  -- world studs from Head centre to top of head
+local BUBBLE_ABOVE  = 50    -- extra pixels above head top (increase to move text higher)
+local PAD_H         = 12
+local PAD_V         = 7
 local CORNER      = 10
 local FONT        = Enum.Font.GothamSemibold
 local TEXT_SIZE   = 15
@@ -130,8 +130,20 @@ do
 end
 
 -- ══════════════════════════════════════════════════════════════════════════════
--- 5. BUBBLE SYSTEM  (BillboardGui parented directly to each speaker's Head)
+-- 5. BUBBLE SYSTEM  (ScreenGui + WorldToViewportPoint — zoom-proof positioning)
+--
+--  Each speaker gets a Frame inside one shared ScreenGui.
+--  AnchorPoint (0.5, 1) means Position controls the BOTTOM-CENTRE of the stack.
+--  Every Heartbeat we project the head-top world point to viewport pixels and
+--  set Position directly — no stud math, no drift at any zoom level.
 -- ══════════════════════════════════════════════════════════════════════════════
+
+local bubbleGui = Instance.new("ScreenGui")
+bubbleGui.Name           = "ChatBubbles"
+bubbleGui.DisplayOrder   = 15
+bubbleGui.ResetOnSpawn   = false
+bubbleGui.IgnoreGuiInset = true   -- coordinates = raw viewport pixels
+bubbleGui.Parent         = PlayerGui
 
 local speakers = {}
 
@@ -141,89 +153,83 @@ local function getOrMakeSpeaker(character)
 	local pname = character.Name
 
 	local existing = speakers[pname]
-	if existing and existing.gui and existing.gui.Parent == head then
+	if existing and existing.frame and existing.frame.Parent == bubbleGui then
+		-- still valid — just update head reference in case of respawn
+		existing.head = head
 		return existing
 	end
-	if existing then pcall(function() existing.gui:Destroy() end) end
+	if existing then pcall(function() existing.frame:Destroy() end) end
 
-	local gui = Instance.new("BillboardGui")
-	gui.Name             = "ChatBubbles"
-	gui.Size             = UDim2.fromOffset(BUBBLE_W, BUBBLE_H)
-	gui.StudsOffset      = Vector3.new(0, 5, 0)  -- sane default; corrected each frame
-	gui.AlwaysOnTop      = false
-	gui.LightInfluence   = 0
-	gui.ClipsDescendants = false
-	gui.Enabled          = true
-	gui.Parent           = head
+	-- Bottom-centre-anchored frame: its Position is the anchor of the bottom edge.
+	local frame = Instance.new("Frame", bubbleGui)
+	frame.Name                   = "Bubbles_" .. pname
+	frame.AnchorPoint            = Vector2.new(0.5, 1)
+	frame.Size                   = UDim2.fromOffset(BUBBLE_W, BUBBLE_MAX_H)
+	frame.BackgroundTransparency = 1
+	frame.BorderSizePixel        = 0
+	frame.ClipsDescendants       = false
+	frame.Visible                = false   -- hidden until first Heartbeat positions it
 
-	local container = Instance.new("Frame", gui)
-	container.Size                   = UDim2.new(1, 0, 1, 0)
-	container.BackgroundTransparency = 1
-	container.BorderSizePixel        = 0
-	container.Active                 = false
-
-	local layout = Instance.new("UIListLayout", container)
+	local layout = Instance.new("UIListLayout", frame)
 	layout.FillDirection       = Enum.FillDirection.Vertical
 	layout.VerticalAlignment   = Enum.VerticalAlignment.Bottom
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.SortOrder           = Enum.SortOrder.LayoutOrder
 	layout.Padding             = UDim.new(0, 3)
 
-	local data = { gui = gui, container = container, count = 0, bubbles = {} }
+	local data = { frame = frame, head = head, count = 0, bubbles = {} }
 	speakers[pname] = data
 	return data
 end
 
 RunService.Heartbeat:Connect(function()
 	local camera    = workspace.CurrentCamera
-	if not camera then return end   -- can be nil during camera transitions / respawn
+	if not camera then return end
 
 	local localChar = LocalPlayer.Character
 	local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
 
 	for pname, data in pairs(speakers) do
-		local gui = data.gui
-		if not gui or not gui.Parent then
+		local frame = data.frame
+		if not frame or not frame.Parent then
 			speakers[pname] = nil
 			continue
 		end
 
-		local head     = gui.Parent
+		local head     = data.head
 		local isLocal  = (pname == LocalPlayer.Name)
 		local showFull = isLocal
+		local visible  = false
 
-		if not isLocal then
-			if not localRoot then
-				gui.Enabled = false
-				continue
-			end
-			local char = head and head.Parent
-			local root = char and char:FindFirstChild("HumanoidRootPart")
-			if root and root.Parent then
-				local dist = (localRoot.Position - root.Position).Magnitude
-				gui.Enabled = dist <= MUFFLED_DISTANCE
-				showFull    = dist <= FULL_DISTANCE
-			else
-				gui.Enabled = false
-				continue
+		if isLocal then
+			visible  = true
+			showFull = true
+		else
+			if localRoot and head and head.Parent then
+				local char = head.Parent
+				local root = char:FindFirstChild("HumanoidRootPart")
+				if root and root.Parent then
+					local dist = (localRoot.Position - root.Position).Magnitude
+					visible  = dist <= MUFFLED_DISTANCE
+					showFull = dist <= FULL_DISTANCE
+				end
 			end
 		end
 
-		-- Pin the bubble bottom to just above the head at any zoom level.
-		-- Project two world points to measure pixels-per-stud, then solve:
-		--   StudsOffset = (BUBBLE_H / 2) / pps + HEAD_TOP + HEAD_GAP
-		-- so that the billboard bottom sits exactly at head-top + GAP.
-		-- Guards: skip if camera missing, head off-screen, or behind camera.
-		if head and head.Parent then
-			local vp0, onScreen0 = camera:WorldToViewportPoint(head.Position)
-			local vp1, _         = camera:WorldToViewportPoint(head.Position + Vector3.new(0, 1, 0))
-			-- vp0.Z > 0 means in front of camera; screen Y decreases as world Y rises
-			local pps = vp0.Y - vp1.Y   -- pixels per stud (positive when valid)
-			if onScreen0 and vp0.Z > 0 and pps > 1 then
-				local studOffset = (BUBBLE_H * 0.5) / pps + HEAD_TOP + HEAD_GAP
-				gui.StudsOffset  = Vector3.new(0, studOffset, 0)
-				-- (if off-screen or behind camera, keep the last good offset)
+		-- Project the top of the head to viewport pixels.
+		-- BUBBLE_ABOVE extra pixels of gap push the stack further above the head.
+		if visible and head and head.Parent then
+			local topWorld = head.Position + Vector3.new(0, HEAD_TOP, 0)
+			local vp, onScreen = camera:WorldToViewportPoint(topWorld)
+			if onScreen and vp.Z > 0 then
+				-- vp.X / vp.Y are already in raw viewport pixels (IgnoreGuiInset = true)
+				frame.Position = UDim2.fromOffset(vp.X, vp.Y - BUBBLE_ABOVE)
+				frame.Visible  = true
+			else
+				frame.Visible = false
 			end
+		else
+			frame.Visible = false
 		end
 
 		for _, b in ipairs(data.bubbles) do
@@ -241,7 +247,7 @@ local function createBubble(character, text)
 
 	data.count += 1
 
-	local bubble = Instance.new("Frame", data.container)
+	local bubble = Instance.new("Frame", data.frame)
 	bubble.LayoutOrder            = data.count
 	bubble.AutomaticSize          = Enum.AutomaticSize.XY
 	bubble.Size                   = UDim2.new(0, 0, 0, 0)
@@ -282,7 +288,7 @@ local function createBubble(character, text)
 		if idx then table.remove(data.bubbles, idx) end
 		bubble:Destroy()
 		if #data.bubbles == 0 and speakers[character.Name] == data then
-			pcall(function() data.gui:Destroy() end)
+			pcall(function() data.frame:Destroy() end)
 			speakers[character.Name] = nil
 		end
 	end)
@@ -291,7 +297,7 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	local data = speakers[player.Name]
 	if data then
-		pcall(function() data.gui:Destroy() end)
+		pcall(function() data.frame:Destroy() end)
 		speakers[player.Name] = nil
 	end
 end)
