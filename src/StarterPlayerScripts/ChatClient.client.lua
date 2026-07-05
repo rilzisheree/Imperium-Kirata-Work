@@ -127,29 +127,10 @@ do
 end
 
 -- ══════════════════════════════════════════════════════════════════════════════
--- 5. BUBBLE SYSTEM  (ScreenGui + WorldToViewportPoint)
+-- 5. BUBBLE SYSTEM  (BillboardGui parented directly to each speaker's Head)
 -- ══════════════════════════════════════════════════════════════════════════════
---
--- Every RenderStepped we project the top of each speaker's Head into screen
--- pixels via Camera:WorldToViewportPoint and move a Frame's bottom-centre
--- there.  Because we derive the pixel position from the live camera each frame,
--- the anchor is correct at every zoom level — the bubble never drifts.
---
--- speakers[playerName] = {
---     frame     = Frame  (child of bubbleGui, AnchorPoint (0.5,1) = bottom-centre),
---     head      = Part,
---     character = Model,
---     count     = number,
---     bubbles   = { { label, originalText } }
--- }
 
-local bubbleGui = Instance.new("ScreenGui")
-bubbleGui.Name             = "ChatBubbles"
-bubbleGui.DisplayOrder     = 15
-bubbleGui.ResetOnSpawn     = false
-bubbleGui.IgnoreGuiInset   = true
-bubbleGui.ClipsDescendants = false
-bubbleGui.Parent           = PlayerGui
+local BUBBLE_YOFF = 3.0  -- studs above Head centre
 
 local speakers = {}
 
@@ -159,83 +140,70 @@ local function getOrMakeSpeaker(character)
 	local pname = character.Name
 
 	local existing = speakers[pname]
-	if existing and existing.frame and existing.frame.Parent then
-		existing.head      = head
-		existing.character = character
+	if existing and existing.gui and existing.gui.Parent == head then
 		return existing
 	end
-	if existing then pcall(function() existing.frame:Destroy() end) end
+	if existing then pcall(function() existing.gui:Destroy() end) end
 
-	local frame = Instance.new("Frame", bubbleGui)
-	frame.AnchorPoint            = Vector2.new(0.5, 1) -- bottom-centre at projected point
-	frame.Size                   = UDim2.fromOffset(BUBBLE_W + PAD_H * 2, 400)
-	frame.BackgroundTransparency = 1
-	frame.BorderSizePixel        = 0
-	frame.ClipsDescendants       = false
-	frame.Active                 = false
-	frame.Visible                = false
+	local gui = Instance.new("BillboardGui")
+	gui.Name             = "ChatBubbles"
+	gui.Size             = UDim2.fromOffset(BUBBLE_W, 300)
+	gui.StudsOffset      = Vector3.new(0, BUBBLE_YOFF, 0)
+	gui.AlwaysOnTop      = false
+	gui.LightInfluence   = 0
+	gui.ClipsDescendants = false
+	gui.Enabled          = true
+	gui.Parent           = head
 
-	local layout = Instance.new("UIListLayout", frame)
+	local container = Instance.new("Frame", gui)
+	container.Size                   = UDim2.new(1, 0, 1, 0)
+	container.BackgroundTransparency = 1
+	container.BorderSizePixel        = 0
+	container.Active                 = false
+
+	local layout = Instance.new("UIListLayout", container)
 	layout.FillDirection       = Enum.FillDirection.Vertical
 	layout.VerticalAlignment   = Enum.VerticalAlignment.Bottom
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.SortOrder           = Enum.SortOrder.LayoutOrder
-	layout.Padding             = UDim.new(0, 4)
+	layout.Padding             = UDim.new(0, 3)
 
-	local data = { frame = frame, head = head, character = character, count = 0, bubbles = {} }
+	local data = { gui = gui, container = container, count = 0, bubbles = {} }
 	speakers[pname] = data
 	return data
 end
 
-RunService.RenderStepped:Connect(function()
-	local cam = workspace.CurrentCamera
-	if not cam then return end
-
+RunService.Heartbeat:Connect(function()
 	local localChar = LocalPlayer.Character
 	local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
 
 	for pname, data in pairs(speakers) do
-		local head = data.head
-		if not head or not head.Parent then
-			data.frame.Visible = false
+		local gui = data.gui
+		if not gui or not gui.Parent then
+			speakers[pname] = nil
 			continue
 		end
 
-		-- Project the top of the head (center + 0.6 studs, head radius ≈ 0.5)
-		local screenPos, onScreen = cam:WorldToViewportPoint(
-			head.Position + Vector3.new(0, 0.6, 0)
-		)
-
-		if not (onScreen and screenPos.Z > 0) then
-			data.frame.Visible = false
-			continue
-		end
-
-		-- Distance gating for non-local players
 		local isLocal  = (pname == LocalPlayer.Name)
 		local showFull = isLocal
 
 		if not isLocal then
 			if not localRoot then
-				data.frame.Visible = false
+				gui.Enabled = false
 				continue
 			end
-			local senderRoot = data.character and data.character:FindFirstChild("HumanoidRootPart")
-			if senderRoot and senderRoot.Parent then
-				local dist = (localRoot.Position - senderRoot.Position).Magnitude
-				if dist > MUFFLED_DISTANCE then
-					data.frame.Visible = false
-					continue
-				end
-				showFull = dist <= FULL_DISTANCE
+			local head = gui.Parent
+			local char = head and head.Parent
+			local root = char and char:FindFirstChild("HumanoidRootPart")
+			if root and root.Parent then
+				local dist = (localRoot.Position - root.Position).Magnitude
+				gui.Enabled = dist <= MUFFLED_DISTANCE
+				showFull    = dist <= FULL_DISTANCE
 			else
-				data.frame.Visible = false
+				gui.Enabled = false
 				continue
 			end
 		end
-
-		data.frame.Visible  = true
-		data.frame.Position = UDim2.fromOffset(screenPos.X, screenPos.Y)
 
 		for _, b in ipairs(data.bubbles) do
 			if b.label and b.label.Parent then
@@ -251,21 +219,20 @@ local function createBubble(character, text)
 	if not data then return end
 
 	data.count += 1
-	local order = data.count
 
-	local bubble = Instance.new("Frame", data.frame)
-	bubble.LayoutOrder            = order
+	local bubble = Instance.new("Frame", data.container)
+	bubble.LayoutOrder            = data.count
 	bubble.AutomaticSize          = Enum.AutomaticSize.XY
 	bubble.Size                   = UDim2.new(0, 0, 0, 0)
 	bubble.BackgroundColor3       = BG_COLOR
-	bubble.BackgroundTransparency = BG_TRANS  -- appears instantly, no animation
+	bubble.BackgroundTransparency = BG_TRANS
 	bubble.BorderSizePixel        = 0
 	bubble.Active                 = false
 
 	Instance.new("UICorner", bubble).CornerRadius = UDim.new(0, CORNER)
 
 	local sizeLimit = Instance.new("UISizeConstraint", bubble)
-	sizeLimit.MaxSize = Vector2.new(BUBBLE_W, math.huge)
+	sizeLimit.MaxSize = Vector2.new(BUBBLE_W - 16, math.huge)
 
 	local pad = Instance.new("UIPadding", bubble)
 	pad.PaddingLeft   = UDim.new(0, PAD_H)
@@ -283,19 +250,18 @@ local function createBubble(character, text)
 	label.TextXAlignment         = Enum.TextXAlignment.Left
 	label.TextWrapped            = true
 	label.RichText               = false
-	label.TextTransparency       = 0  -- immediately visible
+	label.TextTransparency       = 0
 	label.Text                   = text
 
 	local entry = { label = label, originalText = text }
 	table.insert(data.bubbles, entry)
 
-	-- Hold then vanish instantly — no animation
 	task.delay(HOLD_DURATION, function()
 		local idx = table.find(data.bubbles, entry)
 		if idx then table.remove(data.bubbles, idx) end
 		bubble:Destroy()
 		if #data.bubbles == 0 and speakers[character.Name] == data then
-			pcall(function() data.frame:Destroy() end)
+			pcall(function() data.gui:Destroy() end)
 			speakers[character.Name] = nil
 		end
 	end)
@@ -304,7 +270,7 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	local data = speakers[player.Name]
 	if data then
-		pcall(function() data.frame:Destroy() end)
+		pcall(function() data.gui:Destroy() end)
 		speakers[player.Name] = nil
 	end
 end)
