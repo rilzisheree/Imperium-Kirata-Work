@@ -220,6 +220,7 @@ local function getOrCreateSpeaker(character)
         frame.BackgroundTransparency = 1
         frame.BorderSizePixel        = 0
         frame.ClipsDescendants       = false
+        frame.Active                 = false  -- do not consume mouse / touch events
 
         local layout = Instance.new("UIListLayout", frame)
         layout.FillDirection       = Enum.FillDirection.Vertical
@@ -247,6 +248,7 @@ local function createBubble(character, text)
         bubble.BackgroundColor3       = BUBBLE_BG_COLOR
         bubble.BackgroundTransparency = 1
         bubble.BorderSizePixel        = 0
+        bubble.Active                 = false  -- do not consume mouse / touch events
 
         Instance.new("UICorner", bubble).CornerRadius = UDim.new(0, BUBBLE_CORNER)
 
