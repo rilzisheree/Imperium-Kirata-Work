@@ -147,7 +147,7 @@ sendStroke.Parent          = sendBtn
 
 -- How many studs above the Head center the bottom of the bubble stack sits.
 -- 0.8 puts the bubble just above the top of the head (head radius ≈ 0.5 studs).
-local WORLD_Y_OFFSET = 0.8   -- studs
+local WORLD_Y_OFFSET = 1.5   -- studs
 
 local bubbleGui = Instance.new("ScreenGui")
 bubbleGui.Name           = "ChatBubbles"
@@ -274,17 +274,11 @@ local function createBubble(character: Model, text: string)
         label.Parent                 = bubble
 
         task.spawn(function()
-                -- Fade in pill + typewriter text reveal
+                -- Fade in pill + text instantly
+                label.MaxVisibleGraphemes = -1
                 local inInfo = TweenInfo.new(CFG.FADE_IN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
                 TweenService:Create(bubble, inInfo, { BackgroundTransparency = CFG.BUBBLE_BG_TRANS }):Play()
                 TweenService:Create(label,  inInfo, { TextTransparency = 0 }):Play()
-
-                local totalChars = utf8.len(text) or #text
-                for i = 1, totalChars do
-                        label.MaxVisibleGraphemes = i
-                        task.wait(0.03)
-                end
-                label.MaxVisibleGraphemes = -1
 
                 task.wait(CFG.HOLD_DURATION)
 
