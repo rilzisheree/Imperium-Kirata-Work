@@ -53,15 +53,18 @@ local MUFFLED_DISTANCE = 33     -- studs: [Inaudible]
 local HOLD_DURATION    = 7      -- seconds bubble stays on screen
 local MAX_CHARS        = 200
 
-local BUBBLE_W  = 240           -- max bubble pixel width
-local PAD_H     = 12
-local PAD_V     = 7
-local CORNER    = 10
-local FONT      = Enum.Font.GothamSemibold
-local TEXT_SIZE = 15
-local BG_COLOR  = Color3.fromRGB(240, 240, 240)
-local BG_TRANS  = 0.06
-local TEXT_COLOR = Color3.fromRGB(25, 25, 25)
+local BUBBLE_W    = 240           -- max bubble pixel width
+local BUBBLE_H    = 400           -- billboard height in pixels (room for stacked bubbles)
+local HEAD_TOP    = 0.65          -- studs from Head centre to top of head
+local HEAD_GAP    = 0.10          -- extra gap above head top (studs)
+local PAD_H       = 12
+local PAD_V       = 7
+local CORNER      = 10
+local FONT        = Enum.Font.GothamSemibold
+local TEXT_SIZE   = 15
+local BG_COLOR    = Color3.fromRGB(240, 240, 240)
+local BG_TRANS    = 0.06
+local TEXT_COLOR  = Color3.fromRGB(25, 25, 25)
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- 4. INPUT BAR
@@ -130,8 +133,6 @@ end
 -- 5. BUBBLE SYSTEM  (BillboardGui parented directly to each speaker's Head)
 -- ══════════════════════════════════════════════════════════════════════════════
 
-local BUBBLE_YOFF = 3.0  -- studs above Head centre
-
 local speakers = {}
 
 local function getOrMakeSpeaker(character)
@@ -147,8 +148,8 @@ local function getOrMakeSpeaker(character)
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name             = "ChatBubbles"
-	gui.Size             = UDim2.fromOffset(BUBBLE_W, 300)
-	gui.StudsOffset      = Vector3.new(0, BUBBLE_YOFF, 0)
+	gui.Size             = UDim2.fromOffset(BUBBLE_W, BUBBLE_H)
+	gui.StudsOffset      = Vector3.new(0, 5, 0)  -- sane default; corrected each frame
 	gui.AlwaysOnTop      = false
 	gui.LightInfluence   = 0
 	gui.ClipsDescendants = false
@@ -174,6 +175,9 @@ local function getOrMakeSpeaker(character)
 end
 
 RunService.Heartbeat:Connect(function()
+	local camera    = workspace.CurrentCamera
+	if not camera then return end   -- can be nil during camera transitions / respawn
+
 	local localChar = LocalPlayer.Character
 	local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
 
@@ -184,6 +188,7 @@ RunService.Heartbeat:Connect(function()
 			continue
 		end
 
+		local head     = gui.Parent
 		local isLocal  = (pname == LocalPlayer.Name)
 		local showFull = isLocal
 
@@ -192,7 +197,6 @@ RunService.Heartbeat:Connect(function()
 				gui.Enabled = false
 				continue
 			end
-			local head = gui.Parent
 			local char = head and head.Parent
 			local root = char and char:FindFirstChild("HumanoidRootPart")
 			if root and root.Parent then
@@ -202,6 +206,23 @@ RunService.Heartbeat:Connect(function()
 			else
 				gui.Enabled = false
 				continue
+			end
+		end
+
+		-- Pin the bubble bottom to just above the head at any zoom level.
+		-- Project two world points to measure pixels-per-stud, then solve:
+		--   StudsOffset = (BUBBLE_H / 2) / pps + HEAD_TOP + HEAD_GAP
+		-- so that the billboard bottom sits exactly at head-top + GAP.
+		-- Guards: skip if camera missing, head off-screen, or behind camera.
+		if head and head.Parent then
+			local vp0, onScreen0 = camera:WorldToViewportPoint(head.Position)
+			local vp1, _         = camera:WorldToViewportPoint(head.Position + Vector3.new(0, 1, 0))
+			-- vp0.Z > 0 means in front of camera; screen Y decreases as world Y rises
+			local pps = vp0.Y - vp1.Y   -- pixels per stud (positive when valid)
+			if onScreen0 and vp0.Z > 0 and pps > 1 then
+				local studOffset = (BUBBLE_H * 0.5) / pps + HEAD_TOP + HEAD_GAP
+				gui.StudsOffset  = Vector3.new(0, studOffset, 0)
+				-- (if off-screen or behind camera, keep the last good offset)
 			end
 		end
 
