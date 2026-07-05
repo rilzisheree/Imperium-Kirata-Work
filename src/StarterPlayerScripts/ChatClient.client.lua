@@ -5,18 +5,18 @@
         Proximity chat system — client side:
           • Disables the default Roblox CoreGui chat
           • Minimal top-left input bar (press / or Enter to focus)
-          • When a message is received, creates a BillboardGui bubble
-            above the sender's character — styled exactly like the
-            screenshot (white rounded pill, dark text, smooth fade)
-          • Only players within MAX_DISTANCE on the server receive
-            the event, so bubbles never appear for out-of-range players
+          • When a message is received, creates a bubble above the sender's
+            character — positioned each frame via Camera:WorldToViewportPoint()
+            so the bubble stays locked above the head at every zoom level
+            with no jitter.
 --]]
 
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService        = game:GetService("RunService")
 local StarterGui        = game:GetService("StarterGui")
-local UserInputService  = game:GetService("UserInputService")
 local TweenService      = game:GetService("TweenService")
+local UserInputService  = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
@@ -54,10 +54,9 @@ local CFG = {
         HOLD_DURATION       = 7,
         FADE_IN_TIME        = 0.2,
         FADE_OUT_TIME       = 0.5,
-
 }
 
--- ─── Input bar (bottom-center, matches reference design) ─────────────────────
+-- ─── Input bar (top-left, below Roblox icon buttons) ─────────────────────────
 local BAR_H   = 36
 local BTN_W   = 34
 
@@ -72,7 +71,7 @@ local inputFrame = Instance.new("Frame")
 inputFrame.Name                   = "InputFrame"
 inputFrame.AnchorPoint            = Vector2.new(0, 0)
 inputFrame.Size                   = UDim2.new(0.20, 0, 0, BAR_H)
-inputFrame.Position               = UDim2.new(0, 8, 0, 62)   -- top-left, just below Roblox icon buttons
+inputFrame.Position               = UDim2.new(0, 8, 0, 62)
 inputFrame.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
 inputFrame.BackgroundTransparency = 0.25
 inputFrame.BorderSizePixel        = 0
@@ -89,7 +88,6 @@ inputStroke.Transparency    = 0
 inputStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 inputStroke.Parent          = inputFrame
 
--- Text box (leaves room on the right for the send button)
 local inputBox = Instance.new("TextBox")
 inputBox.Name                   = "InputBox"
 inputBox.Size                   = UDim2.new(1, -(BTN_W + 18), 1, 0)
@@ -108,7 +106,6 @@ inputBox.TextYAlignment         = Enum.TextYAlignment.Center
 inputBox.MultiLine              = false
 inputBox.Parent                 = inputFrame
 
--- Send button (►) on the right
 local sendBtn = Instance.new("TextButton")
 sendBtn.Name                   = "SendBtn"
 sendBtn.AnchorPoint            = Vector2.new(1, 0.5)
@@ -135,54 +132,105 @@ sendStroke.Transparency    = 0.3
 sendStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 sendStroke.Parent          = sendBtn
 
--- ─── Bubble system — BillboardGui attached to Head (smooth, no jitter) ────────
+-- ─── Bubble system — ScreenGui + WorldToViewportPoint (zoom-proof) ───────────
+--
+-- Every RenderStepped we convert each active speaker's head world position
+-- to a viewport (screen) position and move their bubble container there.
+-- This means zoom level, camera angle, and character movement all stay
+-- perfectly tracked with no BillboardGui stud-scaling artifacts.
+--
+-- Layout:
+--   bubbleGui (ScreenGui)
+--     └─ SpeakerBubbles_<name> (Frame, AnchorPoint 0.5,1 → bottom-center)
+--           └─ UIListLayout (VerticalAlignment.Bottom → newest on top)
+--           └─ Bubble frames...
 
-local bubbleCounts = {}
+-- How many studs above the Head center the bottom of the bubble stack sits.
+-- This is a world-space value; WorldToViewportPoint handles the rest.
+local WORLD_Y_OFFSET = 3.2   -- studs
 
-local function getOrCreateBillboard(character: Model)
+local bubbleGui = Instance.new("ScreenGui")
+bubbleGui.Name           = "ChatBubbles"
+bubbleGui.DisplayOrder   = 15
+bubbleGui.ResetOnSpawn   = false
+bubbleGui.IgnoreGuiInset = true
+bubbleGui.Parent         = PlayerGui
+
+-- activeSpeakers[charName] = { frame = Frame, head = BasePart }
+local activeSpeakers = {}
+local bubbleCounts   = {}
+
+-- ── RenderStepped: reposition every bubble container each frame ───────────────
+RunService.RenderStepped:Connect(function()
+        -- Re-read CurrentCamera each frame — it can be replaced (e.g. cutscenes).
+        local cam = workspace.CurrentCamera
+        if not cam then return end
+
+        for charName, data in pairs(activeSpeakers) do
+                local head = data.head
+                if not head or not head.Parent then
+                        data.frame.Visible = false
+                        continue
+                end
+
+                -- Project world point to viewport pixels
+                local worldPos = head.Position + Vector3.new(0, WORLD_Y_OFFSET, 0)
+                local screenPos, onScreen = cam:WorldToViewportPoint(worldPos)
+
+                if onScreen and screenPos.Z > 0 then
+                        -- AnchorPoint (0.5, 1) means Position is the bottom-center of the frame.
+                        -- No lerp needed — WorldToViewportPoint is already smooth because it
+                        -- reads the interpolated camera + character state at render time.
+                        data.frame.Visible  = true
+                        data.frame.Position = UDim2.fromOffset(screenPos.X, screenPos.Y)
+                else
+                        data.frame.Visible = false
+                end
+        end
+end)
+
+-- ── Create or fetch the container frame for a character ───────────────────────
+local function getOrCreateSpeaker(character: Model): Frame?
         local head = character:FindFirstChild("Head")
-        if not head then return nil, nil end
+        if not head then return nil end
 
-        local existing = head:FindFirstChild("ImperiumBubbleGui")
-        if existing then
-                return existing, existing:FindFirstChild("BubbleStack")
+        local charName = character.Name
+
+        if activeSpeakers[charName] then
+                activeSpeakers[charName].head = head   -- refresh on respawn
+                return activeSpeakers[charName].frame
         end
 
-        local billboard = Instance.new("BillboardGui")
-        billboard.Name             = "ImperiumBubbleGui"
-        billboard.Adornee          = head
-        -- Height in STUDS (Y scale) so the bottom of the frame is pinned to the
-        -- same world-space point above the head regardless of camera zoom.
-        -- Bottom = StudsOffsetWorldSpace.Y - (height/2) = 3 - 2 = 1 stud above head.
-        billboard.Size                  = UDim2.new(0, CFG.BUBBLE_MAX_WIDTH + CFG.BUBBLE_PADDING_H * 2 + 16, 4, 0)
-        billboard.StudsOffsetWorldSpace = Vector3.new(0, 3, 0)
-        billboard.AlwaysOnTop           = false
-        billboard.ResetOnSpawn          = false
-        billboard.ClipsDescendants      = false
-        billboard.Parent                = head
-
-        local stack = Instance.new("Frame")
-        stack.Name                   = "BubbleStack"
-        stack.BackgroundTransparency = 1
-        stack.Size                   = UDim2.new(1, 0, 1, 0)
-        stack.BorderSizePixel        = 0
-        stack.ClipsDescendants       = false
-        stack.Parent                 = billboard
+        -- Container: wide enough for the longest bubble, tall enough for a stack.
+        -- AnchorPoint (0.5, 1) → Position drives the bottom-center pixel.
+        local frame = Instance.new("Frame")
+        frame.Name                   = "SpeakerBubbles_" .. charName
+        frame.AnchorPoint            = Vector2.new(0.5, 1)
+        frame.Size                   = UDim2.fromOffset(
+                CFG.BUBBLE_MAX_WIDTH + CFG.BUBBLE_PADDING_H * 2 + 16,
+                400   -- tall enough for several stacked bubbles; content clips nothing
+        )
+        frame.BackgroundTransparency = 1
+        frame.BorderSizePixel        = 0
+        frame.ClipsDescendants       = false
+        frame.Parent                 = bubbleGui
 
         local layout = Instance.new("UIListLayout")
         layout.FillDirection       = Enum.FillDirection.Vertical
-        layout.VerticalAlignment   = Enum.VerticalAlignment.Bottom
+        layout.VerticalAlignment   = Enum.VerticalAlignment.Bottom   -- stack grows upward
         layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
         layout.SortOrder           = Enum.SortOrder.LayoutOrder
         layout.Padding             = UDim.new(0, 3)
-        layout.Parent              = stack
+        layout.Parent              = frame
 
-        return billboard, stack
+        activeSpeakers[charName] = { frame = frame, head = head }
+        return frame
 end
 
+-- ── Spawn a single chat bubble ────────────────────────────────────────────────
 local function createBubble(character: Model, text: string)
-        local billboard, stack = getOrCreateBillboard(character)
-        if not billboard or not stack then return end
+        local stack = getOrCreateSpeaker(character)
+        if not stack then return end
 
         local charName = character.Name
         bubbleCounts[charName] = (bubbleCounts[charName] or 0) + 1
@@ -226,12 +274,11 @@ local function createBubble(character: Model, text: string)
         label.Parent                 = bubble
 
         task.spawn(function()
-                -- Smooth typewriter-style reveal then fade in pill
+                -- Fade in pill + typewriter text reveal
                 local inInfo = TweenInfo.new(CFG.FADE_IN_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
                 TweenService:Create(bubble, inInfo, { BackgroundTransparency = CFG.BUBBLE_BG_TRANS }):Play()
                 TweenService:Create(label,  inInfo, { TextTransparency = 0 }):Play()
 
-                -- Reveal text character by character
                 local totalChars = utf8.len(text) or #text
                 for i = 1, totalChars do
                         label.MaxVisibleGraphemes = i
@@ -241,6 +288,7 @@ local function createBubble(character: Model, text: string)
 
                 task.wait(CFG.HOLD_DURATION)
 
+                -- Fade out
                 local outInfo = TweenInfo.new(CFG.FADE_OUT_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
                 TweenService:Create(bubble, outInfo, { BackgroundTransparency = 1 }):Play()
                 TweenService:Create(label,  outInfo, { TextTransparency = 1 }):Play()
@@ -249,29 +297,54 @@ local function createBubble(character: Model, text: string)
                 bubble:Destroy()
                 bubbleCounts[charName] = math.max(0, (bubbleCounts[charName] or 1) - 1)
 
+                -- Clean up the speaker container once all its bubbles are gone
                 if bubbleCounts[charName] == 0 then
                         bubbleCounts[charName] = nil
-                        if billboard and billboard.Parent then
-                                billboard:Destroy()
+                        local data = activeSpeakers[charName]
+                        if data then
+                                data.frame:Destroy()
+                                activeSpeakers[charName] = nil
                         end
                 end
         end)
 end
 
--- ─── Receive chat message ─────────────────────────────────────────────────────
+-- ─── Player cleanup — remove stale speaker frames when a player leaves ────────
+Players.PlayerRemoving:Connect(function(player: Player)
+        local data = activeSpeakers[player.Name]
+        if data then
+                pcall(function() data.frame:Destroy() end)
+                activeSpeakers[player.Name] = nil
+                bubbleCounts[player.Name]   = nil
+        end
+end)
 
+-- ─── Receive chat message ─────────────────────────────────────────────────────
 local function onMessageReceived(payload: table)
         local senderName = payload.senderName
         if not senderName then return end
 
-        -- Find the sender in the Players list
         local sender = Players:FindFirstChild(senderName)
         if not sender then return end
 
+        -- Use Character if already loaded; otherwise wait up to 3 s then bail.
+        -- Avoids an unbounded yield if the sender disconnects before respawning.
         local character = sender.Character
         if not character then
-                -- Wait briefly in case they just spawned
-                character = sender.CharacterAdded:Wait()
+                local ok = false
+                task.spawn(function()
+                        local conn
+                        conn = sender.CharacterAdded:Connect(function(char)
+                                conn:Disconnect()
+                                ok = true
+                                createBubble(char, payload.message)
+                        end)
+                        task.wait(3)
+                        if not ok then
+                                pcall(function() conn:Disconnect() end)
+                        end
+                end)
+                return   -- bubble will be created inside the spawned task above
         end
 
         createBubble(character, payload.message)
@@ -280,12 +353,10 @@ end
 ChatRemotes.MessageReceived.OnClientEvent:Connect(onMessageReceived)
 
 -- ─── Input handling ───────────────────────────────────────────────────────────
-
 local MAX_CHARS = 200
 
 inputBox:GetPropertyChangedSignal("Text"):Connect(function()
-        local len = #inputBox.Text
-        if len > MAX_CHARS then
+        if #inputBox.Text > MAX_CHARS then
                 inputBox.Text = inputBox.Text:sub(1, MAX_CHARS)
         end
 end)
@@ -299,10 +370,8 @@ local function submitMessage()
         inputBox:ReleaseFocus()
 end
 
--- Send button click
 sendBtn.MouseButton1Click:Connect(submitMessage)
 
--- Clicking anywhere on the bar focuses the text box
 inputFrame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 inputBox:CaptureFocus()
@@ -315,7 +384,6 @@ inputBox.FocusLost:Connect(function(enterPressed)
         end
 end)
 
--- Press / to focus input
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
         if input.KeyCode == Enum.KeyCode.Slash then
