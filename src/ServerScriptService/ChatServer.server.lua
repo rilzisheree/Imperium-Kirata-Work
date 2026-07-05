@@ -15,9 +15,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Chat              = game:GetService("Chat")
 local TextChatService   = game:GetService("TextChatService")
 
--- Kill Roblox's default chat and bubble chat entirely
+-- Disable the new TextChatService's default channels and bubble chat.
+-- ChatVersion is no longer set to LegacyChatService — the project.json
+-- already uses the new TextChatService with CreateDefaultTextChannels=false,
+-- which avoids the legacy chat's BindCoreAction key bindings for / and Enter.
 pcall(function()
-        TextChatService.ChatVersion = Enum.ChatVersion.LegacyChatService
+        TextChatService.CreateDefaultTextChannels  = false
+        TextChatService.CreateDefaultSystemMessages = false
 end)
 pcall(function()
         local bcc = TextChatService:FindFirstChildOfClass("BubbleChatConfiguration")

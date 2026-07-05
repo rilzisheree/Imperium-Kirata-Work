@@ -11,13 +11,12 @@
 --]]
 
 -- ─── Services ─────────────────────────────────────────────────────────────────
-local Players               = game:GetService("Players")
-local ReplicatedStorage     = game:GetService("ReplicatedStorage")
-local RunService            = game:GetService("RunService")
-local StarterGui            = game:GetService("StarterGui")
-local TweenService          = game:GetService("TweenService")
-local UserInputService      = game:GetService("UserInputService")
-local ContextActionService  = game:GetService("ContextActionService")
+local Players          = game:GetService("Players")
+local ReplicatedStorage= game:GetService("ReplicatedStorage")
+local RunService       = game:GetService("RunService")
+local StarterGui       = game:GetService("StarterGui")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
@@ -25,20 +24,18 @@ local PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
 local ChatRemotes = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 
 -- ─── Disable default Roblox chat ──────────────────────────────────────────────
--- Bounded startup retry: CoreScripts may not be ready on the very first frame,
--- so we retry for up to 5 s (10 × 0.5 s) then stop. We do NOT loop forever —
--- an infinite SetCore("ChatActive", false) hammer can steal TextBox focus.
+-- Hide the CoreGui chat panel once at startup. We intentionally do NOT call
+-- SetCore("ChatActive", false) — that call triggers the legacy chat system to
+-- release the currently-focused TextBox, which would silently steal focus from
+-- our inputBox and cause FocusLost to fire with enterPressed=false.
+-- The new TextChatService (with CreateDefaultTextChannels=false set in
+-- default.project.json) has no channels to activate, so one call is enough.
 local function disableDefaultChat()
         pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, false) end)
-        pcall(function() StarterGui:SetCore("ChatActive", false) end)
 end
 disableDefaultChat()
-task.spawn(function()
-        for _ = 1, 10 do
-                task.wait(0.5)
-                disableDefaultChat()
-        end
-end)
+-- Retry once after a short delay in case CoreGui isn't ready yet on the first frame.
+task.delay(1, disableDefaultChat)
 
 -- ─── Config ───────────────────────────────────────────────────────────────────
 local BUBBLE_BG_COLOR   = Color3.fromRGB(240, 240, 240)
@@ -650,26 +647,20 @@ end)
 
 local MAX_CHARS = 200
 
--- Debounce: prevents double-sends when inputBox.InputBegan and FocusLost(enterPressed)
--- both fire for the same Enter keypress. Only applies when a non-empty message is
--- actually sent — empty-box dismissals always go through immediately.
-local lastSubmitTime = 0
-local SUBMIT_DEBOUNCE = 0.15
+-- One-tick lock: prevents duplicate FireServer calls when two submit sources
+-- (e.g. FocusLost + send button) fire within the same frame. Resets next frame
+-- via task.defer so the box is always ready for the next message.
+local submitting = false
 
 local function submitMessage()
+        if submitting then return end
+        submitting = true
+        task.defer(function() submitting = false end)
+
         local text = inputBox.Text:match("^%s*(.-)%s*$")
-        if text == "" then
-                -- Nothing to send; just dismiss
-                inputBox.Text = ""
-                inputBox:ReleaseFocus()
-                return
+        if text ~= "" then
+                ChatRemotes.MessageSent:FireServer(text)
         end
-
-        local now = tick()
-        if now - lastSubmitTime < SUBMIT_DEBOUNCE then return end
-        lastSubmitTime = now
-
-        ChatRemotes.MessageSent:FireServer(text)
         inputBox.Text = ""
         inputBox:ReleaseFocus()
 end
@@ -691,76 +682,37 @@ inputFrame.InputBegan:Connect(function(input)
         end
 end)
 
--- ── Enter / Return key ───────────────────────────────────────────────────────
--- Root cause: the LegacyChatService registers its own ContextActionService
--- binding for Enter at Default priority (~2000). CoreScripts register AFTER
--- LocalScripts, so their binding wins ties and intercepts Enter — causing our
--- TextBox to lose focus with enterPressed=false instead of true.
---
--- Fix: bind at priority 3001 (above High=3000) so we always run first.
--- When our box is focused → sink Enter and submit. Otherwise pass through.
-ContextActionService:BindActionAtPriority(
-        "ImperiumSubmitChat",
-        function(_, inputState, _)
-                if inputState == Enum.UserInputState.Begin then
-                        if UserInputService:GetFocusedTextBox() == inputBox then
-                                submitMessage()
-                                return Enum.ContextActionResult.Sink
-                        end
-                end
-                return Enum.ContextActionResult.Pass
-        end,
-        false,  -- no touch button
-        3001,   -- above Enum.ContextActionPriority.High (3000); beats legacy chat
-        Enum.KeyCode.Return,
-        Enum.KeyCode.KeypadEnter
-)
-
--- Backup: FocusLost(enterPressed) for cases where focus was acquired via a
--- direct click and CAS does not intercept. Debounce in submitMessage prevents
--- double-sends if both paths fire for the same keypress.
+-- ── Enter key: primary path ───────────────────────────────────────────────────
+-- FocusLost(enterPressed) is reliable now that we no longer call
+-- SetCore("ChatActive", false), which used to trigger the legacy chat system
+-- to release focus on our TextBox (causing enterPressed to arrive as false).
 inputBox.FocusLost:Connect(function(enterPressed)
         if enterPressed then submitMessage() end
 end)
 
--- ── / key ────────────────────────────────────────────────────────────────────
--- Root cause: the LegacyChatService registers a "/" binding via CAS at Default
--- priority. Because CoreScripts register after LocalScripts, their binding wins
--- and grabs focus for the hidden legacy chat bar before our handler runs.
---
--- Fix: same approach — bind at priority 3001 so we always win.
--- Box NOT focused → sink "/" (don't type it) and focus our bar.
--- Box already focused → pass through so "/" types normally into the message.
-ContextActionService:BindActionAtPriority(
-        "ImperiumOpenChat",
-        function(_, inputState, _)
-                if inputState == Enum.UserInputState.Begin then
-                        local focused = UserInputService:GetFocusedTextBox()
-                        if focused == inputBox then
-                                -- Our box is already open — let "/" type normally
-                                return Enum.ContextActionResult.Pass
-                        end
-                        if focused ~= nil then
-                                -- Some OTHER TextBox has focus (CommandBar, search, etc.)
-                                -- Don't hijack it — let "/" type normally there too
-                                return Enum.ContextActionResult.Pass
-                        end
-                        -- Nothing is focused: open our chat bar and swallow the keypress
-                        -- so "/" doesn't appear in the box and legacy chat never sees it
-                        inputBox:CaptureFocus()
-                        return Enum.ContextActionResult.Sink
-                end
-                -- End / Cancel states: always pass through
-                return Enum.ContextActionResult.Pass
-        end,
-        false,  -- no touch button
-        3001,   -- above Enum.ContextActionPriority.High (3000); beats legacy chat
-        Enum.KeyCode.Slash
-)
-
--- ── Escape key ───────────────────────────────────────────────────────────────
+-- ── All keyboard shortcuts ────────────────────────────────────────────────────
+-- Slash: checked BEFORE the gameProcessed guard because some Roblox builds
+--   still mark "/" as gameProcessed even with the new TextChatService.
+--   Only open our bar when nothing else is focused — if CommandBar, search box,
+--   or any other TextBox already has focus, let the keypress through normally.
+--   task.defer wins any deferred engine focus-steal that happens in the same frame.
+-- Return/KeypadEnter: NOT handled here — FocusLost(enterPressed) is the sole
+--   submit path, which avoids double-sends from both handlers firing together.
+-- Escape: clear and dismiss, only when no other system has consumed it.
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if input.KeyCode == Enum.KeyCode.Slash then
+                local focused = UserInputService:GetFocusedTextBox()
+                if focused == nil then
+                        -- Nothing else has focus — open our chat bar.
+                        -- Defer so we run after any engine-deferred focus operations.
+                        task.defer(function() inputBox:CaptureFocus() end)
+                end
+                -- If any TextBox (ours or another) already has focus, let "/" type normally.
+                return
+        end
+
         if gameProcessed then return end
+
         if input.KeyCode == Enum.KeyCode.Escape then
                 inputBox.Text = ""
                 inputBox:ReleaseFocus()
