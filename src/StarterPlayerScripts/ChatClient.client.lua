@@ -6,7 +6,7 @@
 	  • Press /  to open the input bar (ContextActionService intercepts before TextChatService)
 	  • Press Enter or click → to send
 	  • Press Escape to dismiss without sending
-	  • Bubbles pinned above heads via WorldToViewportPoint — correct at every zoom level
+	  • Bubbles pinned above heads via BillboardGui (StudsOffset=0) — zoom-proof at any distance
 	  • Distance tiers per frame: full (≤23 studs) / [Inaudible] (≤33) / hidden
 --]]
 
@@ -54,12 +54,12 @@ local MUFFLED_DISTANCE = 33     -- studs: [Inaudible]
 local HOLD_DURATION    = 7      -- seconds bubble stays on screen
 local MAX_CHARS        = 200
 
-local BUBBLE_W      = 240   -- max bubble pixel width
-local BUBBLE_MAX_H  = 400   -- pixel height of the bubble stack area
-local HEAD_TOP      = 0.65  -- world studs from Head centre to top of head
-local BUBBLE_ABOVE  = 50    -- extra pixels above head top (increase to move text higher)
-local PAD_H         = 12
-local PAD_V         = 7
+local BUBBLE_W    = 240    -- bubble pixel width
+local BILLBOARD_H = 600    -- BillboardGui height in pixels (300 above + 300 below head centre)
+local HEAD_GAP_PX = 110    -- pixels above head CENTRE where bubble stack bottom sits
+--                           increase HEAD_GAP_PX to move text higher
+local PAD_H       = 12
+local PAD_V       = 7
 local CORNER      = 10
 local FONT        = Enum.Font.GothamSemibold
 local TEXT_SIZE   = 15
@@ -131,20 +131,26 @@ do
 end
 
 -- ══════════════════════════════════════════════════════════════════════════════
--- 5. BUBBLE SYSTEM  (ScreenGui + WorldToViewportPoint — zoom-proof positioning)
+-- 5. BUBBLE SYSTEM  (BillboardGui, StudsOffset = 0 — truly zoom-proof)
 --
---  Each speaker gets a Frame inside one shared ScreenGui.
---  AnchorPoint (0.5, 1) means Position controls the BOTTOM-CENTRE of the stack.
---  Every Heartbeat we project the head-top world point to viewport pixels and
---  set Position directly — no stud math, no drift at any zoom level.
+--  Why this works:
+--    Roblox's renderer natively pins a BillboardGui's centre to its adornee's
+--    screen position.  With StudsOffset=(0,0,0) the centre is EXACTLY the Head's
+--    centre on screen — guaranteed, no frame-by-frame math.
+--
+--    We then place the content container INSIDE the billboard at a fixed pixel
+--    offset above the centre.  That offset is in billboard-local pixels, so it
+--    never changes with zoom.  The bubble stack bottom is always HEAD_GAP_PX
+--    pixels above the head centre, regardless of camera distance.
+--
+--  Layout (BILLBOARD_H = 600, HEAD_GAP_PX = 110):
+--    Y=0   ─── billboard top       (300 px above head centre)
+--    Y=190 ─── container top       (110 px above head centre)
+--    Y=190 ─── container bottom (AnchorPoint.Y=1, bottom at Y=190)
+--              → content bottom sits 300-190 = 110 px above head centre ✓
+--    Y=300 ─── head centre  (StudsOffset 0 → BillboardGui centre)
+--    Y=600 ─── billboard bottom
 -- ══════════════════════════════════════════════════════════════════════════════
-
-local bubbleGui = Instance.new("ScreenGui")
-bubbleGui.Name           = "ChatBubbles"
-bubbleGui.DisplayOrder   = 15
-bubbleGui.ResetOnSpawn   = false
-bubbleGui.IgnoreGuiInset = true   -- coordinates = raw viewport pixels
-bubbleGui.Parent         = PlayerGui
 
 local speakers = {}
 
@@ -154,88 +160,76 @@ local function getOrMakeSpeaker(character)
 	local pname = character.Name
 
 	local existing = speakers[pname]
-	if existing and existing.frame and existing.frame.Parent == bubbleGui then
-		-- still valid — just update head reference in case of respawn
-		existing.head = head
+	if existing and existing.gui and existing.gui.Parent == head then
 		return existing
 	end
-	if existing then pcall(function() existing.frame:Destroy() end) end
+	if existing then pcall(function() existing.gui:Destroy() end) end
 
-	-- Bottom-centre-anchored frame: its Position is the anchor of the bottom edge.
-	local frame = Instance.new("Frame", bubbleGui)
-	frame.Name                   = "Bubbles_" .. pname
-	frame.AnchorPoint            = Vector2.new(0.5, 1)
-	frame.Size                   = UDim2.fromOffset(BUBBLE_W, BUBBLE_MAX_H)
-	frame.BackgroundTransparency = 1
-	frame.BorderSizePixel        = 0
-	frame.ClipsDescendants       = false
-	frame.Visible                = false   -- hidden until first Heartbeat positions it
+	local gui = Instance.new("BillboardGui")
+	gui.Name             = "ChatBubbles"
+	gui.Size             = UDim2.fromOffset(BUBBLE_W, BILLBOARD_H)
+	gui.StudsOffset      = Vector3.new(0, 0, 0)  -- centre locked to Head centre by Roblox
+	gui.AlwaysOnTop      = false
+	gui.LightInfluence   = 0
+	gui.ClipsDescendants = false
+	gui.Enabled          = true
+	gui.Parent           = head
 
-	local layout = Instance.new("UIListLayout", frame)
+	-- Container: bottom-centre anchored at (BUBBLE_W/2, BILLBOARD_H/2 - HEAD_GAP_PX)
+	-- → bottom is HEAD_GAP_PX pixels above billboard centre = HEAD_GAP_PX above head centre.
+	local halfH      = BILLBOARD_H / 2              -- 300
+	local containerH = halfH - HEAD_GAP_PX          -- 190  (stack grows upward from here)
+
+	local container = Instance.new("Frame", gui)
+	container.AnchorPoint            = Vector2.new(0.5, 1)
+	container.Size                   = UDim2.fromOffset(BUBBLE_W, containerH)
+	container.Position               = UDim2.fromOffset(BUBBLE_W / 2, halfH - HEAD_GAP_PX)
+	container.BackgroundTransparency = 1
+	container.BorderSizePixel        = 0
+	container.Active                 = false
+
+	local layout = Instance.new("UIListLayout", container)
 	layout.FillDirection       = Enum.FillDirection.Vertical
 	layout.VerticalAlignment   = Enum.VerticalAlignment.Bottom
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.SortOrder           = Enum.SortOrder.LayoutOrder
 	layout.Padding             = UDim.new(0, 3)
 
-	local data = { frame = frame, head = head, count = 0, bubbles = {} }
+	local data = { gui = gui, container = container, count = 0, bubbles = {} }
 	speakers[pname] = data
 	return data
 end
 
--- Bind AFTER the camera module updates the camera each frame so positions
--- are never one frame behind when the player zooms or pans.
-RunService:BindToRenderStep(
-	"ChatBubbleUpdate",
-	Enum.RenderPriority.Camera.Value + 1,
-	function()
-	local camera = workspace.CurrentCamera
-	if not camera then return end
-
+RunService.Heartbeat:Connect(function()
 	local localChar = LocalPlayer.Character
 	local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
 
 	for pname, data in pairs(speakers) do
-		local frame = data.frame
-		if not frame or not frame.Parent then
+		local gui = data.gui
+		if not gui or not gui.Parent then
 			speakers[pname] = nil
 			continue
 		end
 
-		local head     = data.head
+		local head     = gui.Parent
 		local isLocal  = (pname == LocalPlayer.Name)
 		local showFull = isLocal
-		local visible  = false
 
-		if isLocal then
-			visible  = true
-			showFull = true
-		else
-			if localRoot and head and head.Parent then
-				local char = head.Parent
-				local root = char:FindFirstChild("HumanoidRootPart")
-				if root and root.Parent then
-					local dist = (localRoot.Position - root.Position).Magnitude
-					visible  = dist <= MUFFLED_DISTANCE
-					showFull = dist <= FULL_DISTANCE
-				end
+		if not isLocal then
+			if not localRoot then
+				gui.Enabled = false
+				continue
 			end
-		end
-
-		-- Project the top of the head to viewport pixels.
-		-- BUBBLE_ABOVE extra pixels of gap push the stack further above the head.
-		if visible and head and head.Parent then
-			local topWorld = head.Position + Vector3.new(0, HEAD_TOP, 0)
-			local vp, onScreen = camera:WorldToViewportPoint(topWorld)
-			if onScreen and vp.Z > 0 then
-				-- vp.X / vp.Y are already in raw viewport pixels (IgnoreGuiInset = true)
-				frame.Position = UDim2.fromOffset(vp.X, vp.Y - BUBBLE_ABOVE)
-				frame.Visible  = true
+			local char = head and head.Parent
+			local root = char and char:FindFirstChild("HumanoidRootPart")
+			if root and root.Parent then
+				local dist = (localRoot.Position - root.Position).Magnitude
+				gui.Enabled = dist <= MUFFLED_DISTANCE
+				showFull    = dist <= FULL_DISTANCE
 			else
-				frame.Visible = false
+				gui.Enabled = false
+				continue
 			end
-		else
-			frame.Visible = false
 		end
 
 		for _, b in ipairs(data.bubbles) do
@@ -253,12 +247,12 @@ local function createBubble(character, text)
 
 	data.count += 1
 
-	local bubble = Instance.new("Frame", data.frame)
+	local bubble = Instance.new("Frame", data.container)
 	bubble.LayoutOrder            = data.count
 	bubble.AutomaticSize          = Enum.AutomaticSize.XY
 	bubble.Size                   = UDim2.new(0, 0, 0, 0)
 	bubble.BackgroundColor3       = BG_COLOR
-	bubble.BackgroundTransparency = 1      -- starts transparent; tweened in
+	bubble.BackgroundTransparency = 1
 	bubble.BorderSizePixel        = 0
 	bubble.Active                 = false
 
@@ -273,9 +267,10 @@ local function createBubble(character, text)
 	pad.PaddingTop    = UDim.new(0, PAD_V)
 	pad.PaddingBottom = UDim.new(0, PAD_V)
 
-	-- UIScale drives the pop: starts small, springs to full size
+	-- Roblox-style pop: UIScale springs from 0 → 1 with Back/Out overshoot.
+	-- The bubble fades in simultaneously so it feels snappy, not abrupt.
 	local uiScale = Instance.new("UIScale", bubble)
-	uiScale.Scale = 0.5
+	uiScale.Scale = 0
 
 	local label = Instance.new("TextLabel", bubble)
 	label.BackgroundTransparency = 1
@@ -287,15 +282,13 @@ local function createBubble(character, text)
 	label.TextXAlignment         = Enum.TextXAlignment.Left
 	label.TextWrapped            = true
 	label.RichText               = false
-	label.TextTransparency       = 1      -- starts invisible; tweened in
+	label.TextTransparency       = 1
 	label.Text                   = text
 
-	-- Pop-in: scale springs from 0.5 → 1 with a slight overshoot (Back easing),
-	-- background and text fade in simultaneously.
-	local popInfo = TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	local popInfo = TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 	TweenService:Create(uiScale, popInfo, { Scale = 1 }):Play()
 	TweenService:Create(bubble, popInfo, { BackgroundTransparency = BG_TRANS }):Play()
-	TweenService:Create(label,  popInfo, { TextTransparency = 0 }):Play()
+	TweenService:Create(label,  TweenInfo.new(0.1),  { TextTransparency = 0 }):Play()
 
 	local entry = { label = label, originalText = text }
 	table.insert(data.bubbles, entry)
@@ -305,7 +298,7 @@ local function createBubble(character, text)
 		if idx then table.remove(data.bubbles, idx) end
 		bubble:Destroy()
 		if #data.bubbles == 0 and speakers[character.Name] == data then
-			pcall(function() data.frame:Destroy() end)
+			pcall(function() data.gui:Destroy() end)
 			speakers[character.Name] = nil
 		end
 	end)
@@ -314,7 +307,7 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	local data = speakers[player.Name]
 	if data then
-		pcall(function() data.frame:Destroy() end)
+		pcall(function() data.gui:Destroy() end)
 		speakers[player.Name] = nil
 	end
 end)
