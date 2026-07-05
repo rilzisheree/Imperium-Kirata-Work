@@ -131,30 +131,15 @@ do
 end
 
 -- ══════════════════════════════════════════════════════════════════════════════
--- 5. BUBBLE SYSTEM  (ScreenGui + WorldToViewportPoint — pixel-perfect at every zoom)
+-- 5. BUBBLE SYSTEM  (BillboardGui parented directly to each speaker's Head)
 -- ══════════════════════════════════════════════════════════════════════════════
 --
--- Every RenderStepped frame we call Camera:WorldToViewportPoint on a point
--- (BUBBLE_YOFF studs above each speaker's Head) and move a ScreenGui Frame's
--- bottom-centre to that exact screen pixel.  Because we're working in screen
--- pixels derived from the live camera, the anchor follows the head identically
--- regardless of zoom level, field-of-view, or viewport size.
---
 -- speakers[playerName] = {
---     frame     = Frame          (child of bubbleGui, AnchorPoint = (0.5, 1)),
---     head      = Part           (the speaker's Head, used for world position),
---     character = Model          (used for distance check via HumanoidRootPart),
+--     gui       = BillboardGui   (child of Head),
+--     container = Frame          (fills gui, UIListLayout bottom-aligned),
 --     count     = number         (monotonic LayoutOrder counter),
 --     bubbles   = { { label=TextLabel, originalText=string } ... }
 -- }
-
-local bubbleGui = Instance.new("ScreenGui")
-bubbleGui.Name           = "ChatBubbles"
-bubbleGui.DisplayOrder   = 15
-bubbleGui.ResetOnSpawn   = false
-bubbleGui.IgnoreGuiInset = true
-bubbleGui.ClipsDescendants = false
-bubbleGui.Parent         = PlayerGui
 
 local speakers = {}
 
@@ -164,94 +149,68 @@ local function getOrMakeSpeaker(character)
 	local pname = character.Name
 
 	local existing = speakers[pname]
-	if existing and existing.frame and existing.frame.Parent then
-		-- Refresh head/character references on respawn
-		existing.head      = head
-		existing.character = character
+	if existing and existing.gui and existing.gui.Parent == head then
 		return existing
 	end
 
-	-- Clean up stale frame from a previous life
-	if existing then pcall(function() existing.frame:Destroy() end) end
+	if existing then pcall(function() existing.gui:Destroy() end) end
 
-	-- Container frame: bottom-centre anchored; bubbles stack upward inside it
-	local frame = Instance.new("Frame", bubbleGui)
-	frame.AnchorPoint            = Vector2.new(0.5, 1)   -- bottom-centre at Position
-	frame.Size                   = UDim2.fromOffset(BUBBLE_W + PAD_H * 2, 400)
-	frame.BackgroundTransparency = 1
-	frame.BorderSizePixel        = 0
-	frame.ClipsDescendants       = false
-	frame.Active                 = false   -- never eat mouse clicks
+	local gui = Instance.new("BillboardGui")
+	gui.Name             = "ChatBubbles"
+	gui.Size             = UDim2.fromOffset(BUBBLE_W, 300)
+	gui.StudsOffset      = Vector3.new(0, BUBBLE_YOFF, 0)
+	gui.AlwaysOnTop      = false
+	gui.LightInfluence   = 0
+	gui.ClipsDescendants = false
+	gui.Enabled          = true
+	gui.Parent           = head
 
-	local layout = Instance.new("UIListLayout", frame)
+	local container = Instance.new("Frame", gui)
+	container.Size                   = UDim2.new(1, 0, 1, 0)
+	container.BackgroundTransparency = 1
+	container.BorderSizePixel        = 0
+	container.Active                 = false
+
+	local layout = Instance.new("UIListLayout", container)
 	layout.FillDirection       = Enum.FillDirection.Vertical
 	layout.VerticalAlignment   = Enum.VerticalAlignment.Bottom
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.SortOrder           = Enum.SortOrder.LayoutOrder
 	layout.Padding             = UDim.new(0, 3)
 
-	local data = {
-		frame     = frame,
-		head      = head,
-		character = character,
-		count     = 0,
-		bubbles   = {},
-	}
+	local data = { gui = gui, container = container, count = 0, bubbles = {} }
 	speakers[pname] = data
 	return data
 end
 
--- RenderStepped: pin every frame's bottom-centre to the correct screen pixel
--- and update inaudible/hidden text tiers.
-RunService.RenderStepped:Connect(function()
-	-- Bug fix 1: CurrentCamera can be nil transiently at startup or during camera swaps.
-	local cam = workspace.CurrentCamera
-	if not cam then return end
-
+RunService.Heartbeat:Connect(function()
 	local localChar = LocalPlayer.Character
 	local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
 
 	for pname, data in pairs(speakers) do
-		local head = data.head
-		if not head or not head.Parent then
-			-- Speaker's head is gone (they left or respawned) — hide until refreshed
-			data.frame.Visible = false
+		local gui = data.gui
+		if not gui or not gui.Parent then
+			speakers[pname] = nil
 			continue
 		end
 
-		-- World-space anchor: BUBBLE_YOFF studs above head centre
-		local worldAnchor         = head.Position + Vector3.new(0, BUBBLE_YOFF, 0)
-		local screenPos, onScreen = cam:WorldToViewportPoint(worldAnchor)
-
-		if not (onScreen and screenPos.Z > 0) then
-			data.frame.Visible = false
-			continue
-		end
-
-		data.frame.Visible  = true
-		data.frame.Position = UDim2.fromOffset(screenPos.X, screenPos.Y)
-
-		-- Distance-based text tier
 		local isLocal  = (pname == LocalPlayer.Name)
 		local showFull = isLocal
 
 		if not isLocal then
-			-- Bug fix 2: when localRoot is nil (local player dead/loading) hide all
-			-- remote bubbles rather than leaking them visible as [Inaudible].
 			if not localRoot then
-				data.frame.Visible = false
+				gui.Enabled = false
 				continue
 			end
-			local senderRoot = data.character and data.character:FindFirstChild("HumanoidRootPart")
-			if senderRoot and senderRoot.Parent then
-				local dist = (localRoot.Position - senderRoot.Position).Magnitude
-				if dist > MUFFLED_DISTANCE then
-					data.frame.Visible = false
-					continue
-				end
-				showFull = dist <= FULL_DISTANCE
+			local head = gui.Parent
+			local char = head and head.Parent
+			local root = char and char:FindFirstChild("HumanoidRootPart")
+			if root and root.Parent then
+				local dist = (localRoot.Position - root.Position).Magnitude
+				gui.Enabled = (dist <= MUFFLED_DISTANCE)
+				showFull    = (dist <= FULL_DISTANCE)
 			else
-				data.frame.Visible = false
+				gui.Enabled = false
 				continue
 			end
 		end
@@ -272,7 +231,7 @@ local function createBubble(character, text)
 	data.count += 1
 	local order = data.count
 
-	local bubble = Instance.new("Frame", data.frame)
+	local bubble = Instance.new("Frame", data.container)
 	bubble.LayoutOrder            = order
 	bubble.AutomaticSize          = Enum.AutomaticSize.XY
 	bubble.Size                   = UDim2.new(0, 0, 0, 0)
@@ -284,7 +243,7 @@ local function createBubble(character, text)
 	Instance.new("UICorner", bubble).CornerRadius = UDim.new(0, CORNER)
 
 	local sizeLimit = Instance.new("UISizeConstraint", bubble)
-	sizeLimit.MaxSize = Vector2.new(BUBBLE_W, math.huge)
+	sizeLimit.MaxSize = Vector2.new(BUBBLE_W - 16, math.huge)
 
 	local pad = Instance.new("UIPadding", bubble)
 	pad.PaddingLeft   = UDim.new(0, PAD_H)
@@ -308,7 +267,6 @@ local function createBubble(character, text)
 	local entry = { label = label, originalText = text }
 	table.insert(data.bubbles, entry)
 
-	-- Fade in → hold → fade out → destroy
 	task.spawn(function()
 		local inTI  = TweenInfo.new(FADE_IN,  Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 		local outTI = TweenInfo.new(FADE_OUT, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
@@ -327,10 +285,8 @@ local function createBubble(character, text)
 
 		bubble:Destroy()
 
-		-- Bug fix 3: guard with identity check so a stale coroutine finishing
-		-- after a respawn doesn't clobber the newer speaker entry for the same name.
 		if #data.bubbles == 0 and speakers[character.Name] == data then
-			pcall(function() data.frame:Destroy() end)
+			pcall(function() data.gui:Destroy() end)
 			speakers[character.Name] = nil
 		end
 	end)
@@ -339,7 +295,7 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	local data = speakers[player.Name]
 	if data then
-		pcall(function() data.frame:Destroy() end)
+		pcall(function() data.gui:Destroy() end)
 		speakers[player.Name] = nil
 	end
 end)
