@@ -16,6 +16,7 @@ local Players              = game:GetService("Players")
 local ReplicatedStorage    = game:GetService("ReplicatedStorage")
 local RunService           = game:GetService("RunService")
 local StarterGui           = game:GetService("StarterGui")
+local TweenService         = game:GetService("TweenService")
 local UserInputService     = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
@@ -182,8 +183,13 @@ local function getOrMakeSpeaker(character)
 	return data
 end
 
-RunService.Heartbeat:Connect(function()
-	local camera    = workspace.CurrentCamera
+-- Bind AFTER the camera module updates the camera each frame so positions
+-- are never one frame behind when the player zooms or pans.
+RunService:BindToRenderStep(
+	"ChatBubbleUpdate",
+	Enum.RenderPriority.Camera.Value + 1,
+	function()
+	local camera = workspace.CurrentCamera
 	if not camera then return end
 
 	local localChar = LocalPlayer.Character
@@ -252,7 +258,7 @@ local function createBubble(character, text)
 	bubble.AutomaticSize          = Enum.AutomaticSize.XY
 	bubble.Size                   = UDim2.new(0, 0, 0, 0)
 	bubble.BackgroundColor3       = BG_COLOR
-	bubble.BackgroundTransparency = BG_TRANS
+	bubble.BackgroundTransparency = 1      -- starts transparent; tweened in
 	bubble.BorderSizePixel        = 0
 	bubble.Active                 = false
 
@@ -267,6 +273,10 @@ local function createBubble(character, text)
 	pad.PaddingTop    = UDim.new(0, PAD_V)
 	pad.PaddingBottom = UDim.new(0, PAD_V)
 
+	-- UIScale drives the pop: starts small, springs to full size
+	local uiScale = Instance.new("UIScale", bubble)
+	uiScale.Scale = 0.5
+
 	local label = Instance.new("TextLabel", bubble)
 	label.BackgroundTransparency = 1
 	label.AutomaticSize          = Enum.AutomaticSize.XY
@@ -277,8 +287,15 @@ local function createBubble(character, text)
 	label.TextXAlignment         = Enum.TextXAlignment.Left
 	label.TextWrapped            = true
 	label.RichText               = false
-	label.TextTransparency       = 0
+	label.TextTransparency       = 1      -- starts invisible; tweened in
 	label.Text                   = text
+
+	-- Pop-in: scale springs from 0.5 → 1 with a slight overshoot (Back easing),
+	-- background and text fade in simultaneously.
+	local popInfo = TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	TweenService:Create(uiScale, popInfo, { Scale = 1 }):Play()
+	TweenService:Create(bubble, popInfo, { BackgroundTransparency = BG_TRANS }):Play()
+	TweenService:Create(label,  popInfo, { TextTransparency = 0 }):Play()
 
 	local entry = { label = label, originalText = text }
 	table.insert(data.bubbles, entry)
