@@ -19,10 +19,9 @@ local PGui = LP:WaitForChild("PlayerGui")
 -- args typed "player" get live player-name autocomplete
 
 local COMMANDS = {
-        sm       = { args = { "message" },           description = "Server message to all" },
-        im       = { args = { "player", "message" },  description = "Message to one player" },
-        anxiety  = { args = { "player", "level" },    description = "Anxiety effect (1–5)" },
-        chatlogs = { args = {},                       description = "Open the chat logs window" },
+        sm      = { args = { "message" },           description = "Server message to all" },
+        im      = { args = { "player", "message" },  description = "Message to one player" },
+        anxiety = { args = { "player", "level" },    description = "Anxiety effect (1–5)" },
 }
 
 -- ── Colours ────────────────────────────────────────────────────────────────────
@@ -369,17 +368,6 @@ local function execute()
         local words = {}
         for w in raw:gmatch("%S+") do table.insert(words, w) end
         local cmd = table.remove(words, 1):lower()
-
-        -- ── Client-only commands (never sent to server) ──────────────────────
-        if cmd == "chatlogs" then
-                close()
-                if shared.OpenChatLogsWindow then
-                        shared.OpenChatLogsWindow()
-                else
-                        warn("[CMD] ChatLogs window not ready yet.")
-                end
-                return
-        end
 
         -- ── Server commands ───────────────────────────────────────────────────
         local remote = ReplicatedStorage:WaitForChild("CmdExecuted", 10)

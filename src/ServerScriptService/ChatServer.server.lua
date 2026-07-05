@@ -35,34 +35,9 @@ local ChatRemotes = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 -- players move. The server broadcasts to everyone so latecomers (players who
 -- walk into range after the message is sent) can still see it.
 local MAX_MESSAGE_LENGTH = 200   -- character cap
-local MAX_LOG_ENTRIES    = 200   -- how many messages to keep in memory
 local FULL_DISTANCE      = 23    -- studs: full message visible
 local MUFFLED_DISTANCE   = 33    -- studs: [Inaudible] shown
 
--- ─── Chat log ring buffer ─────────────────────────────────────────────────────
--- Exposed via _G.ChatLog so CommandServer can read it for the chatlogs command.
-local chatLog: { { sender: string, text: string, time: string } } = {}
-_G.ChatLog = chatLog
-
-local function logMessage(sender: Player, text: string)
-        -- Simple HH:MM:SS timestamp
-        local now    = os.time()
-        local hour   = math.floor(now / 3600) % 24
-        local minute = math.floor(now / 60) % 60
-        local second = now % 60
-        local ts     = string.format("%02d:%02d:%02d", hour, minute, second)
-
-        table.insert(chatLog, {
-                sender = sender.DisplayName .. " (@" .. sender.Name .. ")",
-                text   = text,
-                time   = ts,
-        })
-
-        -- Trim to ring buffer size
-        while #chatLog > MAX_LOG_ENTRIES do
-                table.remove(chatLog, 1)
-        end
-end
 
 -- Name colours (same palette as default Roblox chat, keyed by UserId)
 local NAME_COLORS = {
@@ -112,7 +87,6 @@ local function broadcastProximity(sender: Player, rawText: string)
         end
 
         local filtered = filterMessage(sender, text)
-        logMessage(sender, filtered)
         local senderPos = getPosition(sender)
         local nameColor = getNameColor(sender)
 
