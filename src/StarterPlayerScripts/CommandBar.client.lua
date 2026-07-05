@@ -19,9 +19,10 @@ local PGui = LP:WaitForChild("PlayerGui")
 -- args typed "player" get live player-name autocomplete
 
 local COMMANDS = {
-        sm      = { args = { "message" },           description = "Server message to all" },
-        im      = { args = { "player", "message" },  description = "Message to one player" },
-        anxiety = { args = { "player", "level" },    description = "Anxiety effect (1–5)" },
+        sm       = { args = { "message" },           description = "Server message to all" },
+        im       = { args = { "player", "message" },  description = "Message to one player" },
+        anxiety  = { args = { "player", "level" },    description = "Anxiety effect (1–5)" },
+        chatlogs = { args = {},                       description = "Open the chat logs window" },
 }
 
 -- ── Colours ────────────────────────────────────────────────────────────────────
@@ -364,15 +365,29 @@ end
 local function execute()
         local raw = box.Text:match("^%s*(.-)%s*$") or ""
         if raw == "" then close() return end
+
+        local words = {}
+        for w in raw:gmatch("%S+") do table.insert(words, w) end
+        local cmd = table.remove(words, 1):lower()
+
+        -- ── Client-only commands (never sent to server) ──────────────────────
+        if cmd == "chatlogs" then
+                close()
+                if _G.OpenChatLogsWindow then
+                        _G.OpenChatLogsWindow()
+                else
+                        warn("[CMD] ChatLogs window not ready yet.")
+                end
+                return
+        end
+
+        -- ── Server commands ───────────────────────────────────────────────────
         local remote = ReplicatedStorage:WaitForChild("CmdExecuted", 10)
         if not remote then
                 warn("[CMD] CmdExecuted remote not found — is CommandServer running?")
                 close()
                 return
         end
-        local words = {}
-        for w in raw:gmatch("%S+") do table.insert(words, w) end
-        local cmd = table.remove(words, 1):lower()
         remote:FireServer(cmd, words)
         print("[CMD] fired:", cmd, words)
         close()

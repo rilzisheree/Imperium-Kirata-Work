@@ -109,13 +109,22 @@ local function broadcastProximity(sender: Player, rawText: string)
         local senderPos = getPosition(sender)
         local nameColor = getNameColor(sender)
 
+        -- Team info (TeamColor is a BrickColor; .Color gives the Color3)
+        local team      = sender.Team
+        local teamName  = team and team.Name or "No Team"
+        local teamColor = team and team.TeamColor.Color or Color3.new(0.8, 0.8, 0.8)
+
         local payload = {
-                senderName  = sender.Name,           -- used to locate the character on clients
+                senderName  = sender.Name,
                 displayName = sender.DisplayName,
                 message     = filtered,
                 nameColorR  = nameColor.R,
                 nameColorG  = nameColor.G,
                 nameColorB  = nameColor.B,
+                teamName    = teamName,
+                teamColorR  = teamColor.R,
+                teamColorG  = teamColor.G,
+                teamColorB  = teamColor.B,
         }
 
         -- Broadcast to all players. Distance-based visibility (full text,

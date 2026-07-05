@@ -151,8 +151,8 @@ local WORLD_Y_OFFSET = 1.5   -- studs
 -- Distance thresholds — must match FULL_DISTANCE / MUFFLED_DISTANCE on the server.
 -- The server only fires events to players within MUFFLED_DISTANCE, so the client
 -- only needs to decide between "full text" and ". . ." for each active bubble.
-local FULL_DISTANCE    = 18   -- studs: show the real message  (original 10 + 8)
-local MUFFLED_DISTANCE = 30   -- studs: show [ Inaudible ] beyond this → hidden
+local FULL_DISTANCE    = 23   -- studs: show the real message
+local MUFFLED_DISTANCE = 33   -- studs: show [ Inaudible ] beyond this → hidden
 
 local bubbleGui = Instance.new("ScreenGui")
 bubbleGui.Name           = "ChatBubbles"
@@ -384,6 +384,285 @@ Players.PlayerRemoving:Connect(function(player: Player)
         end
 end)
 
+-- ─── Chat Log storage + Window ───────────────────────────────────────────────
+
+local MAX_LOG_ENTRIES = 500
+local chatLogEntries  = {}   -- { teamName, teamColor, username, message }
+
+local LOG_C = {
+        BG        = Color3.fromRGB(12,  12,  18),
+        TITLE_BG  = Color3.fromRGB(20,  20,  32),
+        BORDER    = Color3.fromRGB(70,  70, 100),
+        TEXT      = Color3.fromRGB(220, 220, 235),
+        DIM       = Color3.fromRGB(90,  90, 110),
+        ROW_ALT   = Color3.fromRGB(18,  18,  28),
+        SEARCH_BG = Color3.fromRGB(8,    8,  14),
+}
+
+local WIN_W, WIN_H = 520, 420
+local TITLE_H      = 36
+local SEARCH_H     = 34
+local SCROLL_TOP   = TITLE_H + SEARCH_H + 14
+
+local logsGui = Instance.new("ScreenGui")
+logsGui.Name           = "ChatLogsGui"
+logsGui.DisplayOrder   = 50
+logsGui.ResetOnSpawn   = false
+logsGui.IgnoreGuiInset = false
+logsGui.Parent         = PlayerGui
+
+local logsWindow = Instance.new("Frame")
+logsWindow.Name             = "Window"
+logsWindow.AnchorPoint      = Vector2.new(0.5, 0.5)
+logsWindow.Position         = UDim2.new(0.5, 0, 0.5, 0)
+logsWindow.Size             = UDim2.fromOffset(WIN_W, WIN_H)
+logsWindow.BackgroundColor3 = LOG_C.BG
+logsWindow.BorderSizePixel  = 0
+logsWindow.Visible          = false
+logsWindow.ClipsDescendants = false
+logsWindow.ZIndex           = 30
+logsWindow.Parent           = logsGui
+Instance.new("UICorner", logsWindow).CornerRadius = UDim.new(0, 8)
+do
+        local s = Instance.new("UIStroke", logsWindow)
+        s.Color = LOG_C.BORDER  s.Thickness = 1.5
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+end
+
+-- Title bar (drag handle)
+local titleBar = Instance.new("Frame")
+titleBar.Name             = "TitleBar"
+titleBar.Size             = UDim2.new(1, 0, 0, TITLE_H)
+titleBar.BackgroundColor3 = LOG_C.TITLE_BG
+titleBar.BorderSizePixel  = 0
+titleBar.ZIndex           = 31
+titleBar.Parent           = logsWindow
+Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 8)
+do  -- square off the bottom corners with a cover patch
+        local p = Instance.new("Frame", titleBar)
+        p.Size = UDim2.new(1, 0, 0, 8)  p.Position = UDim2.new(0, 0, 1, -8)
+        p.BackgroundColor3 = LOG_C.TITLE_BG  p.BorderSizePixel = 0  p.ZIndex = 31
+end
+
+local titleLabel = Instance.new("TextLabel", titleBar)
+titleLabel.Size               = UDim2.new(1, -50, 1, 0)
+titleLabel.Position           = UDim2.new(0, 14, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Font               = Enum.Font.GothamBold
+titleLabel.TextSize           = 14
+titleLabel.TextColor3         = LOG_C.TEXT
+titleLabel.Text               = "Chat Logs"
+titleLabel.TextXAlignment     = Enum.TextXAlignment.Left
+titleLabel.TextYAlignment     = Enum.TextYAlignment.Center
+titleLabel.ZIndex             = 32
+
+local closeBtn = Instance.new("TextButton", titleBar)
+closeBtn.AnchorPoint            = Vector2.new(1, 0.5)
+closeBtn.Size                   = UDim2.fromOffset(26, 26)
+closeBtn.Position               = UDim2.new(1, -8, 0.5, 0)
+closeBtn.BackgroundColor3       = Color3.fromRGB(55, 20, 20)
+closeBtn.BackgroundTransparency = 0.3
+closeBtn.BorderSizePixel        = 0
+closeBtn.Text                   = "✕"
+closeBtn.Font                   = Enum.Font.GothamBold
+closeBtn.TextSize               = 12
+closeBtn.TextColor3             = Color3.fromRGB(220, 90, 90)
+closeBtn.AutoButtonColor        = false
+closeBtn.ZIndex                 = 32
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 5)
+
+-- Search bar
+local searchFrame = Instance.new("Frame", logsWindow)
+searchFrame.Name             = "SearchFrame"
+searchFrame.Size             = UDim2.new(1, -16, 0, SEARCH_H)
+searchFrame.Position         = UDim2.new(0, 8, 0, TITLE_H + 6)
+searchFrame.BackgroundColor3 = LOG_C.SEARCH_BG
+searchFrame.BorderSizePixel  = 0
+searchFrame.ZIndex           = 31
+Instance.new("UICorner", searchFrame).CornerRadius = UDim.new(0, 6)
+do
+        local s = Instance.new("UIStroke", searchFrame)
+        s.Color = LOG_C.BORDER  s.Thickness = 1  s.Transparency = 0.4
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+end
+
+local searchBox = Instance.new("TextBox", searchFrame)
+searchBox.Size               = UDim2.new(1, -14, 1, 0)
+searchBox.Position           = UDim2.new(0, 14, 0, 0)
+searchBox.BackgroundTransparency = 1
+searchBox.BorderSizePixel    = 0
+searchBox.ClearTextOnFocus   = false
+searchBox.Font               = Enum.Font.Gotham
+searchBox.TextSize           = 13
+searchBox.TextColor3         = LOG_C.TEXT
+searchBox.PlaceholderText    = "Search chatlogs"
+searchBox.PlaceholderColor3  = LOG_C.DIM
+searchBox.Text               = ""
+searchBox.TextXAlignment     = Enum.TextXAlignment.Left
+searchBox.TextYAlignment     = Enum.TextYAlignment.Center
+searchBox.ZIndex             = 32
+
+-- Scroll frame
+local scrollFrame = Instance.new("ScrollingFrame", logsWindow)
+scrollFrame.Name                   = "LogScroll"
+scrollFrame.Size                   = UDim2.new(1, -8, 1, -(SCROLL_TOP + 8))
+scrollFrame.Position               = UDim2.new(0, 4, 0, SCROLL_TOP)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.BorderSizePixel        = 0
+scrollFrame.ScrollBarThickness     = 4
+scrollFrame.ScrollBarImageColor3   = LOG_C.BORDER
+scrollFrame.AutomaticCanvasSize    = Enum.AutomaticCanvasSize.Y
+scrollFrame.CanvasSize             = UDim2.new(0, 0, 0, 0)
+scrollFrame.ScrollingDirection     = Enum.ScrollingDirection.Y
+scrollFrame.ClipsDescendants       = true
+scrollFrame.ZIndex                 = 31
+do
+        local l = Instance.new("UIListLayout", scrollFrame)
+        l.SortOrder = Enum.SortOrder.LayoutOrder
+        l.FillDirection = Enum.FillDirection.Vertical
+        l.HorizontalAlignment = Enum.HorizontalAlignment.Left
+        l.Padding = UDim.new(0, 1)
+        local p = Instance.new("UIPadding", scrollFrame)
+        p.PaddingLeft = UDim.new(0, 4)  p.PaddingRight = UDim.new(0, 4)  p.PaddingTop = UDim.new(0, 3)
+end
+
+-- ── Log helpers ───────────────────────────────────────────────────────────────
+
+local function toHex(c: Color3): string
+        return string.format("#%02X%02X%02X",
+                math.clamp(math.round(c.R * 255), 0, 255),
+                math.clamp(math.round(c.G * 255), 0, 255),
+                math.clamp(math.round(c.B * 255), 0, 255))
+end
+
+local function entryMatchesFilter(entry: table, filter: string): boolean
+        if filter == "" then return true end
+        local f = filter:lower()
+        return (entry.teamName:lower():find(f, 1, true) ~= nil)
+            or (entry.username:lower():find(f, 1, true) ~= nil)
+            or (entry.message:lower():find(f, 1, true) ~= nil)
+end
+
+local function buildLogRow(entry: table, order: number): TextLabel
+        local lbl = Instance.new("TextLabel")
+        lbl.LayoutOrder            = order
+        lbl.Size                   = UDim2.new(1, 0, 0, 0)
+        lbl.AutomaticSize          = Enum.AutomaticSize.Y
+        lbl.BackgroundColor3       = LOG_C.ROW_ALT
+        lbl.BackgroundTransparency = (order % 2 == 0) and 0.85 or 1
+        lbl.BorderSizePixel        = 0
+        lbl.Font                   = Enum.Font.Gotham
+        lbl.TextSize               = 12
+        lbl.TextColor3             = LOG_C.TEXT
+        lbl.RichText               = true
+        lbl.TextXAlignment         = Enum.TextXAlignment.Left
+        lbl.TextYAlignment         = Enum.TextYAlignment.Top
+        lbl.TextWrapped            = true
+        lbl.ZIndex                 = 32
+        lbl.Text = string.format(
+                '<font color="%s">{%s}</font> [%s]: "%s"',
+                toHex(entry.teamColor), entry.teamName,
+                entry.username, entry.message
+        )
+        local pad = Instance.new("UIPadding", lbl)
+        pad.PaddingLeft   = UDim.new(0, 6)
+        pad.PaddingRight  = UDim.new(0, 6)
+        pad.PaddingTop    = UDim.new(0, 4)
+        pad.PaddingBottom = UDim.new(0, 4)
+        return lbl
+end
+
+local function scrollToBottom()
+        task.defer(function()
+                scrollFrame.CanvasPosition = Vector2.new(0, math.huge)
+        end)
+end
+
+local function rebuildLogDisplay()
+        local filter = searchBox.Text:lower()
+        for _, child in scrollFrame:GetChildren() do
+                if child:IsA("TextLabel") then child:Destroy() end
+        end
+        local order = 0
+        for _, entry in ipairs(chatLogEntries) do
+                if entryMatchesFilter(entry, filter) then
+                        order += 1
+                        buildLogRow(entry, order).Parent = scrollFrame
+                end
+        end
+        scrollToBottom()
+end
+
+-- Called when a new message arrives while the window is open.
+-- Appends one row without rebuilding the whole list.
+function appendLogRow(entry: table)
+        local filter = searchBox.Text:lower()
+        if not entryMatchesFilter(entry, filter) then return end
+        local order = 0
+        for _, child in scrollFrame:GetChildren() do
+                if child:IsA("TextLabel") then order += 1 end
+        end
+        buildLogRow(entry, order + 1).Parent = scrollFrame
+        scrollToBottom()
+end
+
+-- ── Open / Close ──────────────────────────────────────────────────────────────
+
+local function closeChatLogs()
+        logsWindow.Visible = false
+        searchBox.Text     = ""
+end
+
+local function openChatLogs()
+        logsWindow.Visible = true
+        rebuildLogDisplay()
+end
+
+_G.OpenChatLogsWindow = openChatLogs   -- CommandBar calls this
+
+closeBtn.MouseButton1Click:Connect(closeChatLogs)
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if logsWindow.Visible then rebuildLogDisplay() end
+end)
+
+-- ── Drag logic (titleBar as handle) ──────────────────────────────────────────
+do
+        local dragging  = false
+        local dragStart = Vector3.new()
+        local winStart  = UDim2.new()
+
+        local dragBtn = Instance.new("TextButton", titleBar)
+        dragBtn.Size               = UDim2.new(1, -44, 1, 0)
+        dragBtn.BackgroundTransparency = 1
+        dragBtn.Text               = ""
+        dragBtn.ZIndex             = 33
+
+        dragBtn.InputBegan:Connect(function(inp)
+                if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                        dragging  = true
+                        dragStart = inp.Position
+                        winStart  = logsWindow.Position
+                end
+        end)
+
+        UserInputService.InputChanged:Connect(function(inp)
+                if dragging and inp.UserInputType == Enum.UserInputType.MouseMovement then
+                        local d = inp.Position - dragStart
+                        logsWindow.Position = UDim2.new(
+                                winStart.X.Scale, winStart.X.Offset + d.X,
+                                winStart.Y.Scale, winStart.Y.Offset + d.Y
+                        )
+                end
+        end)
+
+        UserInputService.InputEnded:Connect(function(inp)
+                if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                        dragging = false
+                end
+        end)
+end
+
 -- ─── Receive chat message ─────────────────────────────────────────────────────
 local function onMessageReceived(payload: table)
         local senderName = payload.senderName
@@ -392,8 +671,26 @@ local function onMessageReceived(payload: table)
         local sender = Players:FindFirstChild(senderName)
         if not sender then return end
 
-        -- Use Character if already loaded; otherwise wait up to 3 s then bail.
-        -- Avoids an unbounded yield if the sender disconnects before respawning.
+        -- ── Always log the message (regardless of distance / bubble) ──────────
+        local entry = {
+                teamName  = payload.teamName or "No Team",
+                teamColor = Color3.new(
+                        payload.teamColorR or 0.8,
+                        payload.teamColorG or 0.8,
+                        payload.teamColorB or 0.8
+                ),
+                username = payload.displayName or senderName,
+                message  = payload.message,
+        }
+        table.insert(chatLogEntries, entry)
+        if #chatLogEntries > MAX_LOG_ENTRIES then
+                table.remove(chatLogEntries, 1)
+        end
+        if logsWindow.Visible then
+                appendLogRow(entry)
+        end
+
+        -- ── Chat bubble ───────────────────────────────────────────────────────
         local character = sender.Character
         if not character then
                 local ok = false
@@ -409,7 +706,7 @@ local function onMessageReceived(payload: table)
                                 pcall(function() conn:Disconnect() end)
                         end
                 end)
-                return   -- bubble will be created inside the spawned task above
+                return
         end
 
         createBubble(character, payload.message)
