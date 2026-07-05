@@ -501,6 +501,9 @@ searchBox.Text               = ""
 searchBox.TextXAlignment     = Enum.TextXAlignment.Left
 searchBox.TextYAlignment     = Enum.TextYAlignment.Center
 searchBox.ZIndex             = 32
+-- Disabled while window is hidden — prevents the TextBox from stealing
+-- keyboard focus and corrupting chat input even when not visible.
+searchBox.TextEditable       = false
 
 -- Scroll frame
 local scrollFrame = Instance.new("ScrollingFrame", logsWindow)
@@ -609,16 +612,18 @@ end
 -- ── Open / Close ──────────────────────────────────────────────────────────────
 
 local function closeChatLogs()
-        logsWindow.Visible = false
-        searchBox.Text     = ""
+        logsWindow.Visible       = false
+        searchBox.TextEditable   = false   -- stop stealing keyboard focus
+        searchBox.Text           = ""
 end
 
 local function openChatLogs()
-        logsWindow.Visible = true
+        logsWindow.Visible       = true
+        searchBox.TextEditable   = true    -- re-enable typing in search bar
         rebuildLogDisplay()
 end
 
-_G.OpenChatLogsWindow = openChatLogs   -- CommandBar calls this
+shared.OpenChatLogsWindow = openChatLogs   -- CommandBar calls this via shared
 
 closeBtn.MouseButton1Click:Connect(closeChatLogs)
 

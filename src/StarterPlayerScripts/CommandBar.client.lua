@@ -373,8 +373,8 @@ local function execute()
         -- ── Client-only commands (never sent to server) ──────────────────────
         if cmd == "chatlogs" then
                 close()
-                if _G.OpenChatLogsWindow then
-                        _G.OpenChatLogsWindow()
+                if shared.OpenChatLogsWindow then
+                        shared.OpenChatLogsWindow()
                 else
                         warn("[CMD] ChatLogs window not ready yet.")
                 end
