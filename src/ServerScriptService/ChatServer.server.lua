@@ -27,7 +27,8 @@ end)
 local ChatRemotes = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 
 -- ─── Configuration ────────────────────────────────────────────────────────────
-local MAX_DISTANCE       = 60    -- studs — who can see your bubble
+local FULL_DISTANCE      = 10    -- studs — see the full message
+local MUFFLED_DISTANCE   = 30    -- studs — see ". . ." (between FULL and this)
 local MAX_MESSAGE_LENGTH = 200   -- character cap
 local MAX_LOG_ENTRIES    = 200   -- how many messages to keep in memory
 
@@ -117,19 +118,34 @@ local function broadcastProximity(sender: Player, rawText: string)
         }
 
         for _, player in Players:GetPlayers() do
-                -- Always show the sender their own bubble
-                local inRange = (player == sender)
+                local messageToSend = nil
 
-                -- Check distance for everyone else
-                if not inRange and senderPos then
+                if player == sender then
+                        -- Sender always sees their own full message
+                        messageToSend = filtered
+                elseif senderPos then
                         local pos = getPosition(player)
-                        if pos and (pos - senderPos).Magnitude <= MAX_DISTANCE then
-                                inRange = true
+                        if pos then
+                                local dist = (pos - senderPos).Magnitude
+                                if dist <= FULL_DISTANCE then
+                                        messageToSend = filtered          -- close enough: full text
+                                elseif dist <= MUFFLED_DISTANCE then
+                                        messageToSend = ". . ."           -- mid-range: muffled
+                                end
+                                -- beyond MUFFLED_DISTANCE: nil → don't fire
                         end
                 end
 
-                if inRange then
-                        ChatRemotes.MessageReceived:FireClient(player, payload)
+                if messageToSend then
+                        local clientPayload = {
+                                senderName  = payload.senderName,
+                                displayName = payload.displayName,
+                                message     = messageToSend,
+                                nameColorR  = payload.nameColorR,
+                                nameColorG  = payload.nameColorG,
+                                nameColorB  = payload.nameColorB,
+                        }
+                        ChatRemotes.MessageReceived:FireClient(player, clientPayload)
                 end
         end
 end
@@ -148,4 +164,4 @@ Players.PlayerAdded:Connect(function(player: Player)
         end)
 end)
 
-print("[ChatServer] Proximity chat system active. Range:", MAX_DISTANCE, "studs")
+print("[ChatServer] Proximity chat system active. Full:", FULL_DISTANCE, "studs | Muffled:", MUFFLED_DISTANCE, "studs")

@@ -146,8 +146,8 @@ sendStroke.Parent          = sendBtn
 --           └─ Bubble frames...
 
 -- How many studs above the Head center the bottom of the bubble stack sits.
--- This is a world-space value; WorldToViewportPoint handles the rest.
-local WORLD_Y_OFFSET = 3.2   -- studs
+-- 0.8 puts the bubble just above the top of the head (head radius ≈ 0.5 studs).
+local WORLD_Y_OFFSET = 0.8   -- studs
 
 local bubbleGui = Instance.new("ScreenGui")
 bubbleGui.Name           = "ChatBubbles"
