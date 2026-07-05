@@ -17,6 +17,18 @@
       "$className": "TextChatService",
       "$properties": {
         "CreateDefaultTextChannels": false
+      },
+      "ChatInputBarConfiguration": {
+        "$className": "ChatInputBarConfiguration",
+        "$properties": {
+          "Enabled": false
+        }
+      },
+      "ChatWindowConfiguration": {
+        "$className": "ChatWindowConfiguration",
+        "$properties": {
+          "Enabled": false
+        }
       }
     },
 
