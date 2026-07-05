@@ -12,7 +12,7 @@
 
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Chat              = game:GetService("Chat")
+local TextService       = game:GetService("TextService")
 local TextChatService   = game:GetService("TextChatService")
 
 -- Disable the new TextChatService's default channels and bubble chat.
@@ -36,6 +36,8 @@ local ChatRemotes = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 -- walk into range after the message is sent) can still see it.
 local MAX_MESSAGE_LENGTH = 200   -- character cap
 local MAX_LOG_ENTRIES    = 200   -- how many messages to keep in memory
+local FULL_DISTANCE      = 23    -- studs: full message visible
+local MUFFLED_DISTANCE   = 33    -- studs: [Inaudible] shown
 
 -- ─── Chat log ring buffer ─────────────────────────────────────────────────────
 -- Exposed via _G.ChatLog so CommandServer can read it for the chatlogs command.
@@ -82,7 +84,8 @@ end
 
 local function filterMessage(sender: Player, text: string): string
         local ok, result = pcall(function()
-                return Chat:FilterStringAsync(text, sender, sender)
+                local filterResult = TextService:FilterStringAsync(text, sender.UserId)
+                return filterResult:GetNonChatStringForBroadcastAsync()
         end)
         if ok and type(result) == "string" and result ~= "" then
                 return result

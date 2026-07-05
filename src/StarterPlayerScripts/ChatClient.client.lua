@@ -696,8 +696,10 @@ end)
 --   Only open our bar when nothing else is focused — if CommandBar, search box,
 --   or any other TextBox already has focus, let the keypress through normally.
 --   task.defer wins any deferred engine focus-steal that happens in the same frame.
--- Return/KeypadEnter: NOT handled here — FocusLost(enterPressed) is the sole
---   submit path, which avoids double-sends from both handlers firing together.
+-- Return/KeypadEnter: Handled explicitly here as a fallback because the new
+--   TextChatService can intercept Enter at engine level and cause FocusLost to
+--   fire with enterPressed=false, silently swallowing the submit. The submitting
+--   flag already prevents double-sends if both paths fire in the same frame.
 -- Escape: clear and dismiss, only when no other system has consumed it.
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if input.KeyCode == Enum.KeyCode.Slash then
@@ -708,6 +710,17 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
                         task.defer(function() inputBox:CaptureFocus() end)
                 end
                 -- If any TextBox (ours or another) already has focus, let "/" type normally.
+                return
+        end
+
+        -- Explicit Enter handler: submit if our inputBox currently has focus.
+        -- This is the fallback for when TextChatService intercepts the Enter key
+        -- and causes FocusLost(enterPressed=false) instead of (enterPressed=true).
+        if input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.KeypadEnter then
+                local focused = UserInputService:GetFocusedTextBox()
+                if focused == inputBox then
+                        submitMessage()
+                end
                 return
         end
 
