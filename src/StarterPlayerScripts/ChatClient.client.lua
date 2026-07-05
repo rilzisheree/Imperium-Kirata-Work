@@ -649,6 +649,10 @@ end)
 
 local MAX_CHARS = 200
 
+-- Track whether our inputBox currently has focus so the Return-key backup
+-- path works reliably regardless of GetFocusedTextBox() timing.
+local chatInputFocused = false
+
 local function submitMessage()
         local text = inputBox.Text:match("^%s*(.-)%s*$")
         if text ~= "" then
@@ -665,6 +669,11 @@ inputBox:GetPropertyChangedSignal("Text"):Connect(function()
         end
 end)
 
+-- Track focus state manually (more reliable than GetFocusedTextBox() in UIS handlers)
+inputBox.Focused:Connect(function()
+        chatInputFocused = true
+end)
+
 -- Send button
 sendBtn.MouseButton1Click:Connect(submitMessage)
 
@@ -675,24 +684,30 @@ inputFrame.InputBegan:Connect(function(input)
         end
 end)
 
--- Enter key submits
+-- Enter key submits; FocusLost fires AFTER inputBox:ReleaseFocus() clears the flag,
+-- so we clear chatInputFocused first, then check enterPressed.
 inputBox.FocusLost:Connect(function(enterPressed)
+        chatInputFocused = false
         if enterPressed then submitMessage() end
 end)
 
--- / key opens chat — checked BEFORE gameProcessed because the legacy Roblox
+-- / key opens chat — intercept BEFORE gameProcessed check because legacy Roblox
 -- chat binds / and sets gameProcessed=true even when CoreGui chat is disabled.
--- Return key submits as a backup path in case FocusLost fires with enterPressed=false.
+-- Return key submits as a backup path in case FocusLost fires with enterPressed=false
+-- (can happen when focus was acquired via CaptureFocus rather than a direct click).
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if input.KeyCode == Enum.KeyCode.Slash then
-                -- Always intercept regardless of gameProcessed
-                inputBox:CaptureFocus()
+                -- Suppress the default chat immediately, then defer focus capture so
+                -- it fires AFTER Roblox finishes its own key-processing for this frame.
+                disableDefaultChat()
+                task.defer(function() inputBox:CaptureFocus() end)
                 return
         end
 
         if input.KeyCode == Enum.KeyCode.Return then
-                -- Submit if our box is the focused one (backup for FocusLost not firing)
-                if UserInputService:GetFocusedTextBox() == inputBox then
+                -- Use our manual flag instead of GetFocusedTextBox() — the latter can
+                -- return nil if FocusLost has already fired before this handler runs.
+                if chatInputFocused then
                         submitMessage()
                 end
                 return
