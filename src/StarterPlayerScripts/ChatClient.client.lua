@@ -25,13 +25,18 @@ local ChatRemotes = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 
 -- ─── Disable default Roblox chat ──────────────────────────────────────────────
 local function disableDefaultChat()
-        pcall(function()
-                StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, false)
-        end)
+        -- Hide the CoreGui chat panel
+        pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, false) end)
+        -- Close the legacy chat bar if it opened (e.g. from a / keypress)
+        pcall(function() StarterGui:SetCore("ChatActive", false) end)
 end
 disableDefaultChat()
 task.spawn(function()
-        while true do task.wait(2) disableDefaultChat() end
+        -- Keep hammering every 0.5 s so the legacy chat can never stay open
+        while true do
+                task.wait(0.5)
+                disableDefaultChat()
+        end
 end)
 
 -- ─── Config ───────────────────────────────────────────────────────────────────
@@ -675,12 +680,27 @@ inputBox.FocusLost:Connect(function(enterPressed)
         if enterPressed then submitMessage() end
 end)
 
--- / key opens chat; Escape clears
+-- / key opens chat — checked BEFORE gameProcessed because the legacy Roblox
+-- chat binds / and sets gameProcessed=true even when CoreGui chat is disabled.
+-- Return key submits as a backup path in case FocusLost fires with enterPressed=false.
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
         if input.KeyCode == Enum.KeyCode.Slash then
+                -- Always intercept regardless of gameProcessed
                 inputBox:CaptureFocus()
-        elseif input.KeyCode == Enum.KeyCode.Escape then
+                return
+        end
+
+        if input.KeyCode == Enum.KeyCode.Return then
+                -- Submit if our box is the focused one (backup for FocusLost not firing)
+                if UserInputService:GetFocusedTextBox() == inputBox then
+                        submitMessage()
+                end
+                return
+        end
+
+        if gameProcessed then return end
+
+        if input.KeyCode == Enum.KeyCode.Escape then
                 inputBox.Text = ""
                 inputBox:ReleaseFocus()
         end
