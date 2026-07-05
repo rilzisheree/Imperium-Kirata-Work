@@ -27,8 +27,9 @@ end)
 local ChatRemotes = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 
 -- ─── Configuration ────────────────────────────────────────────────────────────
-local FULL_DISTANCE      = 10    -- studs — see the full message
-local MUFFLED_DISTANCE   = 30    -- studs — see ". . ." (between FULL and this)
+-- Distance tiers are enforced client-side in real time so bubbles update as
+-- players move. The server broadcasts to everyone so latecomers (players who
+-- walk into range after the message is sent) can still see it.
 local MAX_MESSAGE_LENGTH = 200   -- character cap
 local MAX_LOG_ENTRIES    = 200   -- how many messages to keep in memory
 
@@ -117,23 +118,12 @@ local function broadcastProximity(sender: Player, rawText: string)
                 nameColorB  = nameColor.B,
         }
 
+        -- Broadcast to all players. Distance-based visibility (full text,
+        -- [ Inaudible ], or hidden) is handled client-side every frame, so
+        -- players who walk into range after the message is sent will still
+        -- see it update correctly without needing a new message.
         for _, player in Players:GetPlayers() do
-                -- Sender always receives their own message.
-                -- Everyone else must be within MUFFLED_DISTANCE to receive anything.
-                -- The client handles the full vs ". . ." split in real time, so we
-                -- always send the full filtered text here — never a static ". . .".
-                local inRange = (player == sender)
-
-                if not inRange and senderPos then
-                        local pos = getPosition(player)
-                        if pos and (pos - senderPos).Magnitude <= MUFFLED_DISTANCE then
-                                inRange = true
-                        end
-                end
-
-                if inRange then
-                        ChatRemotes.MessageReceived:FireClient(player, payload)
-                end
+                ChatRemotes.MessageReceived:FireClient(player, payload)
         end
 end
 

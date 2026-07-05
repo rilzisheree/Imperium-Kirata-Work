@@ -151,8 +151,8 @@ local WORLD_Y_OFFSET = 1.5   -- studs
 -- Distance thresholds — must match FULL_DISTANCE / MUFFLED_DISTANCE on the server.
 -- The server only fires events to players within MUFFLED_DISTANCE, so the client
 -- only needs to decide between "full text" and ". . ." for each active bubble.
-local FULL_DISTANCE    = 10   -- studs: show the real message
-local MUFFLED_DISTANCE = 30   -- studs: show ". . ." (server already blocks beyond this)
+local FULL_DISTANCE    = 18   -- studs: show the real message  (original 10 + 8)
+local MUFFLED_DISTANCE = 30   -- studs: show [ Inaudible ] beyond this → hidden
 
 local bubbleGui = Instance.new("ScreenGui")
 bubbleGui.Name           = "ChatBubbles"
@@ -234,7 +234,7 @@ RunService.RenderStepped:Connect(function()
                 -- Apply correct text to every live label for this speaker.
                 for label, originalText in pairs(data.bubbles) do
                         if label.Parent then
-                                local want = showFull and originalText or ". . ."
+                                local want = showFull and originalText or "[ Inaudible ]"
                                 if label.Text ~= want then   -- skip write if already correct
                                         label.Text = want
                                 end
