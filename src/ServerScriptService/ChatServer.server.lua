@@ -118,34 +118,21 @@ local function broadcastProximity(sender: Player, rawText: string)
         }
 
         for _, player in Players:GetPlayers() do
-                local messageToSend = nil
+                -- Sender always receives their own message.
+                -- Everyone else must be within MUFFLED_DISTANCE to receive anything.
+                -- The client handles the full vs ". . ." split in real time, so we
+                -- always send the full filtered text here — never a static ". . .".
+                local inRange = (player == sender)
 
-                if player == sender then
-                        -- Sender always sees their own full message
-                        messageToSend = filtered
-                elseif senderPos then
+                if not inRange and senderPos then
                         local pos = getPosition(player)
-                        if pos then
-                                local dist = (pos - senderPos).Magnitude
-                                if dist <= FULL_DISTANCE then
-                                        messageToSend = filtered          -- close enough: full text
-                                elseif dist <= MUFFLED_DISTANCE then
-                                        messageToSend = ". . ."           -- mid-range: muffled
-                                end
-                                -- beyond MUFFLED_DISTANCE: nil → don't fire
+                        if pos and (pos - senderPos).Magnitude <= MUFFLED_DISTANCE then
+                                inRange = true
                         end
                 end
 
-                if messageToSend then
-                        local clientPayload = {
-                                senderName  = payload.senderName,
-                                displayName = payload.displayName,
-                                message     = messageToSend,
-                                nameColorR  = payload.nameColorR,
-                                nameColorG  = payload.nameColorG,
-                                nameColorB  = payload.nameColorB,
-                        }
-                        ChatRemotes.MessageReceived:FireClient(player, clientPayload)
+                if inRange then
+                        ChatRemotes.MessageReceived:FireClient(player, payload)
                 end
         end
 end

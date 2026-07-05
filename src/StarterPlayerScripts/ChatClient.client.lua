@@ -146,8 +146,13 @@ sendStroke.Parent          = sendBtn
 --           └─ Bubble frames...
 
 -- How many studs above the Head center the bottom of the bubble stack sits.
--- 0.8 puts the bubble just above the top of the head (head radius ≈ 0.5 studs).
 local WORLD_Y_OFFSET = 1.5   -- studs
+
+-- Distance thresholds — must match FULL_DISTANCE / MUFFLED_DISTANCE on the server.
+-- The server only fires events to players within MUFFLED_DISTANCE, so the client
+-- only needs to decide between "full text" and ". . ." for each active bubble.
+local FULL_DISTANCE    = 10   -- studs: show the real message
+local MUFFLED_DISTANCE = 30   -- studs: show ". . ." (server already blocks beyond this)
 
 local bubbleGui = Instance.new("ScreenGui")
 bubbleGui.Name           = "ChatBubbles"
@@ -156,15 +161,37 @@ bubbleGui.ResetOnSpawn   = false
 bubbleGui.IgnoreGuiInset = true
 bubbleGui.Parent         = PlayerGui
 
--- activeSpeakers[charName] = { frame = Frame, head = BasePart }
+-- activeSpeakers[charName] = {
+--   frame     = Frame,
+--   head      = BasePart,
+--   character = Model,
+--   bubbles   = { [TextLabel] = originalText }   ← tracked for live text updates
+-- }
 local activeSpeakers = {}
 local bubbleCounts   = {}
 
--- ── RenderStepped: reposition every bubble container each frame ───────────────
+-- ── Local-player root cache (updated on character load/respawn) ───────────────
+local localRoot = nil
+local function refreshLocalRoot(char)
+        char = char or LocalPlayer.Character
+        localRoot = char and char:FindFirstChild("HumanoidRootPart")
+end
+refreshLocalRoot()
+LocalPlayer.CharacterAdded:Connect(function(char)
+        char:WaitForChild("HumanoidRootPart", 10)
+        refreshLocalRoot(char)
+end)
+
+-- ── RenderStepped: reposition + live distance-text update every frame ────────
 RunService.RenderStepped:Connect(function()
         -- Re-read CurrentCamera each frame — it can be replaced (e.g. cutscenes).
         local cam = workspace.CurrentCamera
         if not cam then return end
+
+        -- Lazily refresh local root if it went stale (e.g. mid-respawn).
+        if not localRoot or not localRoot.Parent then
+                refreshLocalRoot()
+        end
 
         for charName, data in pairs(activeSpeakers) do
                 local head = data.head
@@ -173,18 +200,45 @@ RunService.RenderStepped:Connect(function()
                         continue
                 end
 
-                -- Project world point to viewport pixels
+                -- ── 1. Screen position ────────────────────────────────────────
                 local worldPos = head.Position + Vector3.new(0, WORLD_Y_OFFSET, 0)
                 local screenPos, onScreen = cam:WorldToViewportPoint(worldPos)
 
-                if onScreen and screenPos.Z > 0 then
-                        -- AnchorPoint (0.5, 1) means Position is the bottom-center of the frame.
-                        -- No lerp needed — WorldToViewportPoint is already smooth because it
-                        -- reads the interpolated camera + character state at render time.
-                        data.frame.Visible  = true
-                        data.frame.Position = UDim2.fromOffset(screenPos.X, screenPos.Y)
-                else
+                if not (onScreen and screenPos.Z > 0) then
                         data.frame.Visible = false
+                        continue
+                end
+
+                data.frame.Visible  = true
+                data.frame.Position = UDim2.fromOffset(screenPos.X, screenPos.Y)
+
+                -- ── 2. Distance-based text (runs every frame while visible) ──
+                -- Sender always sees their own full text.
+                local showFull = (charName == LocalPlayer.Name)
+
+                if not showFull and localRoot then
+                        local senderRoot = data.character
+                                and data.character:FindFirstChild("HumanoidRootPart")
+                        if senderRoot and senderRoot.Parent then
+                                local dist = (localRoot.Position - senderRoot.Position).Magnitude
+                                if dist > MUFFLED_DISTANCE then
+                                        -- Shouldn't normally happen (server filters these out),
+                                        -- but hide cleanly if it does.
+                                        data.frame.Visible = false
+                                        continue
+                                end
+                                showFull = dist <= FULL_DISTANCE
+                        end
+                end
+
+                -- Apply correct text to every live label for this speaker.
+                for label, originalText in pairs(data.bubbles) do
+                        if label.Parent then
+                                local want = showFull and originalText or ". . ."
+                                if label.Text ~= want then   -- skip write if already correct
+                                        label.Text = want
+                                end
+                        end
                 end
         end
 end)
@@ -197,7 +251,8 @@ local function getOrCreateSpeaker(character: Model): Frame?
         local charName = character.Name
 
         if activeSpeakers[charName] then
-                activeSpeakers[charName].head = head   -- refresh on respawn
+                activeSpeakers[charName].head      = head        -- refresh on respawn
+                activeSpeakers[charName].character = character
                 return activeSpeakers[charName].frame
         end
 
@@ -223,7 +278,12 @@ local function getOrCreateSpeaker(character: Model): Frame?
         layout.Padding             = UDim.new(0, 3)
         layout.Parent              = frame
 
-        activeSpeakers[charName] = { frame = frame, head = head }
+        activeSpeakers[charName] = {
+                frame     = frame,
+                head      = head,
+                character = character,
+                bubbles   = {},   -- [TextLabel] = originalText, for live text updates
+        }
         return frame
 end
 
@@ -273,6 +333,12 @@ local function createBubble(character: Model, text: string)
         label.Text                   = text
         label.Parent                 = bubble
 
+        -- Register this label so the RenderStepped loop can update its text live.
+        local speakerData = activeSpeakers[charName]
+        if speakerData then
+                speakerData.bubbles[label] = text   -- originalText
+        end
+
         task.spawn(function()
                 -- Fade in pill + text instantly
                 label.MaxVisibleGraphemes = -1
@@ -288,13 +354,18 @@ local function createBubble(character: Model, text: string)
                 TweenService:Create(label,  outInfo, { TextTransparency = 1 }):Play()
                 task.wait(CFG.FADE_OUT_TIME)
 
+                -- Deregister label before destroying so RenderStepped stops touching it.
+                local data = activeSpeakers[charName]
+                if data then
+                        data.bubbles[label] = nil
+                end
+
                 bubble:Destroy()
                 bubbleCounts[charName] = math.max(0, (bubbleCounts[charName] or 1) - 1)
 
-                -- Clean up the speaker container once all its bubbles are gone
+                -- Clean up the speaker container once all its bubbles are gone.
                 if bubbleCounts[charName] == 0 then
                         bubbleCounts[charName] = nil
-                        local data = activeSpeakers[charName]
                         if data then
                                 data.frame:Destroy()
                                 activeSpeakers[charName] = nil
