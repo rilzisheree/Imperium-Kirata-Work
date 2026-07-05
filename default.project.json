@@ -16,8 +16,7 @@
     "TextChatService": {
       "$className": "TextChatService",
       "$properties": {
-        "CreateDefaultTextChannels": false,
-        "CreateDefaultSystemMessages": false
+        "CreateDefaultTextChannels": false
       }
     },
 
