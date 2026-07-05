@@ -691,46 +691,70 @@ inputFrame.InputBegan:Connect(function(input)
         end
 end)
 
--- ── Enter key ────────────────────────────────────────────────────────────────
--- PRIMARY path: inputBox.InputBegan fires directly on the TextBox while it has
--- focus, regardless of how focus was acquired (click vs CaptureFocus).
--- This is more reliable than FocusLost(enterPressed), which can pass false when
--- focus was captured programmatically.
-inputBox.InputBegan:Connect(function(input)
-        if input.KeyCode == Enum.KeyCode.Return
-        or input.KeyCode == Enum.KeyCode.KeypadEnter then
-                submitMessage()
-        end
-end)
+-- ── Enter / Return key ───────────────────────────────────────────────────────
+-- Root cause: the LegacyChatService registers its own ContextActionService
+-- binding for Enter at Default priority (~2000). CoreScripts register AFTER
+-- LocalScripts, so their binding wins ties and intercepts Enter — causing our
+-- TextBox to lose focus with enterPressed=false instead of true.
+--
+-- Fix: bind at priority 3001 (above High=3000) so we always run first.
+-- When our box is focused → sink Enter and submit. Otherwise pass through.
+ContextActionService:BindActionAtPriority(
+        "ImperiumSubmitChat",
+        function(_, inputState, _)
+                if inputState == Enum.UserInputState.Begin then
+                        if UserInputService:GetFocusedTextBox() == inputBox then
+                                submitMessage()
+                                return Enum.ContextActionResult.Sink
+                        end
+                end
+                return Enum.ContextActionResult.Pass
+        end,
+        false,  -- no touch button
+        3001,   -- above Enum.ContextActionPriority.High (3000); beats legacy chat
+        Enum.KeyCode.Return,
+        Enum.KeyCode.KeypadEnter
+)
 
--- BACKUP path: FocusLost with enterPressed=true (works on direct clicks).
--- The debounce in submitMessage prevents double-sends if both paths fire.
+-- Backup: FocusLost(enterPressed) for cases where focus was acquired via a
+-- direct click and CAS does not intercept. Debounce in submitMessage prevents
+-- double-sends if both paths fire for the same keypress.
 inputBox.FocusLost:Connect(function(enterPressed)
         if enterPressed then submitMessage() end
 end)
 
 -- ── / key ────────────────────────────────────────────────────────────────────
--- Use ContextActionService instead of UserInputService.InputBegan.
--- ContextActionService runs at a higher priority than the engine's default key
--- bindings (including the legacy chat's "/" shortcut).
+-- Root cause: the LegacyChatService registers a "/" binding via CAS at Default
+-- priority. Because CoreScripts register after LocalScripts, their binding wins
+-- and grabs focus for the hidden legacy chat bar before our handler runs.
 --
--- Two cases:
---   • Box NOT focused → Sink the keypress (so the legacy chat never sees it)
---     and focus our input bar. The "/" is not typed — it just opens the bar.
---   • Box already focused → Pass through so "/" types normally into the message.
-ContextActionService:BindAction(
+-- Fix: same approach — bind at priority 3001 so we always win.
+-- Box NOT focused → sink "/" (don't type it) and focus our bar.
+-- Box already focused → pass through so "/" types normally into the message.
+ContextActionService:BindActionAtPriority(
         "ImperiumOpenChat",
         function(_, inputState, _)
                 if inputState == Enum.UserInputState.Begin then
-                        if UserInputService:GetFocusedTextBox() == inputBox then
-                                -- Already open: let "/" type into the message as normal
+                        local focused = UserInputService:GetFocusedTextBox()
+                        if focused == inputBox then
+                                -- Our box is already open — let "/" type normally
                                 return Enum.ContextActionResult.Pass
                         end
+                        if focused ~= nil then
+                                -- Some OTHER TextBox has focus (CommandBar, search, etc.)
+                                -- Don't hijack it — let "/" type normally there too
+                                return Enum.ContextActionResult.Pass
+                        end
+                        -- Nothing is focused: open our chat bar and swallow the keypress
+                        -- so "/" doesn't appear in the box and legacy chat never sees it
                         inputBox:CaptureFocus()
+                        return Enum.ContextActionResult.Sink
                 end
-                return Enum.ContextActionResult.Sink
+                -- End / Cancel states: always pass through
+                return Enum.ContextActionResult.Pass
         end,
-        false,           -- don't create a mobile touch button
+        false,  -- no touch button
+        3001,   -- above Enum.ContextActionPriority.High (3000); beats legacy chat
         Enum.KeyCode.Slash
 )
 
