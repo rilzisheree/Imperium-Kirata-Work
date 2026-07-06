@@ -25,8 +25,8 @@ local ChatRemotes = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 
 local MAX_ENTRIES = 500   -- oldest entry is evicted when this is exceeded
 
-local WIN_W   = 460
-local WIN_H   = 520
+local WIN_W   = 370
+local WIN_H   = 600
 local TITLE_H = 38
 local SRCH_H  = 34
 
@@ -58,12 +58,13 @@ sg.Enabled        = false
 sg.Parent         = PGui
 
 local win = Instance.new("Frame", sg)
-win.AnchorPoint      = Vector2.new(0.5, 0.5)
-win.Size             = UDim2.fromOffset(WIN_W, WIN_H)
-win.Position         = UDim2.new(0.5, 0, 0.5, 0)
-win.BackgroundColor3 = C_BG
-win.BorderSizePixel  = 0
-win.ClipsDescendants = true
+win.AnchorPoint          = Vector2.new(0.5, 0.5)
+win.Size                 = UDim2.fromOffset(WIN_W, WIN_H)
+win.Position             = UDim2.new(0.5, 0, 0.5, 0)
+win.BackgroundColor3     = C_BG
+win.BackgroundTransparency = 0.72
+win.BorderSizePixel      = 0
+win.ClipsDescendants     = true
 Instance.new("UICorner", win).CornerRadius = UDim.new(0, 10)
 do
 	local s = Instance.new("UIStroke", win)
@@ -75,9 +76,10 @@ end
 -- ── Title bar ─────────────────────────────────────────────────────────────────
 
 local titleBar = Instance.new("Frame", win)
-titleBar.Size             = UDim2.new(1, 0, 0, TITLE_H)
-titleBar.BackgroundColor3 = C_TITLE
-titleBar.BorderSizePixel  = 0
+titleBar.Size                  = UDim2.new(1, 0, 0, TITLE_H)
+titleBar.BackgroundColor3      = C_TITLE
+titleBar.BackgroundTransparency = 0.45
+titleBar.BorderSizePixel       = 0
 
 local titleLbl = Instance.new("TextLabel", titleBar)
 titleLbl.Size                   = UDim2.new(1, -50, 1, 0)
@@ -115,10 +117,11 @@ sep0.BorderSizePixel  = 0
 -- ── Search bar ────────────────────────────────────────────────────────────────
 
 local srchWrap = Instance.new("Frame", win)
-srchWrap.Size             = UDim2.new(1, -16, 0, SRCH_H)
-srchWrap.Position         = UDim2.new(0, 8, 0, TITLE_H + 7)
-srchWrap.BackgroundColor3 = C_SRCH
-srchWrap.BorderSizePixel  = 0
+srchWrap.Size                  = UDim2.new(1, -16, 0, SRCH_H)
+srchWrap.Position               = UDim2.new(0, 8, 0, TITLE_H + 7)
+srchWrap.BackgroundColor3      = C_SRCH
+srchWrap.BackgroundTransparency = 0.5
+srchWrap.BorderSizePixel       = 0
 Instance.new("UICorner", srchWrap).CornerRadius = UDim.new(0, 6)
 do
 	local s = Instance.new("UIStroke", srchWrap)
@@ -201,7 +204,7 @@ local function makeRow(entry, layoutOrder)
 	row.Size              = UDim2.new(1, 0, 0, 0)
 	row.AutomaticSize     = Enum.AutomaticSize.Y
 	row.BackgroundColor3  = C_ROW
-	row.BackgroundTransparency = 0.45
+	row.BackgroundTransparency = 0.78
 	row.BorderSizePixel   = 0
 
 	local pad = Instance.new("UIPadding", row)
