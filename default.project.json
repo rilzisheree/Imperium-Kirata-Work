@@ -38,6 +38,50 @@
         "$className": "StarterPlayerScripts",
         "$path": "src/StarterPlayerScripts"
       }
+    },
+
+    "SoundService": {
+      "$className": "SoundService",
+      "rainOutside": {
+        "$className": "Sound",
+        "$properties": {
+          "SoundId": "rbxassetid://1516791621",
+          "Looped": true,
+          "Volume": 0.5,
+          "RollOffMaxDistance": 1000000
+        }
+      },
+      "outsideAmbience": {
+        "$className": "Sound",
+        "$properties": {
+          "SoundId": "rbxassetid://1516791621",
+          "Looped": true,
+          "Volume": 0.3,
+          "TimePosition": 4.5,
+          "RollOffMaxDistance": 1000000
+        }
+      }
+    },
+
+    "Workspace": {
+      "$className": "Workspace",
+      "rainPart": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "CanCollide": false,
+          "Transparency": 1,
+          "CastShadow": false
+        },
+        "RainEmitter": {
+          "$className": "ParticleEmitter",
+          "$properties": {
+            "Texture": "rbxassetid://241868005",
+            "Enabled": false,
+            "Rate": 0
+          }
+        }
+      }
     }
   }
 }

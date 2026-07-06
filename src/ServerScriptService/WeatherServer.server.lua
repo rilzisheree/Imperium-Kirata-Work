@@ -118,23 +118,28 @@ local PRESETS = {
 			Haze    = 22,
 		},
 		clouds    = { Cover = 0.92, Density = 0.80, Color = Color3.fromRGB(120, 130, 148) },
-		soundId   = 0,  -- replace: rain ambient
+		-- Confirmed working in-place rain sound (rbxassetid://1516791621 = rainOutside)
+		soundId   = 1516791621,
 		particles = {
 			{
-				-- Overhead static emitter (fallback; client-side rain is primary)
+				-- Overhead world-space emitter (server-side, replicates to all clients).
+				-- Uses the same confirmed texture as the client-side camera-locked layers.
+				Texture           = "rbxassetid://241868005",
 				Color             = ColorSequence.new({
 					ColorSequenceKeypoint.new(0, Color3.fromRGB(185, 218, 255)),
 					ColorSequenceKeypoint.new(1, Color3.fromRGB(155, 195, 245)),
 				}),
 				Size              = NumberSequence.new({
-					NumberSequenceKeypoint.new(0, 0.045),
-					NumberSequenceKeypoint.new(1, 0.030),
+					NumberSequenceKeypoint.new(0, 0.09),
+					NumberSequenceKeypoint.new(1, 0.06),
 				}),
 				Transparency      = NumberSequence.new({
-					NumberSequenceKeypoint.new(0,   0.35),
+					NumberSequenceKeypoint.new(0,   0.25),
 					NumberSequenceKeypoint.new(0.7, 0.55),
 					NumberSequenceKeypoint.new(1,   1.00),
 				}),
+				Squash            = NumberSequence.new(14),
+				Orientation       = Enum.ParticleOrientation.VelocityParallel,
 				Speed             = NumberRange.new(65, 90),
 				Rotation          = NumberRange.new(0, 0),
 				RotSpeed          = NumberRange.new(0, 0),
@@ -165,22 +170,25 @@ local PRESETS = {
 			Haze    = 30,
 		},
 		clouds    = { Cover = 1,    Density = 0.95, Color = Color3.fromRGB( 55,  58,  72) },
-		soundId   = 0,  -- replace: thunder/storm
+		soundId   = 1516791621,   -- same rain asset, louder volume set below
 		particles = {
 			{
+				Texture           = "rbxassetid://241868005",
 				Color             = ColorSequence.new({
 					ColorSequenceKeypoint.new(0, Color3.fromRGB(148, 190, 255)),
 					ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 168, 245)),
 				}),
 				Size              = NumberSequence.new({
-					NumberSequenceKeypoint.new(0, 0.052),
-					NumberSequenceKeypoint.new(1, 0.035),
+					NumberSequenceKeypoint.new(0, 0.11),
+					NumberSequenceKeypoint.new(1, 0.07),
 				}),
 				Transparency      = NumberSequence.new({
-					NumberSequenceKeypoint.new(0,   0.28),
-					NumberSequenceKeypoint.new(0.7, 0.50),
+					NumberSequenceKeypoint.new(0,   0.18),
+					NumberSequenceKeypoint.new(0.7, 0.45),
 					NumberSequenceKeypoint.new(1,   1.00),
 				}),
+				Squash            = NumberSequence.new(16),
+				Orientation       = Enum.ParticleOrientation.VelocityParallel,
 				Speed             = NumberRange.new(88, 118),
 				Rotation          = NumberRange.new(0, 0),
 				RotSpeed          = NumberRange.new(0, 0),
@@ -373,6 +381,7 @@ local PARTICLE_PROPS = {
 	"Speed", "Rotation", "RotSpeed",
 	"Rate", "Lifetime", "EmissionDirection",
 	"LightInfluence", "LightEmission",
+	"Squash", "Orientation",           -- needed for rain streaks
 }
 
 local function cancelActiveTweens()
