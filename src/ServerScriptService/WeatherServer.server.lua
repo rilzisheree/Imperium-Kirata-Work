@@ -102,120 +102,6 @@ local PRESETS = {
                 particles = {},
         },
 
-        Rain = {
-                lighting = {
-                        Ambient        = Color3.fromRGB( 44,  52,  68),
-                        OutdoorAmbient = Color3.fromRGB( 62,  76,  98),
-                        Brightness     = 0.65,
-                        FogEnd         = 1100,
-                        FogStart       = 0,
-                        FogColor       = Color3.fromRGB(132, 148, 168),
-                },
-                atmosphere = {
-                        Density = 0.58,
-                        Offset  = 0,
-                        Color   = Color3.fromRGB(100, 120, 150),
-                        Decay   = Color3.fromRGB( 48,  58,  75),
-                        Glare   = 0,
-                        Haze    = 22,
-                },
-                clouds    = { Cover = 0.92, Density = 0.80, Color = Color3.fromRGB(120, 130, 148) },
-                soundId   = 1516791621,
-                particles = {
-                        -- Layer 1: Foreground drops — larger, blue-grey, VelocityParallel
-                        --          Low Squash keeps them as proper short streaks, not hairlines.
-                        {
-                                Texture           = "rbxassetid://241868005",
-                                Color             = ColorSequence.new({
-                                        ColorSequenceKeypoint.new(0,   Color3.fromRGB(145, 185, 230)),
-                                        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(130, 168, 218)),
-                                        ColorSequenceKeypoint.new(1,   Color3.fromRGB(110, 150, 205)),
-                                }),
-                                Size              = NumberSequence.new({
-                                        NumberSequenceKeypoint.new(0,    0.16),
-                                        NumberSequenceKeypoint.new(0.10, 0.14),
-                                        NumberSequenceKeypoint.new(0.85, 0.11),
-                                        NumberSequenceKeypoint.new(1,    0.00),
-                                }),
-                                Transparency      = NumberSequence.new({
-                                        NumberSequenceKeypoint.new(0,    0.30),
-                                        NumberSequenceKeypoint.new(0.60, 0.52),
-                                        NumberSequenceKeypoint.new(0.88, 0.82),
-                                        NumberSequenceKeypoint.new(1,    1.00),
-                                }),
-                                Squash            = NumberSequence.new(4),
-                                Orientation       = Enum.ParticleOrientation.VelocityParallel,
-                                SpreadAngle       = Vector2.new(3, 0),
-                                Speed             = NumberRange.new(78, 108),
-                                Rotation          = NumberRange.new(0, 0),
-                                RotSpeed          = NumberRange.new(0, 0),
-                                Rate              = 500,
-                                Lifetime          = NumberRange.new(1.6, 2.4),
-                                EmissionDirection = Enum.NormalId.Bottom,
-                                LightInfluence    = 0.72,
-                                LightEmission     = 0,
-                        },
-                        -- Layer 2: Dense curtain — thin, fast, high rate for rainfall depth
-                        {
-                                Texture           = "rbxassetid://241868005",
-                                Color             = ColorSequence.new({
-                                        ColorSequenceKeypoint.new(0,   Color3.fromRGB(158, 195, 238)),
-                                        ColorSequenceKeypoint.new(1,   Color3.fromRGB(128, 165, 222)),
-                                }),
-                                Size              = NumberSequence.new({
-                                        NumberSequenceKeypoint.new(0,    0.07),
-                                        NumberSequenceKeypoint.new(0.75, 0.05),
-                                        NumberSequenceKeypoint.new(1,    0.00),
-                                }),
-                                Transparency      = NumberSequence.new({
-                                        NumberSequenceKeypoint.new(0,    0.48),
-                                        NumberSequenceKeypoint.new(0.60, 0.65),
-                                        NumberSequenceKeypoint.new(1,    1.00),
-                                }),
-                                Squash            = NumberSequence.new(7),
-                                Orientation       = Enum.ParticleOrientation.VelocityParallel,
-                                SpreadAngle       = Vector2.new(4, 0),
-                                Speed             = NumberRange.new(92, 128),
-                                Rotation          = NumberRange.new(0, 0),
-                                RotSpeed          = NumberRange.new(0, 0),
-                                Rate              = 2400,
-                                Lifetime          = NumberRange.new(1.4, 2.0),
-                                EmissionDirection = Enum.NormalId.Bottom,
-                                LightInfluence    = 0.42,
-                                LightEmission     = 0,
-                        },
-                        -- Layer 3: Atmospheric mist — slow, billboarded soft blobs
-                        {
-                                Texture           = "rbxassetid://241868005",
-                                Color             = ColorSequence.new({
-                                        ColorSequenceKeypoint.new(0,   Color3.fromRGB(130, 158, 195)),
-                                        ColorSequenceKeypoint.new(1,   Color3.fromRGB(108, 135, 172)),
-                                }),
-                                Size              = NumberSequence.new({
-                                        NumberSequenceKeypoint.new(0,   0.80),
-                                        NumberSequenceKeypoint.new(0.4, 1.60),
-                                        NumberSequenceKeypoint.new(1,   0.50),
-                                }),
-                                Transparency      = NumberSequence.new({
-                                        NumberSequenceKeypoint.new(0,   0.78),
-                                        NumberSequenceKeypoint.new(0.5, 0.72),
-                                        NumberSequenceKeypoint.new(1,   1.00),
-                                }),
-                                Squash            = NumberSequence.new(1),
-                                Orientation       = Enum.ParticleOrientation.FacingCamera,
-                                SpreadAngle       = Vector2.new(0, 0),
-                                Speed             = NumberRange.new(5, 14),
-                                Rotation          = NumberRange.new(0, 360),
-                                RotSpeed          = NumberRange.new(-6, 6),
-                                Rate              = 45,
-                                Lifetime          = NumberRange.new(3.5, 6.0),
-                                EmissionDirection = Enum.NormalId.Bottom,
-                                LightInfluence    = 0.82,
-                                LightEmission     = 0,
-                        },
-                },
-        },
-
         Storm = {
                 lighting = {
                         Ambient        = Color3.fromRGB( 22,  25,  38),
@@ -393,52 +279,6 @@ local PRESETS = {
                 },
         },
 
-        Sandstorm = {
-                lighting = {
-                        Ambient        = Color3.fromRGB(130, 100,  55),
-                        OutdoorAmbient = Color3.fromRGB(170, 130,  65),
-                        Brightness     = 0.7,
-                        FogEnd         = 350,
-                        FogStart       = 0,
-                        FogColor       = Color3.fromRGB(190, 148,  80),
-                },
-                atmosphere = {
-                        Density = 0.78,
-                        Offset  = 0,
-                        Color   = Color3.fromRGB(195, 152,  80),
-                        Decay   = Color3.fromRGB(120,  88,  40),
-                        Glare   = 0,
-                        Haze    = 32,
-                },
-                clouds    = { Cover = 0.35, Density = 0.3,  Color = Color3.fromRGB(175, 138,  75) },
-                soundId   = 0,  -- replace: wind/sand howl
-                particles = {
-                        {
-                                Color             = ColorSequence.new{
-                                        ColorSequenceKeypoint.new(0, Color3.fromRGB(210, 170,  90)),
-                                        ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 140,  65)),
-                                },
-                                Size              = NumberSequence.new{
-                                        NumberSequenceKeypoint.new(0,   0.30),
-                                        NumberSequenceKeypoint.new(1,   0.80),
-                                },
-                                Transparency      = NumberSequence.new{
-                                        NumberSequenceKeypoint.new(0,   0.50),
-                                        NumberSequenceKeypoint.new(0.5, 0.20),
-                                        NumberSequenceKeypoint.new(1,   0.80),
-                                },
-                                Speed             = NumberRange.new(35, 60),
-                                Rotation          = NumberRange.new(0, 360),
-                                RotSpeed          = NumberRange.new(-30, 30),
-                                Rate              = 200,
-                                Lifetime          = NumberRange.new(2, 4),
-                                EmissionDirection = Enum.NormalId.Bottom,
-                                LightInfluence    = 1,
-                                LightEmission     = 0,
-                        },
-                },
-        },
-
         Wind = {
                 lighting = {
                         Ambient        = Color3.fromRGB( 80,  80,  80),
@@ -499,8 +339,6 @@ activeWeatherValue.Parent = ReplicatedStorage
 local currentWeather      = nil
 local activeTweens        = {}
 local clockTimeTween      = nil   -- separate tween so it doesn't cancel weather presets
-local rainParticlesActive = false -- tracked so late-joining players get rain too
-local rainLocalRate       = 1500  -- current rain amount (synced to late joiners)
 
 local TWEEN_INFO = TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
@@ -717,15 +555,6 @@ CommandRemotes.WeatherSetProp.OnServerEvent:Connect(function(player, target, pro
                         end
                 end
 
-        elseif target == "RainLocal" then
-                -- Client-side rain rate — broadcast to all players
-                if prop == "Rate" and typeof(value) == "number" then
-                        rainLocalRate = math.clamp(value, 0, 5000)
-                        for _, p in Players:GetPlayers() do
-                                CommandRemotes.WeatherClientEffect:FireClient(p, "RainRate", rainLocalRate)
-                        end
-                end
-
         elseif target == "Sound" then
                 if prop == "Volume" and typeof(value) == "number" then
                         weatherSound.Volume = math.clamp(value, 0, 10)
@@ -766,13 +595,6 @@ CommandRemotes.WeatherReset.OnServerEvent:Connect(function(player)
         for _, p in Players:GetPlayers() do
                 CommandRemotes.WeatherSync:FireClient(p, "")
         end
-        -- also clear client-side rain for everyone
-        if rainParticlesActive then
-                rainParticlesActive = false
-                for _, p in Players:GetPlayers() do
-                        CommandRemotes.WeatherClientEffect:FireClient(p, "RainParticles", false)
-                end
-        end
 end)
 
 -- Toggle post-processing effects and world atmosphere/clouds
@@ -797,14 +619,6 @@ CommandRemotes.WeatherToggleEffect.OnServerEvent:Connect(function(player, effect
                 else
                         savedCloudCover = clouds.Cover
                         clouds.Cover    = 0
-                end
-
-        elseif effectName == "RainParticles" then
-                -- Rain is rendered client-side (attached to each player's character),
-                -- so just broadcast the toggle to every connected client.
-                rainParticlesActive = enabled
-                for _, p in Players:GetPlayers() do
-                        CommandRemotes.WeatherClientEffect:FireClient(p, "RainParticles", enabled)
                 end
 
         elseif POST_EFFECTS[effectName] then
