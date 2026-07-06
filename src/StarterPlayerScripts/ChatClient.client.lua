@@ -16,6 +16,7 @@ local Players              = game:GetService("Players")
 local ReplicatedStorage    = game:GetService("ReplicatedStorage")
 local RunService           = game:GetService("RunService")
 local StarterGui           = game:GetService("StarterGui")
+local TextService          = game:GetService("TextService")
 local TweenService         = game:GetService("TweenService")
 local UserInputService     = game:GetService("UserInputService")
 
@@ -54,12 +55,12 @@ local MUFFLED_DISTANCE = 33     -- studs: [Inaudible]
 local HOLD_DURATION    = 7      -- seconds bubble stays on screen
 local MAX_CHARS        = 200
 
-local BUBBLE_W    = 240    -- bubble pixel width
-local BILLBOARD_H = 600    -- BillboardGui height in pixels (300 above + 300 below head centre)
-local HEAD_GAP_PX = 110    -- pixels above head CENTRE where bubble stack bottom sits
---                           increase HEAD_GAP_PX to move text higher
-local PAD_H       = 12
-local PAD_V       = 7
+local MAX_BUBBLE_W = 300   -- max bubble pill width (pixels) — wrap kicks in above this
+local BILLBOARD_H  = 600   -- BillboardGui height in pixels (300 above + 300 below head centre)
+local HEAD_GAP_PX  = 110   -- pixels above head CENTRE where bubble stack bottom sits
+--                            increase HEAD_GAP_PX to move text higher
+local PAD_H        = 12
+local PAD_V        = 7
 local CORNER      = 10
 local FONT        = Enum.Font.GothamSemibold
 local TEXT_SIZE   = 15
@@ -167,7 +168,7 @@ local function getOrMakeSpeaker(character)
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name             = "ChatBubbles"
-	gui.Size             = UDim2.fromOffset(BUBBLE_W, BILLBOARD_H)
+	gui.Size             = UDim2.fromOffset(MAX_BUBBLE_W, BILLBOARD_H)
 	gui.StudsOffset      = Vector3.new(0, 0, 0)  -- centre locked to Head centre by Roblox
 	gui.AlwaysOnTop      = false
 	gui.LightInfluence   = 0
@@ -175,15 +176,15 @@ local function getOrMakeSpeaker(character)
 	gui.Enabled          = true
 	gui.Parent           = head
 
-	-- Container: bottom-centre anchored at (BUBBLE_W/2, BILLBOARD_H/2 - HEAD_GAP_PX)
+	-- Container: bottom-centre anchored at (MAX_BUBBLE_W/2, BILLBOARD_H/2 - HEAD_GAP_PX)
 	-- → bottom is HEAD_GAP_PX pixels above billboard centre = HEAD_GAP_PX above head centre.
 	local halfH      = BILLBOARD_H / 2              -- 300
 	local containerH = halfH - HEAD_GAP_PX          -- 190  (stack grows upward from here)
 
 	local container = Instance.new("Frame", gui)
 	container.AnchorPoint            = Vector2.new(0.5, 1)
-	container.Size                   = UDim2.fromOffset(BUBBLE_W, containerH)
-	container.Position               = UDim2.fromOffset(BUBBLE_W / 2, halfH - HEAD_GAP_PX)
+	container.Size                   = UDim2.fromOffset(MAX_BUBBLE_W, containerH)
+	container.Position               = UDim2.fromOffset(MAX_BUBBLE_W / 2, halfH - HEAD_GAP_PX)
 	container.BackgroundTransparency = 1
 	container.BorderSizePixel        = 0
 	container.Active                 = false
@@ -241,19 +242,31 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
-local BUBBLE_INNER_W = BUBBLE_W - 16   -- pixel width of each bubble pill
-
 local function createBubble(character, text)
 	local data = getOrMakeSpeaker(character)
 	if not data then return end
 
 	data.count += 1
 
-	-- Fixed width, auto height so word-wrap can expand the pill downward.
+	-- Measure both the real text and the inaudible placeholder.
+	-- The pill must fit whichever is wider so neither overflows when the
+	-- Heartbeat swaps them at runtime.  TextWrapped is always true so that
+	-- any text stays inside the pill regardless of distance tier.
+	local innerMax    = MAX_BUBBLE_W - PAD_H * 2
+	local measuredW   = TextService:GetTextSize(
+		text, TEXT_SIZE, FONT, Vector2.new(math.huge, math.huge)
+	).X
+	local altW        = TextService:GetTextSize(
+		"[ Inaudible ]", TEXT_SIZE, FONT, Vector2.new(math.huge, math.huge)
+	).X
+	local singleLineW = math.max(measuredW, altW)
+	local pillW       = (singleLineW > innerMax) and MAX_BUBBLE_W
+	                    or (singleLineW + PAD_H * 2)
+
 	local bubble = Instance.new("Frame", data.container)
 	bubble.LayoutOrder            = data.count
-	bubble.AutomaticSize          = Enum.AutomaticSize.Y
-	bubble.Size                   = UDim2.fromOffset(BUBBLE_INNER_W, 0)
+	bubble.AutomaticSize          = Enum.AutomaticSize.Y   -- height grows with wrapped text
+	bubble.Size                   = UDim2.fromOffset(pillW, 0)
 	bubble.BackgroundColor3       = BG_COLOR
 	bubble.BackgroundTransparency = 1
 	bubble.BorderSizePixel        = 0
@@ -267,17 +280,15 @@ local function createBubble(character, text)
 	pad.PaddingTop    = UDim.new(0, PAD_V)
 	pad.PaddingBottom = UDim.new(0, PAD_V)
 
-	-- Width = 1,0 fills the pill (minus padding). AutomaticSize=Y lets the height
-	-- grow with wrapped text — exactly how Discord / Roblox default chat work.
 	local label = Instance.new("TextLabel", bubble)
 	label.BackgroundTransparency = 1
-	label.AutomaticSize          = Enum.AutomaticSize.Y
-	label.Size                   = UDim2.new(1, 0, 0, 0)
+	label.AutomaticSize          = Enum.AutomaticSize.Y   -- height wraps with text
+	label.Size                   = UDim2.new(1, 0, 0, 0)  -- fills pill width minus padding
 	label.Font                   = FONT
 	label.TextSize               = TEXT_SIZE
 	label.TextColor3             = TEXT_COLOR
 	label.TextXAlignment         = Enum.TextXAlignment.Left
-	label.TextWrapped            = true
+	label.TextWrapped            = true                    -- always wrap; pill width is pre-measured
 	label.RichText               = false
 	label.TextTransparency       = 1
 	label.Text                   = text
