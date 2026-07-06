@@ -20,7 +20,7 @@ local AUTO_DISMISS = 45
 
 local popSound = Instance.new("Sound")
 popSound.Name     = "HelpPop"
-popSound.SoundId  = "rbxassetid://4607031412"
+popSound.SoundId  = "rbxasset://sounds/electronicpingshort.wav"
 popSound.Volume   = 0.5
 popSound.Parent   = SoundService
 
