@@ -108,26 +108,14 @@ local function broadcastProximity(sender: Player, rawText: string)
                 teamColorB  = teamColor.B,
         }
 
-        -- Only fire to players whose characters are within MUFFLED_DISTANCE of the
-        -- sender at the time the message is sent. The sender always gets their own
-        -- message. Players outside this range never receive the payload, so they
-        -- cannot read it even if they inspect network traffic.
-        -- Client-side RenderStepped still handles the full ↔ [Inaudible] distinction
-        -- for recipients who are between FULL_DISTANCE and MUFFLED_DISTANCE.
+        -- Broadcast to ALL players so that anyone who walks into range after the
+        -- message was sent can still see [Inaudible] during its lifetime.
+        -- The client's Heartbeat handles real-time show/hide based on distance:
+        --   ≤ FULL_DISTANCE   → full message
+        --   ≤ MUFFLED_DISTANCE → [Inaudible]
+        --   > MUFFLED_DISTANCE → bubble hidden (gui.Enabled = false)
         for _, player in Players:GetPlayers() do
-                local shouldReceive = (player == sender)
-                if not shouldReceive and senderPos then
-                        local recipPos = getPosition(player)
-                        if recipPos then
-                                shouldReceive = (senderPos - recipPos).Magnitude <= MUFFLED_DISTANCE
-                        end
-                elseif not shouldReceive and not senderPos then
-                        -- Sender has no position (e.g. spectating) — broadcast to all as fallback
-                        shouldReceive = true
-                end
-                if shouldReceive then
-                        ChatRemotes.MessageReceived:FireClient(player, payload)
-                end
+                ChatRemotes.MessageReceived:FireClient(player, payload)
         end
 end
 
