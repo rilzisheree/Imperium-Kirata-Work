@@ -41,6 +41,16 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all" },
                 permission  = "Admin",
         },
+        help = {
+                description = "Send a help request message to online admins",
+                args        = { "message" },
+                permission  = "Everyone",
+        },
+        helpui = {
+                description = "Toggle whether help request notifications are shown to you",
+                args        = {},
+                permission  = "Admin",
+        },
 }
 
 return CommandRegistry

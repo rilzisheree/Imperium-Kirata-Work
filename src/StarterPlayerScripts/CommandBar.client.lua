@@ -21,6 +21,8 @@ local COMMANDS = {
         createcorpse = { args = { "player|all", "[lifetime]" }, description = "Spawn a corpse at a player's location" },
         re       = { args = { "player|all" },                  description = "Refresh a player's character in place" },
         respawn  = { args = { "player|all" },                  description = "Respawn a player at the default spawn location" },
+        help     = { args = { "message" },                     description = "Send a help request to online admins" },
+        helpui   = { args = {},                                description = "Toggle help request notifications" },
 }
 
 -- BindableEvent that ChatLogs.client.lua listens to (we create it here so it exists when ChatLogs loads)

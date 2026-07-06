@@ -1,6 +1,7 @@
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService        = game:GetService("RunService")
+local HttpService       = game:GetService("HttpService")
 
 local CommandRemotes  = require(ReplicatedStorage:WaitForChild("CommandRemotes")  :: ModuleScript)
 local CommandRegistry = require(ReplicatedStorage:WaitForChild("CommandRegistry") :: ModuleScript)
@@ -25,6 +26,7 @@ local function getTier(player: Player): string?
 end
 
 local function hasPermission(player: Player, required: string): boolean
+        if required == "Everyone" then return true end
         local tier = getTier(player)
         if not tier then return false end
         return (TIER_ORDER[tier] or 0) >= (TIER_ORDER[required] or 99)
@@ -37,6 +39,13 @@ end
 local function fail(player: Player, msg: string)
         CommandRemotes.CommandFeedback:FireClient(player, false, msg)
 end
+
+-- per-admin preference: whether they currently want to see help request notifications
+local helpUIEnabled = {}
+
+Players.PlayerRemoving:Connect(function(player)
+        helpUIEnabled[player.UserId] = nil
+end)
 
 -- if the last word of a message is a colour name, strip it and return it separately
 local COLOUR_NAMES = {
@@ -344,6 +353,53 @@ HANDLERS["re"] = function(executor, args)
                 msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
         end
         ok(executor, msg)
+end
+
+HANDLERS["help"] = function(executor, args)
+        local message = joinArgs(args, 1)
+        if message == "" then
+                fail(executor, "Usage: help <message>")
+                return
+        end
+
+        local team      = executor.Team
+        local teamName  = team and team.Name or "No Team"
+        local teamColor = team and team.TeamColor.Color or Color3.fromRGB(200, 200, 200)
+
+        local payload = {
+                requestId       = HttpService:GenerateGUID(false),
+                fromUserId      = executor.UserId,
+                fromName        = executor.Name,
+                fromDisplayName = executor.DisplayName,
+                teamName        = teamName,
+                teamColor       = teamColor,
+                message         = message,
+        }
+
+        local sentTo = 0
+        for _, player in Players:GetPlayers() do
+                if player ~= executor and hasPermission(player, "Admin") and helpUIEnabled[player.UserId] ~= false then
+                        CommandRemotes.HelpRequest:FireClient(player, payload)
+                        sentTo += 1
+                end
+        end
+
+        if sentTo > 0 then
+                ok(executor, "Help request sent to online admins.")
+        else
+                ok(executor, "Help request sent (no admins currently online).")
+        end
+end
+
+HANDLERS["helpui"] = function(executor, args)
+        local uid     = executor.UserId
+        local current = helpUIEnabled[uid]
+        if current == nil then current = true end
+        local newState = not current
+        helpUIEnabled[uid] = newState
+
+        CommandRemotes.HelpUIToggle:FireClient(executor, newState)
+        ok(executor, "Help request notifications " .. (newState and "enabled" or "disabled") .. ".")
 end
 
 CommandRemotes.CommandExecuted.OnServerEvent:Connect(function(executor: Player, cmdName: string, args: { string })
