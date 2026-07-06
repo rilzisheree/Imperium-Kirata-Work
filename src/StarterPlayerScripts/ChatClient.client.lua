@@ -171,7 +171,7 @@ local function getOrMakeSpeaker(character)
 	-- grows proportionally with zoom — the bubble stays exactly glued to the head.
 	gui.StudsOffsetWorldSpace  = Vector3.new(0, STUD_ABOVE, 0)
 	gui.AlwaysOnTop            = false
-	gui.LightInfluence         = 0
+	gui.LightInfluence         = 1
 	gui.ClipsDescendants       = false
 	gui.Enabled                = true
 	gui.Parent                 = head
@@ -232,11 +232,12 @@ RunService.Heartbeat:Connect(function()
 
 		for _, b in ipairs(data.bubbles) do
 			if b.label and b.label.Parent then
-				-- If the bubble was locked as inaudible at creation time, it never
-				-- reveals the original text no matter how close the player moves.
-				local want = (b.lockedInaudible or not showFull)
-					and "[ Inaudible ]"
-					or b.originalText
+				-- Once a bubble becomes inaudible for any reason, lock it permanently.
+				-- Moving closer afterwards never reveals the original text.
+				if not showFull then
+					b.lockedInaudible = true
+				end
+				local want = b.lockedInaudible and "[ Inaudible ]" or b.originalText
 				if b.label.Text ~= want then b.label.Text = want end
 			end
 		end
