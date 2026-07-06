@@ -239,7 +239,7 @@ local function applyBlind(duration: number?)
 	blindGui.Enabled = true
 	blindFrame.BackgroundTransparency = 1
 
-	local fadeDuration = (duration and duration > 0) and duration or 0.6
+	local fadeDuration = (duration and duration > 0) and duration or 1.0
 	local style        = (duration and duration > 0) and Enum.EasingStyle.Linear or Enum.EasingStyle.Quint
 
 	blindTween = TweenService:Create(
@@ -260,7 +260,7 @@ local function removeBlind()
 	-- quick fade back out
 	local t = TweenService:Create(
 		blindFrame,
-		TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+		TweenInfo.new(1.0, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 		{ BackgroundTransparency = 1 }
 	)
 	t:Play()
