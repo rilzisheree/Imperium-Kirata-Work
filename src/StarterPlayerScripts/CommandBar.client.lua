@@ -1,4 +1,4 @@
--- ; or '  → open/close
+-- ;        → open/close
 -- Escape   → close
 -- Enter    → run
 -- Tab      → accept suggestion
@@ -363,8 +363,7 @@ box.FocusLost:Connect(function(enter)
 end)
 
 UserInputService.InputBegan:Connect(function(inp, gp)
-        if inp.KeyCode == Enum.KeyCode.Semicolon
-        or inp.KeyCode == Enum.KeyCode.Quote then
+        if inp.KeyCode == Enum.KeyCode.Semicolon then
                 if not gp then
                         if isOpen then close() else open() end
                 end

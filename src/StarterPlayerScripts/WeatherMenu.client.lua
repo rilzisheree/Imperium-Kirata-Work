@@ -751,6 +751,12 @@ local function buildWeatherTab()
 	makeSlider(sf, "Fog End Distance", 0, 100000, 100000, 0, function(v)
 		CommandRemotes.WeatherSetProp:FireServer("Lighting", "FogEnd", v)
 	end)
+
+	makeSection(sf, "Particles")
+
+	makeToggle(sf, "Rain Particles", false, function(enabled)
+		CommandRemotes.WeatherToggleEffect:FireServer("RainParticles", enabled)
+	end)
 end
 
 -- ── Tab: Lighting ─────────────────────────────────────────────────────────────
@@ -1052,6 +1058,13 @@ local function updateHighlight(name)
 		refs.label.TextColor3             = active and Color3.new(1, 1, 1) or C_TXT
 	end
 end
+
+-- ── Quote key toggles the weather menu ───────────────────────────────────────
+UserInputService.InputBegan:Connect(function(inp, gp)
+	if inp.KeyCode == Enum.KeyCode.Quote and not gp then
+		if isOpen then closeMenu() else openMenu() end
+	end
+end)
 
 -- ── Button connections ────────────────────────────────────────────────────────
 closeFooter.MouseButton1Click:Connect(closeMenu)

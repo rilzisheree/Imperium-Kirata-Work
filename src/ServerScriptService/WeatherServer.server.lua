@@ -339,8 +339,9 @@ activeWeatherValue.Value  = ""
 activeWeatherValue.Parent = ReplicatedStorage
 
 -- ── internal state ─────────────────────────────────────────────────────────────
-local currentWeather = nil
-local activeTweens   = {}
+local currentWeather  = nil
+local activeTweens    = {}
+local clockTimeTween  = nil  -- separate tween so it doesn't cancel weather presets
 
 local TWEEN_INFO = TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
@@ -501,7 +502,21 @@ CommandRemotes.WeatherSetProp.OnServerEvent:Connect(function(player, target, pro
 	if target == "Lighting" then
 		local numInfo = LIGHTING_NUM[prop]
 		if numInfo and typeof(value) == "number" then
-			Lighting[prop] = math.clamp(value, numInfo.min, numInfo.max)
+			local clamped = math.clamp(value, numInfo.min, numInfo.max)
+			if prop == "ClockTime" then
+				-- Tween smoothly; speed is proportional to distance (up to ~10 s for a full 24-h sweep)
+				local dist = math.abs(clamped - Lighting.ClockTime)
+				if clockTimeTween then pcall(function() clockTimeTween:Cancel() end) end
+				local dur = math.max(0.3, dist / 24 * 10)
+				clockTimeTween = TweenService:Create(
+					Lighting,
+					TweenInfo.new(dur, Enum.EasingStyle.Linear),
+					{ ClockTime = clamped }
+				)
+				clockTimeTween:Play()
+			else
+				Lighting[prop] = clamped
+			end
 		elseif LIGHTING_COLOR[prop] and typeof(value) == "Color3" then
 			Lighting[prop] = value
 		end
@@ -606,6 +621,13 @@ CommandRemotes.WeatherToggleEffect.OnServerEvent:Connect(function(player, effect
 		else
 			savedCloudCover = clouds.Cover
 			clouds.Cover    = 0
+		end
+
+	elseif effectName == "RainParticles" then
+		if enabled then
+			createParticles(PRESETS.Rain.particles)
+		else
+			clearParticles()
 		end
 
 	elseif POST_EFFECTS[effectName] then
