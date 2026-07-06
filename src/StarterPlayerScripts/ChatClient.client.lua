@@ -57,7 +57,7 @@ local MAX_CHARS        = 200
 
 local MAX_BUBBLE_W = 360   -- max bubble pill width before text wraps
 local BILLBOARD_H  = 500   -- BillboardGui pixel height for the bubble stack area
-local STUD_ABOVE   = 1.9   -- world-space studs above Head centre; scales with zoom → always glued
+local STUD_ABOVE   = 0.5   -- world-space studs above Head centre; scales with zoom → always glued
 local PAD_H        = 14
 local PAD_V        = 9
 local CORNER       = 12
