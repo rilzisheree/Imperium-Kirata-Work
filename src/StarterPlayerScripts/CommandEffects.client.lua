@@ -214,3 +214,43 @@ if CommandRemotes.IM then
 		end
 	end)
 end
+
+-- blind overlay
+local blindGui = Instance.new("ScreenGui")
+blindGui.Name           = "BlindEffect"
+blindGui.DisplayOrder   = 200   -- above game UI; CoreGui (chat, topbar) still renders on top
+blindGui.ResetOnSpawn   = false -- we handle respawn cleanup ourselves
+blindGui.IgnoreGuiInset = true
+blindGui.Enabled        = false
+blindGui.Parent         = PlayerGui
+
+local blindFrame = Instance.new("Frame", blindGui)
+blindFrame.Size                   = UDim2.new(1, 0, 1, 0)
+blindFrame.BackgroundColor3       = Color3.new(0, 0, 0)
+blindFrame.BackgroundTransparency = 0
+blindFrame.BorderSizePixel        = 0
+
+local isBlinded = false
+
+local function applyBlind()
+	if isBlinded then return end
+	isBlinded       = true
+	blindGui.Enabled = true
+end
+
+local function removeBlind()
+	if not isBlinded then return end
+	isBlinded        = false
+	blindGui.Enabled = false
+end
+
+-- clear on respawn
+LocalPlayer.CharacterAdded:Connect(removeBlind)
+
+if CommandRemotes.Blind then
+	CommandRemotes.Blind.OnClientEvent:Connect(applyBlind)
+end
+
+if CommandRemotes.Unblind then
+	CommandRemotes.Unblind.OnClientEvent:Connect(removeBlind)
+end

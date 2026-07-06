@@ -24,12 +24,16 @@ if RunService:IsServer() then
 	CommandRemotes.SM              = getOrCreate("CmdSM")
 	CommandRemotes.IM              = getOrCreate("CmdIM")
 	CommandRemotes.Anxiety         = getOrCreate("CmdAnxiety")
+	CommandRemotes.Blind           = getOrCreate("CmdBlind")
+	CommandRemotes.Unblind         = getOrCreate("CmdUnblind")
 else
 	CommandRemotes.CommandExecuted = waitFor("CmdExecuted")
 	CommandRemotes.CommandFeedback = waitFor("CmdFeedback")
 	CommandRemotes.SM              = waitFor("CmdSM")
 	CommandRemotes.IM              = waitFor("CmdIM")
 	CommandRemotes.Anxiety         = waitFor("CmdAnxiety")
+	CommandRemotes.Blind           = waitFor("CmdBlind")
+	CommandRemotes.Unblind         = waitFor("CmdUnblind")
 end
 
 return CommandRemotes

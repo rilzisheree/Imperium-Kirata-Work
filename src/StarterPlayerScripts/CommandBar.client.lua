@@ -15,7 +15,9 @@ local COMMANDS = {
 	sm       = { args = { "message" },           description = "Server message to all" },
 	im       = { args = { "player|all", "message" },  description = "Message to a player or all" },
 	anxiety  = { args = { "player|all", "level" },    description = "Anxiety effect (1–5)" },
-	chatlogs = { args = {},                       description = "Open / close chat logs" },
+	blind    = { args = { "player|all" },              description = "Black overlay on player" },
+	unblind  = { args = { "player|all" },              description = "Remove blind effect" },
+	chatlogs = { args = {},                            description = "Open / close chat logs" },
 }
 
 -- BindableEvent that ChatLogs.client.lua listens to (we create it here so it exists when ChatLogs loads)

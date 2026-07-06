@@ -16,6 +16,16 @@ CommandRegistry.COMMANDS = {
 		args        = { "player|all", "level" },
 		permission  = "Admin",
 	},
+	blind = {
+		description = "Block a player's vision with a black overlay",
+		args        = { "player|all" },
+		permission  = "Admin",
+	},
+	unblind = {
+		description = "Remove the blind effect from a player",
+		args        = { "player|all" },
+		permission  = "Admin",
+	},
 }
 
 return CommandRegistry

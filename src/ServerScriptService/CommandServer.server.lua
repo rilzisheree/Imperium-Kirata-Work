@@ -126,6 +126,28 @@ HANDLERS["anxiety"] = function(executor, args)
 	ok(executor, "Anxiety level " .. level .. " triggered on " .. recipient .. ".")
 end
 
+HANDLERS["blind"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: blind <player|all>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	for _, target in targets do
+		CommandRemotes.Blind:FireClient(target)
+	end
+	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
+	ok(executor, "Blinded " .. recipient .. ".")
+end
+
+HANDLERS["unblind"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: unblind <player|all>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	for _, target in targets do
+		CommandRemotes.Unblind:FireClient(target)
+	end
+	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
+	ok(executor, "Unblinded " .. recipient .. ".")
+end
+
 CommandRemotes.CommandExecuted.OnServerEvent:Connect(function(executor: Player, cmdName: string, args: { string })
 	if typeof(cmdName) ~= "string" then return end
 	if typeof(args) ~= "table" then args = {} end
