@@ -277,10 +277,12 @@ local function createBubble(character, text)
 			lockedInaudible = (localRoot.Position - senderRoot.Position).Magnitude > FULL_DISTANCE
 		end
 	end
-	local displayText = lockedInaudible and INAUDIBLE_TEXT or text
+	-- For width measurement use the stripped text (markers removed) so the pill
+	-- is sized to the visible content, not the raw markdown source.
+	local measureText = lockedInaudible and INAUDIBLE_TEXT or MarkdownParser.stripMarkers(text)
 
 	local INF2  = Vector2.new(math.huge, math.huge)
-	local pillW = math.min(math.ceil(TextService:GetTextSize(displayText, TEXT_SIZE, FONT, INF2).X) + PAD_H * 2 + 6, MAX_BUBBLE_W)
+	local pillW = math.min(math.ceil(TextService:GetTextSize(measureText, TEXT_SIZE, FONT, INF2).X) + PAD_H * 2 + 6, MAX_BUBBLE_W)
 
 	local bubble = Instance.new("Frame", data.container)
 	bubble.LayoutOrder            = data.count

@@ -31,6 +31,28 @@ local XML_ESC = { ["&"] = "&amp;", ["<"] = "&lt;", [">"] = "&gt;", ['"'] = "&quo
 ---return value is simply the XML-escaped plain text.
 ---@param raw string
 ---@return string
+---Return the visible text that would result from parsing `raw`, with all
+---markdown markers removed but no RichText tags added.  Use this when you
+---need to measure the rendered width/height of a string without a live label
+---(e.g. pre-calculating a bubble pill width).
+---@param raw string
+---@return string
+function MarkdownParser.stripMarkers(raw: string): string
+	if raw == "" then return "" end
+	local s = raw
+	s = s:gsub("%*%*%*(.-)%*%*%*", "%1")  -- ***…*** → content only
+	s = s:gsub("%*%*(.-)%*%*",     "%1")  -- **…**   → content only
+	s = s:gsub("%*(.-)%*",         "%1")  -- *…*     → content only
+	s = s:gsub("__(.-)__",         "%1")  -- __…__   → content only
+	s = s:gsub("~~(.-)~~",         "%1")  -- ~~…~~   → content only
+	return s
+end
+
+---Convert a raw user string to a Roblox-safe RichText string with Markdown
+---formatting applied.  If the input contains no recognised Markdown the
+---return value is simply the XML-escaped plain text.
+---@param raw string
+---@return string
 function MarkdownParser.toRichText(raw: string): string
 	if raw == "" then return "" end
 
