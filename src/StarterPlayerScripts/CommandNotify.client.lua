@@ -14,8 +14,8 @@ local C_DIM  = Color3.fromRGB(80,  80, 100)
 local C_OK   = Color3.fromRGB(130, 160, 255)
 local C_FAIL = Color3.fromRGB(215,  75,  75)
 
-local CARD_W    = 250
-local CARD_H    = 52
+local CARD_W    = 80
+local CARD_H    = 80
 local MARGIN_R  = 14
 local GAP       = 7
 local HOLD      = 2.5
@@ -92,49 +92,40 @@ local function notify(success, msg)
 	stroke.Color           = C_BOR
 	stroke.Thickness       = 1.5
 
-	-- coloured left accent bar
+	-- top accent bar (full width, colour-coded)
 	local accent = Instance.new("Frame", card)
-	accent.AnchorPoint      = Vector2.new(0, 0.5)
-	accent.Size             = UDim2.new(0, 3, 1, -14)
-	accent.Position         = UDim2.new(0, 10, 0.5, 0)
+	accent.Size             = UDim2.new(1, -16, 0, 3)
+	accent.Position         = UDim2.new(0, 8, 0, 7)
 	accent.BackgroundColor3 = success and C_OK or C_FAIL
 	accent.BorderSizePixel  = 0
 	Instance.new("UICorner", accent).CornerRadius = UDim.new(0, 2)
 
-	-- title
+	-- title (wraps across two lines to fit the square width)
 	local title = Instance.new("TextLabel", card)
-	title.Size               = UDim2.new(1, -28, 0, 17)
-	title.Position           = UDim2.new(0, 22, 0, 8)
+	title.Size               = UDim2.new(1, -14, 0, 30)
+	title.Position           = UDim2.new(0, 7, 0, 16)
 	title.BackgroundTransparency = 1
 	title.Font               = Enum.Font.GothamBold
-	title.TextSize           = 12
+	title.TextSize           = 11
 	title.TextColor3         = success and C_OK or C_FAIL
 	title.TextXAlignment     = Enum.TextXAlignment.Left
-	title.TextYAlignment     = Enum.TextYAlignment.Center
+	title.TextYAlignment     = Enum.TextYAlignment.Top
+	title.TextWrapped        = true
 	title.Text               = success and "Command Executed" or "Command Failed"
 
-	-- subtitle (server feedback message)
+	-- subtitle (server feedback message, truncated to one line)
 	local sub = Instance.new("TextLabel", card)
-	sub.Size               = UDim2.new(1, -28, 0, 14)
-	sub.Position           = UDim2.new(0, 22, 0, 27)
+	sub.Size               = UDim2.new(1, -14, 0, 16)
+	sub.Position           = UDim2.new(0, 7, 0, 52)
 	sub.BackgroundTransparency = 1
 	sub.Font               = Enum.Font.Gotham
-	sub.TextSize           = 11
+	sub.TextSize           = 10
 	sub.TextColor3         = C_DIM
 	sub.TextXAlignment     = Enum.TextXAlignment.Left
 	sub.TextYAlignment     = Enum.TextYAlignment.Center
 	sub.TextWrapped        = false
 	sub.TextTruncate       = Enum.TextTruncate.AtEnd
 	sub.Text               = msg
-
-	-- subtle top-edge highlight for depth
-	local shine = Instance.new("Frame", card)
-	shine.Size               = UDim2.new(1, -20, 0, 1)
-	shine.Position           = UDim2.new(0, 10, 0, 1)
-	shine.BackgroundColor3   = Color3.new(1, 1, 1)
-	shine.BackgroundTransparency = 0.88
-	shine.BorderSizePixel    = 0
-	Instance.new("UICorner", shine).CornerRadius = UDim.new(0, 1)
 
 	-- slide in (reflow also moves any cards that were already present)
 	reflowStack()
