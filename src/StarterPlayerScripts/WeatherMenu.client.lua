@@ -736,13 +736,15 @@ local function buildWeatherTab()
                 CommandRemotes.WeatherSetProp:FireServer("Atmosphere", "Density", v)
         end)
 
-        -- Fog intensity: 0 = clear (FogEnd 100000), 1 = thick fog (FogEnd 80)
+        -- Fog intensity: cubic curve so fog builds visibly across the full slider range.
+        -- v=0 → FogEnd 100000 (clear), v=0.5 → ~12500 (noticeable), v=1 → 80 (pea soup)
         local _, setFogIntensity = makeSlider(sf, "Fog Intensity", 0, 1, 0, 2, function(v)
-                local fogEnd = math.floor(100000 * (1 - v) + 80 * v)
+                local fogEnd = math.max(80, math.floor(100000 * (1 - v) ^ 3))
                 CommandRemotes.WeatherSetProp:FireServer("Lighting", "FogEnd", fogEnd)
         end)
         table.insert(refreshFns, function()
-                local intensity = math.clamp((100000 - Lighting.FogEnd) / (100000 - 80), 0, 1)
+                local clamped = math.max(80, math.min(100000, Lighting.FogEnd))
+                local intensity = math.clamp(1 - (clamped / 100000) ^ (1 / 3), 0, 1)
                 setFogIntensity(intensity)
         end)
 end
