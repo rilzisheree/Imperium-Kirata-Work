@@ -25,8 +25,8 @@ local ChatRemotes = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 
 local MAX_ENTRIES = 500   -- oldest entry is evicted when this is exceeded
 
-local WIN_W   = 440
-local WIN_H   = 480
+local WIN_W   = 460
+local WIN_H   = 455
 local TITLE_H = 38
 local SRCH_H  = 34
 
