@@ -752,9 +752,12 @@ local function buildWeatherTab()
 
 	makeSection(sf, "Particles")
 
-	makeToggle(sf, "Rain Particles", false, function(enabled)
+	-- Capture setState so the server can sync this toggle when Rain/Storm is applied
+	local _, setRainToggle = makeToggle(sf, "Rain Particles", false, function(enabled)
 		CommandRemotes.WeatherToggleEffect:FireServer("RainParticles", enabled)
 	end)
+	-- Expose it so the WeatherClientEffect handler can update the pill visually
+	_G.__rainToggleSet = setRainToggle
 
 	makeSlider(sf, "Rain Amount", 100, 5000, 1500, 0, function(v)
 		CommandRemotes.WeatherSetProp:FireServer("RainLocal", "Rate", v)
@@ -1137,45 +1140,68 @@ local function makePart(sx, sz)
 	return p
 end
 
--- ── Apply emitter rates (smooth tween) ───────────────────────────────────────
-local function applyRates()
+-- ── Apply emitter rates ───────────────────────────────────────────────────────
+-- startup=true  → set rates instantly so rain appears immediately, no delay
+-- startup=false → smooth tween used for live slider adjustments
+local function applyRates(startup)
 	local r = rainRate
-	local tweenRateInfo = TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	-- L1: far wide background
-	if rainPEs[1] and rainPEs[1].Parent then
-		TweenService:Create(rainPEs[1], tweenRateInfo, { Rate = math.floor(r * 1.8) }):Play()
-	end
-	-- L2: mid drops
-	if rainPEs[2] and rainPEs[2].Parent then
-		TweenService:Create(rainPEs[2], tweenRateInfo, { Rate = math.floor(r * 1.1) }):Play()
-	end
-	-- L3: close foreground
-	if rainPEs[3] and rainPEs[3].Parent then
-		TweenService:Create(rainPEs[3], tweenRateInfo, { Rate = math.floor(r * 0.65) }):Play()
-	end
-	-- L4: ground mist (only meaningful above a low threshold)
-	if rainPEs[4] and rainPEs[4].Parent then
-		TweenService:Create(rainPEs[4], tweenRateInfo, { Rate = math.max(1, math.floor(r * 0.06)) }):Play()
-	end
-	-- Overlay darkens as rain intensifies
-	if overlayFrame and overlayFrame.Parent then
-		TweenService:Create(overlayFrame,
-			TweenInfo.new(2.0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ BackgroundTransparency = overlayTarget() }
-		):Play()
-	end
-	-- Sounds cross-fade
-	if rainSoundLight and rainSoundLight.Parent then
-		TweenService:Create(rainSoundLight,
-			TweenInfo.new(1.0, Enum.EasingStyle.Quad),
-			{ Volume = rainVolLight() }
-		):Play()
-	end
-	if rainSoundHeavy and rainSoundHeavy.Parent then
-		TweenService:Create(rainSoundHeavy,
-			TweenInfo.new(1.5, Enum.EasingStyle.Quad),
-			{ Volume = rainVolHeavy() }
-		):Play()
+	if startup then
+		-- Instant: rain is visible the moment it's enabled
+		if rainPEs[1] and rainPEs[1].Parent then rainPEs[1].Rate = math.floor(r * 2.0) end
+		if rainPEs[2] and rainPEs[2].Parent then rainPEs[2].Rate = math.floor(r * 1.2) end
+		if rainPEs[3] and rainPEs[3].Parent then rainPEs[3].Rate = math.floor(r * 0.80) end
+		if rainPEs[4] and rainPEs[4].Parent then rainPEs[4].Rate = math.max(1, math.floor(r * 0.07)) end
+		if overlayFrame and overlayFrame.Parent then
+			TweenService:Create(overlayFrame,
+				TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ BackgroundTransparency = overlayTarget() }
+			):Play()
+		end
+		if rainSoundLight and rainSoundLight.Parent then
+			TweenService:Create(rainSoundLight,
+				TweenInfo.new(1.5, Enum.EasingStyle.Quad),
+				{ Volume = rainVolLight() }
+			):Play()
+		end
+		if rainSoundHeavy and rainSoundHeavy.Parent then
+			TweenService:Create(rainSoundHeavy,
+				TweenInfo.new(2.0, Enum.EasingStyle.Quad),
+				{ Volume = rainVolHeavy() }
+			):Play()
+		end
+	else
+		-- Smooth tween for slider-driven intensity changes
+		local ti = TweenInfo.new(1.0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		if rainPEs[1] and rainPEs[1].Parent then
+			TweenService:Create(rainPEs[1], ti, { Rate = math.floor(r * 2.0) }):Play()
+		end
+		if rainPEs[2] and rainPEs[2].Parent then
+			TweenService:Create(rainPEs[2], ti, { Rate = math.floor(r * 1.2) }):Play()
+		end
+		if rainPEs[3] and rainPEs[3].Parent then
+			TweenService:Create(rainPEs[3], ti, { Rate = math.floor(r * 0.80) }):Play()
+		end
+		if rainPEs[4] and rainPEs[4].Parent then
+			TweenService:Create(rainPEs[4], ti, { Rate = math.max(1, math.floor(r * 0.07)) }):Play()
+		end
+		if overlayFrame and overlayFrame.Parent then
+			TweenService:Create(overlayFrame,
+				TweenInfo.new(2.0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ BackgroundTransparency = overlayTarget() }
+			):Play()
+		end
+		if rainSoundLight and rainSoundLight.Parent then
+			TweenService:Create(rainSoundLight,
+				TweenInfo.new(1.0, Enum.EasingStyle.Quad),
+				{ Volume = rainVolLight() }
+			):Play()
+		end
+		if rainSoundHeavy and rainSoundHeavy.Parent then
+			TweenService:Create(rainSoundHeavy,
+				TweenInfo.new(1.5, Enum.EasingStyle.Quad),
+				{ Volume = rainVolHeavy() }
+			):Play()
+		end
 	end
 end
 
@@ -1293,131 +1319,144 @@ local function attachRain()
 
 	local alpha = rainAlpha()
 
+	-- Rain streak texture: a thin elongated gradient that reads clearly as a
+	-- raindrop when combined with VelocityParallel + high Squash.
+	-- rbxassetid://6101261926 is a well-known free rain-streak sprite.
+	-- If the asset fails to load the emitter falls back to the default circle,
+	-- which still works — but the streak texture makes a huge visual difference.
+	local STREAK_TEX = "rbxassetid://6101261926"
+	local MIST_TEX   = "rbxassetid://243728835"   -- soft ring/ripple for splash
+
 	-- ── Layer 1: far background streaks (80×80, 28 above cam) ────────────────
-	-- Widest coverage, most subtle — gives sense of rain in the distance.
-	-- VelocityParallel + high Squash = elongated streak aligned to fall dir.
+	-- Covers the full horizon so rain never looks like it stops at a boundary.
+	-- Slightly transparent so it reads as rain in the distance, not foreground.
 	rainParts[1] = makePart(80, 80)
 	rainPEs[1]   = Instance.new("ParticleEmitter", rainParts[1])
+	rainPEs[1].Texture = STREAK_TEX
 	rainPEs[1].Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(182, 214, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(152, 192, 248)),
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(190, 220, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 200, 248)),
 	})
 	rainPEs[1].Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.042),
-		NumberSequenceKeypoint.new(1, 0.028),
+		NumberSequenceKeypoint.new(0, 0.09),
+		NumberSequenceKeypoint.new(1, 0.06),
 	})
 	rainPEs[1].Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0,   0.42),
-		NumberSequenceKeypoint.new(0.65, 0.60),
-		NumberSequenceKeypoint.new(1,   1.00),
+		NumberSequenceKeypoint.new(0,    0.25),
+		NumberSequenceKeypoint.new(0.70, 0.55),
+		NumberSequenceKeypoint.new(1,    1.00),
 	})
-	rainPEs[1].Squash            = NumberSequence.new(12)
+	rainPEs[1].Squash            = NumberSequence.new(16)
 	rainPEs[1].Orientation       = Enum.ParticleOrientation.VelocityParallel
-	rainPEs[1].Speed             = NumberRange.new(70, 98)
+	rainPEs[1].Speed             = NumberRange.new(72, 100)
 	rainPEs[1].SpreadAngle       = Vector2.new(BASE_SPREAD, 0)
-	rainPEs[1].Rate              = 0   -- fade up via applyRates()
-	rainPEs[1].Lifetime          = NumberRange.new(0.42, 0.72)
+	rainPEs[1].Rate              = 0   -- set instantly by applyRates(true) below
+	rainPEs[1].Lifetime          = NumberRange.new(0.45, 0.75)
 	rainPEs[1].EmissionDirection = Enum.NormalId.Bottom
-	rainPEs[1].LightInfluence    = 0.50
+	rainPEs[1].LightInfluence    = 0.45
 	rainPEs[1].LightEmission     = 0
 	rainPEs[1].RotSpeed          = NumberRange.new(0, 0)
 	rainPEs[1].Rotation          = NumberRange.new(0, 0)
 
 	-- ── Layer 2: mid-distance drops (45×45, 13 above cam) ────────────────────
-	-- Bridges the gap between distant haze and close foreground drops.
+	-- More opaque than L1 — reads clearly as distinct falling drops.
 	rainParts[2] = makePart(45, 45)
 	rainPEs[2]   = Instance.new("ParticleEmitter", rainParts[2])
+	rainPEs[2].Texture = STREAK_TEX
 	rainPEs[2].Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(205, 230, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(178, 212, 252)),
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(215, 238, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(185, 218, 255)),
 	})
 	rainPEs[2].Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.052),
-		NumberSequenceKeypoint.new(1, 0.036),
+		NumberSequenceKeypoint.new(0, 0.11),
+		NumberSequenceKeypoint.new(1, 0.07),
 	})
 	rainPEs[2].Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0,   0.22),
-		NumberSequenceKeypoint.new(0.55, 0.40),
-		NumberSequenceKeypoint.new(1,   1.00),
+		NumberSequenceKeypoint.new(0,    0.10),
+		NumberSequenceKeypoint.new(0.50, 0.28),
+		NumberSequenceKeypoint.new(1,    1.00),
 	})
-	rainPEs[2].Squash            = NumberSequence.new(9)
+	rainPEs[2].Squash            = NumberSequence.new(13)
 	rainPEs[2].Orientation       = Enum.ParticleOrientation.VelocityParallel
-	rainPEs[2].Speed             = NumberRange.new(80, 110)
+	rainPEs[2].Speed             = NumberRange.new(82, 112)
 	rainPEs[2].SpreadAngle       = Vector2.new(BASE_SPREAD, 0)
 	rainPEs[2].Rate              = 0
-	rainPEs[2].Lifetime          = NumberRange.new(0.18, 0.32)
+	rainPEs[2].Lifetime          = NumberRange.new(0.16, 0.30)
 	rainPEs[2].EmissionDirection = Enum.NormalId.Bottom
-	rainPEs[2].LightInfluence    = 0.72
+	rainPEs[2].LightInfluence    = 0.70
 	rainPEs[2].LightEmission     = 0.02
 	rainPEs[2].RotSpeed          = NumberRange.new(0, 0)
 	rainPEs[2].Rotation          = NumberRange.new(0, 0)
 
 	-- ── Layer 3: close foreground drops (20×20, 4 above cam) ─────────────────
-	-- Most opaque and visible — these are the drops the player "sees" falling.
-	-- Short lifetime keeps them from clipping into the camera.
+	-- The most visible layer. Spawns almost fully opaque so individual streaks
+	-- are clearly readable as large fast-falling raindrops right in front of
+	-- the player. High squash makes each one look like a proper rain streak.
 	rainParts[3] = makePart(20, 20)
 	rainPEs[3]   = Instance.new("ParticleEmitter", rainParts[3])
+	rainPEs[3].Texture = STREAK_TEX
 	rainPEs[3].Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(228, 244, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(212, 236, 255)),
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(235, 248, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(215, 238, 255)),
 	})
 	rainPEs[3].Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0,   0.060),
-		NumberSequenceKeypoint.new(0.5, 0.052),
-		NumberSequenceKeypoint.new(1,   0.038),
+		NumberSequenceKeypoint.new(0,    0.14),
+		NumberSequenceKeypoint.new(0.50, 0.12),
+		NumberSequenceKeypoint.new(1,    0.08),
 	})
 	rainPEs[3].Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0,   0.08),
-		NumberSequenceKeypoint.new(0.45, 0.20),
-		NumberSequenceKeypoint.new(0.85, 0.72),
-		NumberSequenceKeypoint.new(1,   1.00),
+		NumberSequenceKeypoint.new(0,    0.00),   -- fully opaque at spawn
+		NumberSequenceKeypoint.new(0.40, 0.10),
+		NumberSequenceKeypoint.new(0.80, 0.60),
+		NumberSequenceKeypoint.new(1,    1.00),
 	})
-	rainPEs[3].Squash            = NumberSequence.new(10)
+	rainPEs[3].Squash            = NumberSequence.new(18)
 	rainPEs[3].Orientation       = Enum.ParticleOrientation.VelocityParallel
-	rainPEs[3].Speed             = NumberRange.new(88, 118)
+	rainPEs[3].Speed             = NumberRange.new(90, 122)
 	rainPEs[3].SpreadAngle       = Vector2.new(BASE_SPREAD, 0)
 	rainPEs[3].Rate              = 0
-	rainPEs[3].Lifetime          = NumberRange.new(0.07, 0.16)
+	rainPEs[3].Lifetime          = NumberRange.new(0.06, 0.14)
 	rainPEs[3].EmissionDirection = Enum.NormalId.Bottom
-	rainPEs[3].LightInfluence    = 0.88
-	rainPEs[3].LightEmission     = 0.04
+	rainPEs[3].LightInfluence    = 0.85
+	rainPEs[3].LightEmission     = 0.05
 	rainPEs[3].RotSpeed          = NumberRange.new(0, 0)
 	rainPEs[3].Rotation          = NumberRange.new(0, 0)
 
 	-- ── Layer 4: ground impact mist (50×50, 2 below cam) ─────────────────────
-	-- Slow outward upward puffs simulate the mist cloud kicked up on impact.
-	-- Only visible in heavier rain (rate scales steeply with alpha).
+	-- Ripple/ring texture that expands outward like a real splash puddle.
+	-- Slow upward drift simulates the mist cloud kicked up on hard surfaces.
 	rainParts[4] = makePart(50, 50)
 	rainPEs[4]   = Instance.new("ParticleEmitter", rainParts[4])
+	rainPEs[4].Texture = MIST_TEX
 	rainPEs[4].Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0,   Color3.fromRGB(208, 230, 255)),
-		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(192, 218, 252)),
-		ColorSequenceKeypoint.new(1,   Color3.fromRGB(170, 206, 248)),
+		ColorSequenceKeypoint.new(0,   Color3.fromRGB(215, 238, 255)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200, 228, 255)),
+		ColorSequenceKeypoint.new(1,   Color3.fromRGB(180, 215, 252)),
 	})
 	rainPEs[4].Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0,    0.04),
-		NumberSequenceKeypoint.new(0.20, 0.26),
-		NumberSequenceKeypoint.new(0.65, 0.42),
+		NumberSequenceKeypoint.new(0,    0.06),
+		NumberSequenceKeypoint.new(0.18, 0.35),
+		NumberSequenceKeypoint.new(0.60, 0.55),
 		NumberSequenceKeypoint.new(1,    0.00),
 	})
 	rainPEs[4].Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0,   0.60),
-		NumberSequenceKeypoint.new(0.3, 0.80),
-		NumberSequenceKeypoint.new(0.7, 0.92),
+		NumberSequenceKeypoint.new(0,   0.45),
+		NumberSequenceKeypoint.new(0.3, 0.65),
+		NumberSequenceKeypoint.new(0.7, 0.88),
 		NumberSequenceKeypoint.new(1,   1.00),
 	})
-	rainPEs[4].Speed             = NumberRange.new(2, 9)
-	rainPEs[4].SpreadAngle       = Vector2.new(72, 72)
+	rainPEs[4].Speed             = NumberRange.new(2, 10)
+	rainPEs[4].SpreadAngle       = Vector2.new(75, 75)
 	rainPEs[4].Rotation          = NumberRange.new(0, 360)
-	rainPEs[4].RotSpeed          = NumberRange.new(-12, 12)
+	rainPEs[4].RotSpeed          = NumberRange.new(-10, 10)
 	rainPEs[4].Rate              = 0
-	rainPEs[4].Lifetime          = NumberRange.new(0.45, 1.0)
+	rainPEs[4].Lifetime          = NumberRange.new(0.5, 1.1)
 	rainPEs[4].EmissionDirection = Enum.NormalId.Top
 	rainPEs[4].LightInfluence    = 1
 	rainPEs[4].LightEmission     = 0
 
-	-- Fade all layers up to the correct target rates
-	applyRates()
+	-- Set all rates instantly (rain is visible immediately, no 1-second ramp delay)
+	applyRates(true)
 
 	-- ── Sound layer 1: light rain patter ──────────────────────────────────────
 	rainSoundLight         = Instance.new("Sound", SoundService)
@@ -1517,6 +1556,9 @@ CommandRemotes.WeatherClientEffect.OnClientEvent:Connect(function(effectName, va
 	if effectName == "RainParticles" then
 		if typeof(value) ~= "boolean" then return end
 		rainEnabled = value
+		-- Keep the toggle pill in the Weather tab in sync, even when the preset
+		-- button auto-triggers rain (rather than the user flipping the toggle).
+		if _G.__rainToggleSet then _G.__rainToggleSet(value) end
 		if value then
 			attachRain()
 		else
@@ -1525,8 +1567,8 @@ CommandRemotes.WeatherClientEffect.OnClientEvent:Connect(function(effectName, va
 	elseif effectName == "RainRate" then
 		if typeof(value) ~= "number" then return end
 		rainRate = math.clamp(value, 0, 5000)
-		-- Smoothly tween all rates and cross-fade sounds to new intensity level
-		applyRates()
+		-- Smooth tween for slider-driven changes (not startup)
+		applyRates(false)
 	end
 end)
 

@@ -402,6 +402,9 @@ local function createParticles(list)
 	end
 end
 
+-- Presets that automatically activate client-side rain particles
+local RAIN_PRESETS = { Rain = true, Storm = true }
+
 local function applyWeather(weatherName)
 	local preset = PRESETS[weatherName]
 	if not preset then return end
@@ -442,6 +445,21 @@ local function applyWeather(weatherName)
 
 	currentWeather            = weatherName
 	activeWeatherValue.Value  = weatherName
+
+	-- Auto-enable client rain for Rain/Storm; disable for everything else.
+	-- This means clicking the preset immediately triggers full visible rain —
+	-- the user no longer needs to find and flip the "Rain Particles" toggle.
+	local wantsRain = RAIN_PRESETS[weatherName] == true
+	if wantsRain ~= rainParticlesActive then
+		rainParticlesActive = wantsRain
+		-- Also push the current rain rate so clients know the intensity
+		for _, player in Players:GetPlayers() do
+			CommandRemotes.WeatherClientEffect:FireClient(player, "RainParticles", wantsRain)
+			if wantsRain then
+				CommandRemotes.WeatherClientEffect:FireClient(player, "RainRate", rainLocalRate)
+			end
+		end
+	end
 
 	-- Broadcast to all clients so menus update their highlight
 	for _, player in Players:GetPlayers() do
