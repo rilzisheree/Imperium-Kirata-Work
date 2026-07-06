@@ -56,6 +56,13 @@ local HOLD_DURATION    = 7      -- seconds bubble stays on screen
 local MAX_CHARS        = 200
 
 local MAX_BUBBLE_W = 360   -- max bubble pill width before text wraps
+local INAUDIBLE_TEXT     = "[ Inaudible ]"
+-- Pre-measured once so the Heartbeat can resize pills without re-calling GetTextSize every frame.
+local INAUDIBLE_PILL_W   = math.min(
+	math.ceil(TextService:GetTextSize(INAUDIBLE_TEXT, TEXT_SIZE, Enum.Font.GothamSemibold,
+		Vector2.new(math.huge, math.huge)).X) + PAD_H * 2 + 6,
+	MAX_BUBBLE_W
+)
 local BILLBOARD_H  = 500   -- BillboardGui pixel height for the bubble stack area
 local STUD_ABOVE   = 1.9   -- world-space studs above Head centre; scales with zoom → always glued
 local PAD_H        = 14
@@ -234,10 +241,13 @@ RunService.Heartbeat:Connect(function()
 			if b.label and b.label.Parent then
 				-- Once a bubble becomes inaudible for any reason, lock it permanently.
 				-- Moving closer afterwards never reveals the original text.
-				if not showFull then
+				if not showFull and not b.lockedInaudible then
 					b.lockedInaudible = true
+					-- Resize the pill to fit "[ Inaudible ]" — it may have been created
+					-- narrow for a short message and would otherwise wrap the text.
+					b.bubble.Size = UDim2.fromOffset(INAUDIBLE_PILL_W, 0)
 				end
-				local want = b.lockedInaudible and "[ Inaudible ]" or b.originalText
+				local want = b.lockedInaudible and INAUDIBLE_TEXT or b.originalText
 				if b.label.Text ~= want then b.label.Text = want end
 			end
 		end
