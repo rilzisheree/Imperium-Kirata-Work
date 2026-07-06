@@ -3,8 +3,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService      = game:GetService("TweenService")
 local Lighting          = game:GetService("Lighting")
 
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
+local LocalPlayer    = Players.LocalPlayer
+local PlayerGui      = LocalPlayer:WaitForChild("PlayerGui")
+local MarkdownParser = require(ReplicatedStorage:WaitForChild("MarkdownParser"))
 
 local COLOR_MAP = {
 	red    = Color3.fromRGB(255,  90,  90),
@@ -72,6 +73,7 @@ smBody.TextSize               = 28
 smBody.Font                   = Enum.Font.Merriweather
 smBody.Text                   = ""
 smBody.TextWrapped            = true
+smBody.RichText               = true
 smBody.TextXAlignment         = Enum.TextXAlignment.Center
 smBody.TextYAlignment         = Enum.TextYAlignment.Top
 smBody.ZIndex                 = 10
@@ -91,6 +93,7 @@ imLabel.TextSize               = 25
 imLabel.Font                   = Enum.Font.Merriweather
 imLabel.Text                   = ""
 imLabel.TextWrapped            = true
+imLabel.RichText               = true
 imLabel.TextXAlignment         = Enum.TextXAlignment.Center
 imLabel.TextYAlignment         = Enum.TextYAlignment.Center
 imLabel.ZIndex                 = 10
@@ -114,6 +117,7 @@ notifMsg.TextSize               = 25
 notifMsg.Font                   = Enum.Font.Merriweather
 notifMsg.Text                   = ""
 notifMsg.TextWrapped            = true
+notifMsg.RichText               = true
 notifMsg.TextXAlignment         = Enum.TextXAlignment.Center
 notifMsg.TextYAlignment         = Enum.TextYAlignment.Center
 notifMsg.TextStrokeTransparency = 1
@@ -178,7 +182,7 @@ local function processSmQueue()
 	local colorName = entry.colorName
 	local hold      = calcHold(text)
 
-	smBody.Text               = text
+	smBody.Text               = MarkdownParser.toRichText(text)
 	smBody.TextColor3         = color
 	smHeader.TextColor3       = color
 	smHeader.TextTransparency = 1
@@ -223,7 +227,7 @@ local function showIM(text: string, colorName: string?)
 	local color = resolveColor(colorName)
 	local hold  = calcHold(text)
 
-	imLabel.Text             = text
+	imLabel.Text             = MarkdownParser.toRichText(text)
 	imLabel.TextColor3       = color
 	imLabel.TextTransparency = 1
 	imLabel.Visible          = true
@@ -262,7 +266,7 @@ local function processNotifQueue()
 	local entry = table.remove(notifQueue, 1)
 	local hold  = calcHold(entry.message)
 
-	notifMsg.Text                = entry.message
+	notifMsg.Text                = MarkdownParser.toRichText(entry.message)
 	notifSender.Text             = "-" .. entry.sender
 	notifMsg.TextTransparency    = 1
 	notifSender.TextTransparency = 1

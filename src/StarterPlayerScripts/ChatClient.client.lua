@@ -29,7 +29,8 @@ task.spawn(function()
 	off("BubbleChatConfiguration")
 end)
 
-local ChatRemotes = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
+local ChatRemotes    = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
+local MarkdownParser = require(ReplicatedStorage:WaitForChild("MarkdownParser"))
 
 -- distance tiers
 local FULL_DISTANCE    = 27   -- full message
@@ -254,7 +255,7 @@ RunService.Heartbeat:Connect(function()
 					b.lockedInaudible = true
 					b.bubble.Size = UDim2.fromOffset(INAUDIBLE_PILL_W, 0)
 				end
-				local want = b.lockedInaudible and INAUDIBLE_TEXT or b.originalText
+				local want = b.lockedInaudible and INAUDIBLE_TEXT or b.richText
 				if b.label.Text ~= want then b.label.Text = want end
 			end
 		end
@@ -306,16 +307,16 @@ local function createBubble(character, text)
 	label.TextColor3             = TEXT_COLOR
 	label.TextXAlignment         = Enum.TextXAlignment.Center
 	label.TextWrapped            = true
-	label.RichText               = false
+	label.RichText               = true
 	label.TextTransparency       = 1
 	label.TextStrokeTransparency = 1
-	label.Text                   = displayText
+	label.Text                   = lockedInaudible and INAUDIBLE_TEXT or MarkdownParser.toRichText(text)
 
 	local fadeIn = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	TweenService:Create(bubble, fadeIn, { BackgroundTransparency = BG_TRANS }):Play()
 	TweenService:Create(label,  fadeIn, { TextTransparency = 0 }):Play()
 
-	local entry = { label = label, bubble = bubble, originalText = text, lockedInaudible = lockedInaudible }
+	local entry = { label = label, bubble = bubble, originalText = text, richText = MarkdownParser.toRichText(text), lockedInaudible = lockedInaudible }
 	table.insert(data.bubbles, entry)
 
 	task.delay(HOLD_DURATION, function()

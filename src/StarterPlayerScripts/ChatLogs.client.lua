@@ -19,7 +19,8 @@ local UserInputService = game:GetService("UserInputService")
 local LP   = Players.LocalPlayer
 local PGui = LP:WaitForChild("PlayerGui")
 
-local ChatRemotes = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
+local ChatRemotes    = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
+local MarkdownParser = require(ReplicatedStorage:WaitForChild("MarkdownParser"))
 
 -- ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -188,7 +189,7 @@ local function buildText(entry)
 		toHex(entry.teamColor),
 		escXml(entry.teamName),
 		escXml(entry.senderName),
-		escXml(entry.message)
+		MarkdownParser.toRichText(entry.message)
 	)
 end
 
