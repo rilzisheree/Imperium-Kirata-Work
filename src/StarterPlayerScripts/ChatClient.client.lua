@@ -241,16 +241,19 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
+local BUBBLE_INNER_W = BUBBLE_W - 16   -- pixel width of each bubble pill
+
 local function createBubble(character, text)
 	local data = getOrMakeSpeaker(character)
 	if not data then return end
 
 	data.count += 1
 
+	-- Fixed width, auto height so word-wrap can expand the pill downward.
 	local bubble = Instance.new("Frame", data.container)
 	bubble.LayoutOrder            = data.count
-	bubble.AutomaticSize          = Enum.AutomaticSize.XY
-	bubble.Size                   = UDim2.new(0, 0, 0, 0)
+	bubble.AutomaticSize          = Enum.AutomaticSize.Y
+	bubble.Size                   = UDim2.fromOffset(BUBBLE_INNER_W, 0)
 	bubble.BackgroundColor3       = BG_COLOR
 	bubble.BackgroundTransparency = 1
 	bubble.BorderSizePixel        = 0
@@ -258,24 +261,18 @@ local function createBubble(character, text)
 
 	Instance.new("UICorner", bubble).CornerRadius = UDim.new(0, CORNER)
 
-	local sizeLimit = Instance.new("UISizeConstraint", bubble)
-	sizeLimit.MaxSize = Vector2.new(BUBBLE_W - 16, math.huge)
-
 	local pad = Instance.new("UIPadding", bubble)
 	pad.PaddingLeft   = UDim.new(0, PAD_H)
 	pad.PaddingRight  = UDim.new(0, PAD_H)
 	pad.PaddingTop    = UDim.new(0, PAD_V)
 	pad.PaddingBottom = UDim.new(0, PAD_V)
 
-	-- Roblox-style pop: UIScale springs from 0 → 1 with Back/Out overshoot.
-	-- The bubble fades in simultaneously so it feels snappy, not abrupt.
-	local uiScale = Instance.new("UIScale", bubble)
-	uiScale.Scale = 0
-
+	-- Width = 1,0 fills the pill (minus padding). AutomaticSize=Y lets the height
+	-- grow with wrapped text — exactly how Discord / Roblox default chat work.
 	local label = Instance.new("TextLabel", bubble)
 	label.BackgroundTransparency = 1
-	label.AutomaticSize          = Enum.AutomaticSize.XY
-	label.Size                   = UDim2.new(0, 0, 0, 0)
+	label.AutomaticSize          = Enum.AutomaticSize.Y
+	label.Size                   = UDim2.new(1, 0, 0, 0)
 	label.Font                   = FONT
 	label.TextSize               = TEXT_SIZE
 	label.TextColor3             = TEXT_COLOR
@@ -285,18 +282,32 @@ local function createBubble(character, text)
 	label.TextTransparency       = 1
 	label.Text                   = text
 
-	local popInfo = TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-	TweenService:Create(uiScale, popInfo, { Scale = 1 }):Play()
-	TweenService:Create(bubble, popInfo, { BackgroundTransparency = BG_TRANS }):Play()
-	TweenService:Create(label,  TweenInfo.new(0.1),  { TextTransparency = 0 }):Play()
+	-- Fade in: plain opacity tween, same feel as Roblox's default bubble chat.
+	local fadeIn = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(bubble, fadeIn, { BackgroundTransparency = BG_TRANS }):Play()
+	TweenService:Create(label,  fadeIn, { TextTransparency = 0 }):Play()
 
-	local entry = { label = label, originalText = text }
+	local entry = { label = label, bubble = bubble, originalText = text }
 	table.insert(data.bubbles, entry)
 
 	task.delay(HOLD_DURATION, function()
+		-- Fade out before removing.  Guard against the bubble already being
+		-- destroyed externally (PlayerRemoving, respawn, etc.).
+		if bubble.Parent then
+			local fadeOut = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+			local t1 = TweenService:Create(bubble, fadeOut, { BackgroundTransparency = 1 })
+			local t2 = TweenService:Create(label,  fadeOut, { TextTransparency = 1 })
+			t1:Play()
+			t2:Play()
+			-- Wait for the fade to finish; pcall so any mid-destroy signal
+			-- doesn't abort the cleanup block below.
+			pcall(function() t1.Completed:Wait() end)
+		end
+
+		-- Always clean up the entry regardless of what happened above.
 		local idx = table.find(data.bubbles, entry)
 		if idx then table.remove(data.bubbles, idx) end
-		bubble:Destroy()
+		pcall(function() bubble:Destroy() end)
 		if #data.bubbles == 0 and speakers[character.Name] == data then
 			pcall(function() data.gui:Destroy() end)
 			speakers[character.Name] = nil
