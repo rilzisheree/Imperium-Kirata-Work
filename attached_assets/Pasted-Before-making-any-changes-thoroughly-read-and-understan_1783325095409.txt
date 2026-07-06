@@ -1,0 +1,56 @@
+Before making any changes, thoroughly read and understand my existing admin command system, UI structure, lighting system, RemoteEvents, and overall project architecture. Reuse the current coding style and existing systems wherever possible.
+
+Create a new admin command:
+
+weather
+
+Instead of immediately changing the weather, this command should open a Weather Control menu for the admin who executed it.
+
+Weather Menu Requirements:
+- The menu should be modern, clean, and draggable.
+- Opening `weather` again should toggle the menu.
+- Only admins can open or use this menu.
+- The menu should not pause gameplay.
+- Include smooth open/close animations.
+
+Inside the menu:
+- Display a scrollable list or grid of available weather presets.
+- Each weather should have a button.
+- The currently active weather should be visually highlighted.
+- Clicking a weather immediately applies it to the entire server.
+
+Weather Presets:
+- Clear
+- Rain
+- Storm
+- Fog
+- Snow
+- Sandstorm
+- Wind
+
+Each weather should include appropriate:
+- Lighting changes
+- Atmosphere changes
+- Clouds
+- Particle effects
+- Ambient sounds
+- Fog
+- Smooth transitions using TweenService where appropriate.
+
+Additional Controls:
+- Display the currently active weather at the top of the menu.
+- Include a Refresh button to reapply the current weather if needed.
+- Include a Close button.
+- Prevent duplicate weather effects from being created.
+- Only one weather can be active at a time.
+- Switching weather should automatically clean up the previous weather before applying the new one.
+- The system should be modular so additional weather presets can easily be added later.
+
+Networking:
+- The weather should be server-controlled so every player sees the exact same weather.
+- Effects should replicate correctly to players who join while a weather is already active.
+
+Requirements:
+- Integrate this into the existing admin framework without breaking any current commands.
+- Reuse existing code where possible.
+- Keep the system efficient and easy to maintain.

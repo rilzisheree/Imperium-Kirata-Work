@@ -29,6 +29,9 @@ if RunService:IsServer() then
         CommandRemotes.HelpRequest     = getOrCreate("CmdHelpRequest")
         CommandRemotes.HelpUIToggle    = getOrCreate("CmdHelpUIToggle")
         CommandRemotes.Notif           = getOrCreate("CmdNotif")
+        CommandRemotes.WeatherOpen     = getOrCreate("CmdWeatherOpen")
+        CommandRemotes.WeatherApply    = getOrCreate("CmdWeatherApply")
+        CommandRemotes.WeatherSync     = getOrCreate("CmdWeatherSync")
 else
         CommandRemotes.CommandExecuted = waitFor("CmdExecuted")
         CommandRemotes.CommandFeedback = waitFor("CmdFeedback")
@@ -40,6 +43,9 @@ else
         CommandRemotes.HelpRequest     = waitFor("CmdHelpRequest")
         CommandRemotes.HelpUIToggle    = waitFor("CmdHelpUIToggle")
         CommandRemotes.Notif           = waitFor("CmdNotif")
+        CommandRemotes.WeatherOpen     = waitFor("CmdWeatherOpen")
+        CommandRemotes.WeatherApply    = waitFor("CmdWeatherApply")
+        CommandRemotes.WeatherSync     = waitFor("CmdWeatherSync")
 end
 
 return CommandRemotes

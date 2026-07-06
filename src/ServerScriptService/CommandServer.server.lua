@@ -385,6 +385,11 @@ HANDLERS["help"] = function(executor, args)
         ok(executor, "Help request sent.")
 end
 
+HANDLERS["weather"] = function(executor, args)
+        CommandRemotes.WeatherOpen:FireClient(executor)
+        ok(executor, "Weather panel toggled.")
+end
+
 HANDLERS["notif"] = function(executor, args)
         if #args < 2 then fail(executor, "Usage: notif <player|all> <message>") return end
         local targets = resolveTargets(executor, args[1])

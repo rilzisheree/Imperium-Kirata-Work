@@ -56,6 +56,11 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all", "message" },
                 permission  = "Admin",
         },
+        weather = {
+                description = "Open the Weather Control panel",
+                args        = {},
+                permission  = "Admin",
+        },
 }
 
 return CommandRegistry
