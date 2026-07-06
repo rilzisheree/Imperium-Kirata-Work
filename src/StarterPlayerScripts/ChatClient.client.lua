@@ -249,13 +249,6 @@ local function createBubble(character, text)
 
 	data.count += 1
 
-	-- Pill must fit whichever is wider: the real message or "[ Inaudible ]".
-	-- That way the pill never needs to rewrap when the label text is swapped at runtime.
-	local INF2     = Vector2.new(math.huge, math.huge)
-	local msgW     = TextService:GetTextSize(text,            TEXT_SIZE, FONT, INF2).X
-	local inaW     = TextService:GetTextSize("[ Inaudible ]", TEXT_SIZE, FONT, INF2).X
-	local pillW    = math.min(math.max(msgW, inaW) + PAD_H * 2, MAX_BUBBLE_W)
-
 	-- Lock the "inaudible" state at the moment the bubble is created.
 	-- If the sender was already out of full-hearing range when the message arrived,
 	-- the bubble stays as [Inaudible] for its whole lifetime — moving closer later
@@ -269,6 +262,12 @@ local function createBubble(character, text)
 		end
 	end
 	local displayText = lockedInaudible and "[ Inaudible ]" or text
+
+	-- Size the pill to fit only the text that will actually be shown.
+	-- (Previously we forced every pill to be at least as wide as "[ Inaudible ]",
+	-- which made single-word bubbles far too wide.)
+	local INF2  = Vector2.new(math.huge, math.huge)
+	local pillW = math.min(TextService:GetTextSize(displayText, TEXT_SIZE, FONT, INF2).X + PAD_H * 2, MAX_BUBBLE_W)
 
 	local bubble = Instance.new("Frame", data.container)
 	bubble.LayoutOrder            = data.count
