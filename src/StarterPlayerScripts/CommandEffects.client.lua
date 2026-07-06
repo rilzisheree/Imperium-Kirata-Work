@@ -98,29 +98,14 @@ imLabel.Visible                = false
 imLabel.Parent                 = gui
 
 -- ── notif UI ──────────────────────────────────────────────────────────────────
--- No background: just text with dark outline strokes for readability.
--- Positioned so its bottom sits 20% above the screen's bottom edge (Y = 0.80).
-local notifContainer = Instance.new("Frame")
-notifContainer.Name                   = "NotifContainer"
-notifContainer.AnchorPoint            = Vector2.new(0.5, 1)
-notifContainer.Position               = UDim2.new(0.5, 0, 0.80, 0)
-notifContainer.Size                   = UDim2.new(0.55, 0, 0, 0)
-notifContainer.AutomaticSize          = Enum.AutomaticSize.Y
-notifContainer.BackgroundTransparency = 1
-notifContainer.ZIndex                 = 10
-notifContainer.Visible                = false
-notifContainer.Parent                 = gui
-
-local notifList = Instance.new("UIListLayout", notifContainer)
-notifList.FillDirection       = Enum.FillDirection.Vertical
-notifList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-notifList.SortOrder           = Enum.SortOrder.LayoutOrder
-notifList.Padding             = UDim.new(0, 5)
-
+-- Direct children of gui (same as SM/IM) so font rendering is identical.
+-- notifMsg anchored at its bottom, notifSender anchored at its top,
+-- both pinned to Y = 0.80 so they sit ~20% above the bottom edge.
 local notifMsg = Instance.new("TextLabel")
 notifMsg.Name                   = "NotifMsg"
-notifMsg.LayoutOrder            = 1
-notifMsg.Size                   = UDim2.new(1, 0, 0, 0)
+notifMsg.AnchorPoint            = Vector2.new(0.5, 1)
+notifMsg.Position               = UDim2.new(0.5, 0, 0.80, -4)
+notifMsg.Size                   = UDim2.new(0.55, 0, 0, 0)
 notifMsg.AutomaticSize          = Enum.AutomaticSize.Y
 notifMsg.BackgroundTransparency = 1
 notifMsg.TextColor3             = DEFAULT_COLOR
@@ -133,13 +118,14 @@ notifMsg.TextXAlignment         = Enum.TextXAlignment.Center
 notifMsg.TextYAlignment         = Enum.TextYAlignment.Center
 notifMsg.TextStrokeTransparency = 1
 notifMsg.ZIndex                 = 10
-notifMsg.Parent                 = notifContainer
-
+notifMsg.Visible                = false
+notifMsg.Parent                 = gui
 
 local notifSender = Instance.new("TextLabel")
 notifSender.Name                   = "NotifSender"
-notifSender.LayoutOrder            = 2
-notifSender.Size                   = UDim2.new(1, 0, 0, 0)
+notifSender.AnchorPoint            = Vector2.new(0.5, 0)
+notifSender.Position               = UDim2.new(0.5, 0, 0.80, 4)
+notifSender.Size                   = UDim2.new(0.55, 0, 0, 0)
 notifSender.AutomaticSize          = Enum.AutomaticSize.Y
 notifSender.BackgroundTransparency = 1
 notifSender.TextColor3             = DEFAULT_COLOR
@@ -147,11 +133,13 @@ notifSender.TextTransparency       = 1
 notifSender.TextSize               = 20
 notifSender.Font                   = Enum.Font.Merriweather
 notifSender.Text                   = ""
+notifSender.TextWrapped            = true
 notifSender.TextXAlignment         = Enum.TextXAlignment.Center
 notifSender.TextYAlignment         = Enum.TextYAlignment.Center
 notifSender.TextStrokeTransparency = 1
 notifSender.ZIndex                 = 10
-notifSender.Parent                 = notifContainer
+notifSender.Visible                = false
+notifSender.Parent                 = gui
 
 
 -- reading time based on word count
@@ -273,7 +261,8 @@ local function processNotifQueue()
 	notifSender.Text             = "-" .. entry.sender
 	notifMsg.TextTransparency    = 1
 	notifSender.TextTransparency = 1
-	notifContainer.Visible       = true
+	notifMsg.Visible             = true
+	notifSender.Visible          = true
 
 	-- fade in
 	tw(notifMsg,    NOTIF_IN_T, { TextTransparency = 0 })
@@ -285,10 +274,11 @@ local function processNotifQueue()
 		tw(notifSender, NOTIF_OUT_T, { TextTransparency = 1 })
 
 		task.delay(NOTIF_OUT_T + 0.05, function()
-			notifContainer.Visible = false
-			notifMsg.Text          = ""
-			notifSender.Text       = ""
-			notifBusy              = false
+			notifMsg.Visible    = false
+			notifSender.Visible = false
+			notifMsg.Text       = ""
+			notifSender.Text    = ""
+			notifBusy           = false
 			processNotifQueue()
 		end)
 	end)
