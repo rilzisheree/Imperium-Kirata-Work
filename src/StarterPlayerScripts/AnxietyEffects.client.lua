@@ -175,7 +175,7 @@ local function runAnxiety(level: number)
         -- ── Heartbeat sound ──────────────────────────────────────────────────
         -- Free Roblox heartbeat asset (change ID if you want a different sound)
         local heartSound = Instance.new("Sound")
-        heartSound.SoundId       = "rbxassetid://131961136"
+        heartSound.SoundId       = "rbxassetid://7188240609"
         heartSound.Volume        = 0
         heartSound.PlaybackSpeed = cfg.sfxPitch
         heartSound.RollOffMaxDistance = 0
