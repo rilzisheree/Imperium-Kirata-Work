@@ -199,6 +199,79 @@ HANDLERS["createcorpse"] = function(executor, args)
         ok(executor, msg)
 end
 
+-- reloads a single player's character in place, preserving their position,
+-- orientation, and health where possible
+local function refreshPlayer(target: Player): (boolean, string)
+        local character = target.Character
+        local rootPart = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+        if not rootPart then
+                return false, target.DisplayName .. " has no character to refresh"
+        end
+
+        local savedCFrame = rootPart.CFrame
+        local oldHumanoid  = character:FindFirstChildOfClass("Humanoid")
+        local savedHealth  = oldHumanoid and oldHumanoid.Health or nil
+
+        target:LoadCharacter()
+
+        local newCharacter = target.Character
+        if not newCharacter then
+                return false, target.DisplayName .. "'s character failed to reload"
+        end
+
+        local newRoot = newCharacter:WaitForChild("HumanoidRootPart", 10) :: BasePart?
+        if not newRoot then
+                return false, target.DisplayName .. "'s character didn't finish loading in time"
+        end
+
+        newCharacter:PivotTo(savedCFrame)
+
+        if savedHealth then
+                local newHumanoid = newCharacter:FindFirstChildOfClass("Humanoid")
+                if newHumanoid then
+                        newHumanoid.Health = math.clamp(savedHealth, 0, newHumanoid.MaxHealth)
+                end
+        end
+
+        return true, target.DisplayName
+end
+
+HANDLERS["re"] = function(executor, args)
+        if #args < 1 then fail(executor, "Usage: re <player|all>") return end
+        local targets = resolveTargets(executor, args[1])
+        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+        local refreshed, failures = {}, {}
+        local remaining = #targets
+
+        for _, target in targets do
+                task.spawn(function()
+                        local success, result = refreshPlayer(target)
+                        if success then
+                                table.insert(refreshed, result)
+                        else
+                                table.insert(failures, result)
+                        end
+                        remaining -= 1
+                end)
+        end
+
+        while remaining > 0 do
+                task.wait()
+        end
+
+        if #refreshed == 0 then
+                fail(executor, "No players refreshed: " .. table.concat(failures, "; ") .. ".")
+                return
+        end
+
+        local msg = "Refreshed " .. table.concat(refreshed, ", ") .. "."
+        if #failures > 0 then
+                msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
+        end
+        ok(executor, msg)
+end
+
 CommandRemotes.CommandExecuted.OnServerEvent:Connect(function(executor: Player, cmdName: string, args: { string })
         if typeof(cmdName) ~= "string" then return end
         if typeof(args) ~= "table" then args = {} end

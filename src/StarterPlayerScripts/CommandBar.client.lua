@@ -19,6 +19,7 @@ local COMMANDS = {
         unblind  = { args = { "player|all" },              description = "Remove blind effect" },
         chatlogs = { args = {},                            description = "Open / close chat logs" },
         createcorpse = { args = { "player|all", "[lifetime]" }, description = "Spawn a corpse at a player's location" },
+        re       = { args = { "player|all" },                  description = "Refresh a player's character in place" },
 }
 
 -- BindableEvent that ChatLogs.client.lua listens to (we create it here so it exists when ChatLogs loads)

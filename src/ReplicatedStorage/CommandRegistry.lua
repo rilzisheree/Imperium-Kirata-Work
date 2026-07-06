@@ -31,6 +31,11 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all", "[lifetime]" },
                 permission  = "Admin",
         },
+        re = {
+                description = "Refresh a player's character in place (same position, orientation, and health)",
+                args        = { "player|all" },
+                permission  = "Admin",
+        },
 }
 
 return CommandRegistry
