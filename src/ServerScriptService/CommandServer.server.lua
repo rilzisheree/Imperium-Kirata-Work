@@ -376,19 +376,13 @@ HANDLERS["help"] = function(executor, args)
                 message         = message,
         }
 
-        local sentTo = 0
         for _, player in Players:GetPlayers() do
                 if hasPermission(player, "Admin") and helpUIEnabled[player.UserId] ~= false then
                         CommandRemotes.HelpRequest:FireClient(player, payload)
-                        sentTo += 1
                 end
         end
 
-        if sentTo > 0 then
-                ok(executor, "Help request sent to online admins.")
-        else
-                ok(executor, "Help request sent (no admins currently online).")
-        end
+        ok(executor, "Help request sent.")
 end
 
 HANDLERS["helpui"] = function(executor, args)
