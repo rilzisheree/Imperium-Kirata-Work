@@ -33,7 +33,7 @@ end
 
 local gui = Instance.new("ScreenGui")
 gui.Name           = "CommandEffects"
-gui.DisplayOrder   = 55
+gui.DisplayOrder   = 96
 gui.ResetOnSpawn   = false
 gui.IgnoreGuiInset = true
 gui.Parent         = PlayerGui
