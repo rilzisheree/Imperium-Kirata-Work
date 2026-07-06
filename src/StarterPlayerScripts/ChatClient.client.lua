@@ -57,7 +57,7 @@ local MAX_CHARS        = 200
 
 local MAX_BUBBLE_W = 360   -- max bubble pill width before text wraps
 local BILLBOARD_H  = 500   -- BillboardGui pixel height for the bubble stack area
-local STUD_ABOVE   = 0.5   -- world-space studs above Head centre; scales with zoom → always glued
+local STUD_ABOVE   = 1.0   -- world-space studs above Head centre; scales with zoom → always glued
 local PAD_H        = 14
 local PAD_V        = 9
 local CORNER       = 12
@@ -179,7 +179,7 @@ local function getOrMakeSpeaker(character)
 	-- grows proportionally with zoom — the bubble stays exactly glued to the head.
 	gui.StudsOffsetWorldSpace  = Vector3.new(0, STUD_ABOVE, 0)
 	gui.AlwaysOnTop            = false
-	gui.LightInfluence         = 1
+	gui.LightInfluence         = 0
 	gui.ClipsDescendants       = false
 	gui.Enabled                = true
 	gui.Parent                 = head
