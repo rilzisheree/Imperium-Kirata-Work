@@ -8,6 +8,7 @@
 
 local Players          = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService       = game:GetService("RunService")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting         = game:GetService("Lighting")
@@ -1073,38 +1074,30 @@ resetBtn.MouseButton1Click:Connect(function()
 	CommandRemotes.WeatherReset:FireServer()
 end)
 
--- ── Client-side rain particles (attached to player character) ─────────────────
-local rainEnabled = false
-local rainRate    = 1500  -- synced from server slider
-local rainPart    = nil   -- the emitter Part welded above the character
+-- ── Client-side rain particles (anchored part that tracks the camera) ─────────
+-- Follows the camera via RenderStepped — no welds, no character dependency.
+local rainEnabled  = false
+local rainRate     = 1500
+local rainPart     = nil   -- the anchored emitter Part in Workspace
+local rainStepConn = nil   -- RenderStepped connection
 
 local function detachRain()
-	if rainPart then
-		rainPart:Destroy()
-		rainPart = nil
-	end
+	if rainStepConn then rainStepConn:Disconnect(); rainStepConn = nil end
+	if rainPart     then rainPart:Destroy();        rainPart     = nil end
 end
 
-local function attachRain(char)
+local function attachRain()
 	detachRain()
 	if not rainEnabled then return end
-	local hrp = char:FindFirstChild("HumanoidRootPart")
-	if not hrp then return end
 
 	local part = Instance.new("Part")
 	part.Name         = "RainEmitter"
-	part.Size         = Vector3.new(30, 1, 30)  -- smaller = denser coverage
-	part.Anchored     = false
+	part.Size         = Vector3.new(40, 1, 40)
+	part.Anchored     = true
 	part.CanCollide   = false
 	part.Transparency = 1
 	part.CastShadow   = false
-	part.CFrame       = hrp.CFrame * CFrame.new(0, 30, 0)
-	part.Parent       = char
-
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0  = hrp
-	weld.Part1  = part
-	weld.Parent = part
+	part.Parent       = Workspace
 
 	local pe = Instance.new("ParticleEmitter")
 	pe.Color             = ColorSequence.new(Color3.fromRGB(170, 210, 255))
@@ -1121,12 +1114,16 @@ local function attachRain(char)
 	pe.Parent            = part
 
 	rainPart = part
-end
 
--- Re-attach on respawn so rain survives character resets
-LP.CharacterAdded:Connect(function(char)
-	if rainEnabled then attachRain(char) end
-end)
+	-- Move the part directly above the camera every frame
+	rainStepConn = RunService.RenderStepped:Connect(function()
+		local cam = Workspace.CurrentCamera
+		if cam then
+			local p = cam.CFrame.Position
+			part.CFrame = CFrame.new(p.X, p.Y + 20, p.Z)
+		end
+	end)
+end
 
 -- ── Remote connections ────────────────────────────────────────────────────────
 CommandRemotes.WeatherOpen.OnClientEvent:Connect(function()
@@ -1142,12 +1139,7 @@ end)
 CommandRemotes.WeatherClientEffect.OnClientEvent:Connect(function(effectName, value)
 	if effectName == "RainParticles" then
 		rainEnabled = value
-		if value then
-			local char = LP.Character
-			if char then attachRain(char) end
-		else
-			detachRain()
-		end
+		if value then attachRain() else detachRain() end
 	elseif effectName == "RainRate" then
 		rainRate = value
 		if rainPart then
