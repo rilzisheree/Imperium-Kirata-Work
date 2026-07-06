@@ -339,9 +339,10 @@ activeWeatherValue.Value  = ""
 activeWeatherValue.Parent = ReplicatedStorage
 
 -- ── internal state ─────────────────────────────────────────────────────────────
-local currentWeather  = nil
-local activeTweens    = {}
-local clockTimeTween  = nil  -- separate tween so it doesn't cancel weather presets
+local currentWeather      = nil
+local activeTweens        = {}
+local clockTimeTween      = nil   -- separate tween so it doesn't cancel weather presets
+local rainParticlesActive = false -- tracked so late-joining players get rain too
 
 local TWEEN_INFO = TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
@@ -597,6 +598,21 @@ CommandRemotes.WeatherReset.OnServerEvent:Connect(function(player)
 	for _, p in Players:GetPlayers() do
 		CommandRemotes.WeatherSync:FireClient(p, "")
 	end
+	-- also clear client-side rain for everyone
+	if rainParticlesActive then
+		rainParticlesActive = false
+		for _, p in Players:GetPlayers() do
+			CommandRemotes.WeatherClientEffect:FireClient(p, "RainParticles", false)
+		end
+	end
+end)
+
+-- Send active client effects to players who join mid-session
+Players.PlayerAdded:Connect(function(player)
+	if rainParticlesActive then
+		task.wait(2)  -- wait for client scripts to load
+		CommandRemotes.WeatherClientEffect:FireClient(player, "RainParticles", true)
+	end
 end)
 
 -- Toggle post-processing effects and world atmosphere/clouds
@@ -624,27 +640,11 @@ CommandRemotes.WeatherToggleEffect.OnServerEvent:Connect(function(player, effect
 		end
 
 	elseif effectName == "RainParticles" then
-		clearParticles()
-		if enabled then
-			-- Longer lifetime so particles fall the full ~150 studs from emitterPart to ground
-			local pe = Instance.new("ParticleEmitter")
-			local props = {
-				Color             = ColorSequence.new(Color3.fromRGB(170, 210, 255)),
-				Size              = NumberSequence.new(0.06),
-				Transparency      = NumberSequence.new(0.4),
-				Speed             = NumberRange.new(55, 70),
-				Rotation          = NumberRange.new(90, 90),
-				RotSpeed          = NumberRange.new(0, 0),
-				Rate              = 350,
-				Lifetime          = NumberRange.new(2.5, 3.5),
-				EmissionDirection = Enum.NormalId.Bottom,
-				LightInfluence    = 1,
-				LightEmission     = 0,
-			}
-			for _, key in PARTICLE_PROPS do
-				if props[key] ~= nil then pe[key] = props[key] end
-			end
-			pe.Parent = emitterPart
+		-- Rain is rendered client-side (attached to each player's character),
+		-- so just broadcast the toggle to every connected client.
+		rainParticlesActive = enabled
+		for _, p in Players:GetPlayers() do
+			CommandRemotes.WeatherClientEffect:FireClient(p, "RainParticles", enabled)
 		end
 
 	elseif POST_EFFECTS[effectName] then

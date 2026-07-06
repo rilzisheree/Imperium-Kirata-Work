@@ -1069,6 +1069,60 @@ resetBtn.MouseButton1Click:Connect(function()
 	CommandRemotes.WeatherReset:FireServer()
 end)
 
+-- ── Client-side rain particles (attached to player character) ─────────────────
+local rainEnabled = false
+local rainPart    = nil  -- the emitter Part welded above the character
+
+local function detachRain()
+	if rainPart then
+		rainPart:Destroy()
+		rainPart = nil
+	end
+end
+
+local function attachRain(char)
+	detachRain()
+	if not rainEnabled then return end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	local part = Instance.new("Part")
+	part.Name         = "RainEmitter"
+	part.Size         = Vector3.new(60, 1, 60)
+	part.Anchored     = false
+	part.CanCollide   = false
+	part.Transparency = 1
+	part.CastShadow   = false
+	part.CFrame       = hrp.CFrame * CFrame.new(0, 30, 0)
+	part.Parent       = char
+
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0  = hrp
+	weld.Part1  = part
+	weld.Parent = part
+
+	local pe = Instance.new("ParticleEmitter")
+	pe.Color             = ColorSequence.new(Color3.fromRGB(170, 210, 255))
+	pe.Size              = NumberSequence.new(0.06)
+	pe.Transparency      = NumberSequence.new(0.4)
+	pe.Speed             = NumberRange.new(40, 55)
+	pe.Rotation          = NumberRange.new(90, 90)
+	pe.RotSpeed          = NumberRange.new(0, 0)
+	pe.Rate              = 500
+	pe.Lifetime          = NumberRange.new(0.8, 1.2)
+	pe.EmissionDirection = Enum.NormalId.Bottom
+	pe.LightInfluence    = 1
+	pe.LightEmission     = 0
+	pe.Parent            = part
+
+	rainPart = part
+end
+
+-- Re-attach on respawn so rain survives character resets
+LP.CharacterAdded:Connect(function(char)
+	if rainEnabled then attachRain(char) end
+end)
+
 -- ── Remote connections ────────────────────────────────────────────────────────
 CommandRemotes.WeatherOpen.OnClientEvent:Connect(function()
 	if isOpen then closeMenu() else openMenu() end
@@ -1077,6 +1131,18 @@ end)
 CommandRemotes.WeatherSync.OnClientEvent:Connect(function(weatherName)
 	if typeof(weatherName) == "string" then
 		updateHighlight(weatherName)
+	end
+end)
+
+CommandRemotes.WeatherClientEffect.OnClientEvent:Connect(function(effectName, enabled)
+	if effectName == "RainParticles" then
+		rainEnabled = enabled
+		if enabled then
+			local char = LP.Character
+			if char then attachRain(char) end
+		else
+			detachRain()
+		end
 	end
 end)
 

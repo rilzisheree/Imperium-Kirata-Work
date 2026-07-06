@@ -34,7 +34,8 @@ if RunService:IsServer() then
         CommandRemotes.WeatherSync        = getOrCreate("CmdWeatherSync")
         CommandRemotes.WeatherSetProp     = getOrCreate("CmdWeatherSetProp")
         CommandRemotes.WeatherReset       = getOrCreate("CmdWeatherReset")
-        CommandRemotes.WeatherToggleEffect = getOrCreate("CmdWeatherToggleEffect")
+        CommandRemotes.WeatherToggleEffect  = getOrCreate("CmdWeatherToggleEffect")
+        CommandRemotes.WeatherClientEffect  = getOrCreate("CmdWeatherClientEffect")
 else
         CommandRemotes.CommandExecuted = waitFor("CmdExecuted")
         CommandRemotes.CommandFeedback = waitFor("CmdFeedback")
@@ -51,7 +52,8 @@ else
         CommandRemotes.WeatherSync        = waitFor("CmdWeatherSync")
         CommandRemotes.WeatherSetProp     = waitFor("CmdWeatherSetProp")
         CommandRemotes.WeatherReset       = waitFor("CmdWeatherReset")
-        CommandRemotes.WeatherToggleEffect = waitFor("CmdWeatherToggleEffect")
+        CommandRemotes.WeatherToggleEffect  = waitFor("CmdWeatherToggleEffect")
+        CommandRemotes.WeatherClientEffect  = waitFor("CmdWeatherClientEffect")
 end
 
 return CommandRemotes
