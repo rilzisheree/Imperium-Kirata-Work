@@ -210,25 +210,6 @@ for i = 1, MAX_AC do
         rows[i] = row
 end
 
--- ── [CMD] button ───────────────────────────────────────────────────────────────
-
-local btn = Instance.new("TextButton", sg)
-btn.AnchorPoint      = Vector2.new(1, 0)
-btn.Size             = UDim2.new(0, 54, 0, 22)
-btn.Position         = UDim2.new(1, -6, 0, 6)
-btn.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
-btn.BorderSizePixel  = 0
-btn.Text             = "[CMD]"
-btn.Font             = Enum.Font.GothamBold
-btn.TextSize         = 10
-btn.TextColor3       = C_ACC
-btn.ZIndex           = 5
-Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
-local bStroke = Instance.new("UIStroke", btn)
-bStroke.Color = C_BOR  bStroke.Thickness = 1
-bStroke.Transparency = 0.4
-bStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-
 -- ── Suggestion logic ───────────────────────────────────────────────────────────
 
 local function hideDrop()
@@ -410,10 +391,6 @@ end)
 
 box.FocusLost:Connect(function(enter)
         if enter then execute() end
-end)
-
-btn.MouseButton1Click:Connect(function()
-        if isOpen then close() else open() end
 end)
 
 UserInputService.InputBegan:Connect(function(inp, gp)
