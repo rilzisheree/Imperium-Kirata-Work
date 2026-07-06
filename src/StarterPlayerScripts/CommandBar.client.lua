@@ -12,12 +12,13 @@ local LP   = Players.LocalPlayer
 local PGui = LP:WaitForChild("PlayerGui")
 
 local COMMANDS = {
-	sm       = { args = { "message" },           description = "Server message to all" },
-	im       = { args = { "player|all", "message" },  description = "Message to a player or all" },
-	anxiety  = { args = { "player|all", "level" },    description = "Anxiety effect (1–5)" },
-	blind    = { args = { "player|all", "[duration]" }, description = "Black overlay (optional fade)" },
-	unblind  = { args = { "player|all" },              description = "Remove blind effect" },
-	chatlogs = { args = {},                            description = "Open / close chat logs" },
+        sm       = { args = { "message" },           description = "Server message to all" },
+        im       = { args = { "player|all", "message" },  description = "Message to a player or all" },
+        anxiety  = { args = { "player|all", "level" },    description = "Anxiety effect (1–5)" },
+        blind    = { args = { "player|all", "[duration]" }, description = "Black overlay (optional fade)" },
+        unblind  = { args = { "player|all" },              description = "Remove blind effect" },
+        chatlogs = { args = {},                            description = "Open / close chat logs" },
+        createcorpse = { args = { "player|all", "[lifetime]" }, description = "Spawn a corpse at a player's location" },
 }
 
 -- BindableEvent that ChatLogs.client.lua listens to (we create it here so it exists when ChatLogs loads)
@@ -109,282 +110,282 @@ Instance.new("UIListLayout", drop).SortOrder = Enum.SortOrder.LayoutOrder
 
 local rows = {}
 for i = 1, MAX_AC do
-	local row = Instance.new("Frame", drop)
-	row.LayoutOrder            = i
-	row.Size                   = UDim2.new(1, 0, 0, ROW_H)
-	row.BackgroundColor3       = Color3.fromRGB(28, 28, 42)
-	row.BackgroundTransparency = 1
-	row.BorderSizePixel        = 0
-	row.Visible                = false
-	row.ZIndex                 = 20
+        local row = Instance.new("Frame", drop)
+        row.LayoutOrder            = i
+        row.Size                   = UDim2.new(1, 0, 0, ROW_H)
+        row.BackgroundColor3       = Color3.fromRGB(28, 28, 42)
+        row.BackgroundTransparency = 1
+        row.BorderSizePixel        = 0
+        row.Visible                = false
+        row.ZIndex                 = 20
 
-	local accent = Instance.new("Frame", row)
-	accent.Name             = "Accent"
-	accent.Size             = UDim2.new(0, 3, 1, -8)
-	accent.Position         = UDim2.new(0, 4, 0, 4)
-	accent.BackgroundColor3 = C_ACC
-	accent.BorderSizePixel  = 0
-	accent.Visible          = false
-	accent.ZIndex           = 21
+        local accent = Instance.new("Frame", row)
+        accent.Name             = "Accent"
+        accent.Size             = UDim2.new(0, 3, 1, -8)
+        accent.Position         = UDim2.new(0, 4, 0, 4)
+        accent.BackgroundColor3 = C_ACC
+        accent.BorderSizePixel  = 0
+        accent.Visible          = false
+        accent.ZIndex           = 21
 
-	local nLbl = Instance.new("TextLabel", row)
-	nLbl.Name              = "N"
-	nLbl.Size              = UDim2.new(0, 160, 1, 0)
-	nLbl.Position          = UDim2.new(0, 14, 0, 0)
-	nLbl.BackgroundTransparency = 1
-	nLbl.Font              = Enum.Font.Code
-	nLbl.TextSize          = 13
-	nLbl.TextColor3        = C_TXT
-	nLbl.TextXAlignment    = Enum.TextXAlignment.Left
-	nLbl.TextYAlignment    = Enum.TextYAlignment.Center
-	nLbl.ZIndex            = 21
+        local nLbl = Instance.new("TextLabel", row)
+        nLbl.Name              = "N"
+        nLbl.Size              = UDim2.new(0, 160, 1, 0)
+        nLbl.Position          = UDim2.new(0, 14, 0, 0)
+        nLbl.BackgroundTransparency = 1
+        nLbl.Font              = Enum.Font.Code
+        nLbl.TextSize          = 13
+        nLbl.TextColor3        = C_TXT
+        nLbl.TextXAlignment    = Enum.TextXAlignment.Left
+        nLbl.TextYAlignment    = Enum.TextYAlignment.Center
+        nLbl.ZIndex            = 21
 
-	local dLbl = Instance.new("TextLabel", row)
-	dLbl.Name              = "D"
-	dLbl.Size              = UDim2.new(1, -178, 1, 0)
-	dLbl.Position          = UDim2.new(0, 174, 0, 0)
-	dLbl.BackgroundTransparency = 1
-	dLbl.Font              = Enum.Font.Gotham
-	dLbl.TextSize          = 11
-	dLbl.TextColor3        = C_DESC
-	dLbl.TextXAlignment    = Enum.TextXAlignment.Left
-	dLbl.TextYAlignment    = Enum.TextYAlignment.Center
-	dLbl.TextTruncate      = Enum.TextTruncate.AtEnd
-	dLbl.ZIndex            = 21
+        local dLbl = Instance.new("TextLabel", row)
+        dLbl.Name              = "D"
+        dLbl.Size              = UDim2.new(1, -178, 1, 0)
+        dLbl.Position          = UDim2.new(0, 174, 0, 0)
+        dLbl.BackgroundTransparency = 1
+        dLbl.Font              = Enum.Font.Gotham
+        dLbl.TextSize          = 11
+        dLbl.TextColor3        = C_DESC
+        dLbl.TextXAlignment    = Enum.TextXAlignment.Left
+        dLbl.TextYAlignment    = Enum.TextYAlignment.Center
+        dLbl.TextTruncate      = Enum.TextTruncate.AtEnd
+        dLbl.ZIndex            = 21
 
-	local div = Instance.new("Frame", row)
-	div.Name               = "Div"
-	div.Size               = UDim2.new(1, -14, 0, 1)
-	div.Position           = UDim2.new(0, 14, 1, -1)
-	div.BackgroundColor3   = C_BOR
-	div.BackgroundTransparency = 0.65
-	div.BorderSizePixel    = 0
-	div.ZIndex             = 21
+        local div = Instance.new("Frame", row)
+        div.Name               = "Div"
+        div.Size               = UDim2.new(1, -14, 0, 1)
+        div.Position           = UDim2.new(0, 14, 1, -1)
+        div.BackgroundColor3   = C_BOR
+        div.BackgroundTransparency = 0.65
+        div.BorderSizePixel    = 0
+        div.ZIndex             = 21
 
-	local rb = Instance.new("TextButton", row)
-	rb.Size               = UDim2.new(1, 0, 1, 0)
-	rb.BackgroundTransparency = 1
-	rb.Text               = ""
-	rb.ZIndex             = 22
+        local rb = Instance.new("TextButton", row)
+        rb.Size               = UDim2.new(1, 0, 1, 0)
+        rb.BackgroundTransparency = 1
+        rb.Text               = ""
+        rb.ZIndex             = 22
 
-	local ri = i
-	rb.MouseEnter:Connect(function()
-		selIdx = ri
-		for j, r in ipairs(rows) do
-			if r.Visible then
-				r.BackgroundTransparency = (j == selIdx) and 0.55 or 1
-				r:FindFirstChild("Accent").Visible = (j == selIdx)
-				local n = r:FindFirstChild("N")
-				if n then n.TextColor3 = (j == selIdx) and Color3.new(1,1,1) or C_TXT end
-			end
-		end
-	end)
-	rb.MouseButton1Click:Connect(function()
-		local s = suggestions[ri]
-		if s then acceptSuggestion(s.name) end
-	end)
+        local ri = i
+        rb.MouseEnter:Connect(function()
+                selIdx = ri
+                for j, r in ipairs(rows) do
+                        if r.Visible then
+                                r.BackgroundTransparency = (j == selIdx) and 0.55 or 1
+                                r:FindFirstChild("Accent").Visible = (j == selIdx)
+                                local n = r:FindFirstChild("N")
+                                if n then n.TextColor3 = (j == selIdx) and Color3.new(1,1,1) or C_TXT end
+                        end
+                end
+        end)
+        rb.MouseButton1Click:Connect(function()
+                local s = suggestions[ri]
+                if s then acceptSuggestion(s.name) end
+        end)
 
-	rows[i] = row
+        rows[i] = row
 end
 
 local function hideDrop()
-	suggestions = {}
-	selIdx       = 1
-	drop.Visible = false
-	for _, r in ipairs(rows) do r.Visible = false end
+        suggestions = {}
+        selIdx       = 1
+        drop.Visible = false
+        for _, r in ipairs(rows) do r.Visible = false end
 end
 
 local function showDrop()
-	local n = math.min(#suggestions, MAX_AC)
-	if n == 0 then hideDrop() return end
+        local n = math.min(#suggestions, MAX_AC)
+        if n == 0 then hideDrop() return end
 
-	drop.Size    = UDim2.new(0, BAR_W, 0, n * ROW_H)
-	drop.Visible = true
+        drop.Size    = UDim2.new(0, BAR_W, 0, n * ROW_H)
+        drop.Visible = true
 
-	for i = 1, MAX_AC do
-		local r = rows[i]
-		local s = suggestions[i]
-		r.Visible = (i <= n)
-		if s then
-			local sel = (i == selIdx)
-			r.BackgroundTransparency = sel and 0.55 or 1
-			r:FindFirstChild("Accent").Visible = sel
-			local nl = r:FindFirstChild("N")
-			local dl = r:FindFirstChild("D")
-			local dv = r:FindFirstChild("Div")
-			if nl then nl.Text = s.name;        nl.TextColor3 = sel and Color3.new(1,1,1) or C_TXT end
-			if dl then dl.Text = s.description or "" end
-			if dv then dv.Visible = (i < n) end
-		end
-	end
+        for i = 1, MAX_AC do
+                local r = rows[i]
+                local s = suggestions[i]
+                r.Visible = (i <= n)
+                if s then
+                        local sel = (i == selIdx)
+                        r.BackgroundTransparency = sel and 0.55 or 1
+                        r:FindFirstChild("Accent").Visible = sel
+                        local nl = r:FindFirstChild("N")
+                        local dl = r:FindFirstChild("D")
+                        local dv = r:FindFirstChild("Div")
+                        if nl then nl.Text = s.name;        nl.TextColor3 = sel and Color3.new(1,1,1) or C_TXT end
+                        if dl then dl.Text = s.description or "" end
+                        if dv then dv.Visible = (i < n) end
+                end
+        end
 end
 
 local function getPlayerMatches(partial)
-	local out = {}
-	local p   = partial:lower()
-	if p == "" or ("all"):sub(1, #p) == p then
-		table.insert(out, { name = "all", description = "everyone in server" })
-	end
-	if p == "" or ("me"):sub(1, #p) == p then
-		table.insert(out, { name = "me", description = "yourself" })
-	end
-	for _, plr in ipairs(Players:GetPlayers()) do
-		if plr ~= LP then
-			local nm = plr.Name
-			if p == "" or nm:lower():sub(1, #p) == p then
-				table.insert(out, { name = nm, description = plr.DisplayName })
-			end
-		end
-	end
-	return out
+        local out = {}
+        local p   = partial:lower()
+        if p == "" or ("all"):sub(1, #p) == p then
+                table.insert(out, { name = "all", description = "everyone in server" })
+        end
+        if p == "" or ("me"):sub(1, #p) == p then
+                table.insert(out, { name = "me", description = "yourself" })
+        end
+        for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LP then
+                        local nm = plr.Name
+                        if p == "" or nm:lower():sub(1, #p) == p then
+                                table.insert(out, { name = nm, description = plr.DisplayName })
+                        end
+                end
+        end
+        return out
 end
 
 local function getCmdMatches(partial)
-	local out = {}
-	local p   = partial:lower()
-	for name, def in pairs(COMMANDS) do
-		if p == "" or name:sub(1, #p) == p then
-			local hint = name
-			for _, a in ipairs(def.args) do hint = hint .. " <" .. a .. ">" end
-			table.insert(out, { name = name, description = hint })
-		end
-	end
-	table.sort(out, function(a, b) return a.name < b.name end)
-	return out
+        local out = {}
+        local p   = partial:lower()
+        for name, def in pairs(COMMANDS) do
+                if p == "" or name:sub(1, #p) == p then
+                        local hint = name
+                        for _, a in ipairs(def.args) do hint = hint .. " <" .. a .. ">" end
+                        table.insert(out, { name = name, description = hint })
+                end
+        end
+        table.sort(out, function(a, b) return a.name < b.name end)
+        return out
 end
 
 local function updateSuggestions()
-	if not isOpen then return end
+        if not isOpen then return end
 
-	local text      = box.Text
-	local endsSpace = #text > 0 and text:sub(-1) == " "
-	local words     = {}
-	for w in text:gmatch("%S+") do table.insert(words, w) end
+        local text      = box.Text
+        local endsSpace = #text > 0 and text:sub(-1) == " "
+        local words     = {}
+        for w in text:gmatch("%S+") do table.insert(words, w) end
 
-	local partial     = endsSpace and "" or (words[#words] or "")
-	local numComplete = endsSpace and #words or math.max(0, #words - 1)
+        local partial     = endsSpace and "" or (words[#words] or "")
+        local numComplete = endsSpace and #words or math.max(0, #words - 1)
 
-	if numComplete == 0 then
-		suggestions = getCmdMatches(partial)
-		selIdx      = 1
-		showDrop()
-		return
-	end
+        if numComplete == 0 then
+                suggestions = getCmdMatches(partial)
+                selIdx      = 1
+                showDrop()
+                return
+        end
 
-	local cmdName = (words[1] or ""):lower()
-	local def     = COMMANDS[cmdName]
-	local argSlot = numComplete
+        local cmdName = (words[1] or ""):lower()
+        local def     = COMMANDS[cmdName]
+        local argSlot = numComplete
 
-	local argType = def and def.args[argSlot]
-	if argType == "player" or argType == "player|all" then
-		suggestions = getPlayerMatches(partial)
-		selIdx      = 1
-		showDrop()
-		return
-	end
+        local argType = def and def.args[argSlot]
+        if argType == "player" or argType == "player|all" then
+                suggestions = getPlayerMatches(partial)
+                selIdx      = 1
+                showDrop()
+                return
+        end
 
-	hideDrop()
+        hideDrop()
 end
 
 -- replaces the last partial token with the chosen name + space
 function acceptSuggestion(name)
-	local text      = box.Text
-	local endsSpace = #text > 0 and text:sub(-1) == " "
-	local base      = endsSpace and text or (text:match("^(.*%s)") or "")
-	box.Text        = base .. name .. " "
-	task.defer(function()
-		box.CursorPosition = #box.Text + 1
-		box:CaptureFocus()
-	end)
-	updateSuggestions()
+        local text      = box.Text
+        local endsSpace = #text > 0 and text:sub(-1) == " "
+        local base      = endsSpace and text or (text:match("^(.*%s)") or "")
+        box.Text        = base .. name .. " "
+        task.defer(function()
+                box.CursorPosition = #box.Text + 1
+                box:CaptureFocus()
+        end)
+        updateSuggestions()
 end
 
 local function open()
-	if isOpen then return end
-	isOpen = true
-	frame.Visible = true
-	hideDrop()
-	box:CaptureFocus()
+        if isOpen then return end
+        isOpen = true
+        frame.Visible = true
+        hideDrop()
+        box:CaptureFocus()
 end
 
 local function close()
-	if not isOpen then return end
-	isOpen = false
-	frame.Visible = false
-	hideDrop()
-	box.Text = ""
-	box:ReleaseFocus()
+        if not isOpen then return end
+        isOpen = false
+        frame.Visible = false
+        hideDrop()
+        box.Text = ""
+        box:ReleaseFocus()
 end
 
 local function execute()
-	local raw = box.Text:match("^%s*(.-)%s*$") or ""
-	if raw == "" then close() return end
+        local raw = box.Text:match("^%s*(.-)%s*$") or ""
+        if raw == "" then close() return end
 
-	local words = {}
-	for w in raw:gmatch("%S+") do table.insert(words, w) end
-	local cmd = table.remove(words, 1):lower()
+        local words = {}
+        for w in raw:gmatch("%S+") do table.insert(words, w) end
+        local cmd = table.remove(words, 1):lower()
 
-	if cmd == "chatlogs" then
-		toggleChatLogs:Fire()
-		close()
-		return
-	end
+        if cmd == "chatlogs" then
+                toggleChatLogs:Fire()
+                close()
+                return
+        end
 
-	local remote = ReplicatedStorage:WaitForChild("CmdExecuted", 10)
-	if not remote then
-		warn("CommandBar: CmdExecuted remote not found — is CommandServer running?")
-		close()
-		return
-	end
-	remote:FireServer(cmd, words)
-	close()
+        local remote = ReplicatedStorage:WaitForChild("CmdExecuted", 10)
+        if not remote then
+                warn("CommandBar: CmdExecuted remote not found — is CommandServer running?")
+                close()
+                return
+        end
+        remote:FireServer(cmd, words)
+        close()
 end
 
 box:GetPropertyChangedSignal("Text"):Connect(function()
-	if not isOpen then return end
-	if box.Text:find("\t") then
-		local c = box.Text:gsub("\t", "")
-		box.Text = c
-		box.CursorPosition = #c + 1
-		return
-	end
-	updateSuggestions()
+        if not isOpen then return end
+        if box.Text:find("\t") then
+                local c = box.Text:gsub("\t", "")
+                box.Text = c
+                box.CursorPosition = #c + 1
+                return
+        end
+        updateSuggestions()
 end)
 
 box.FocusLost:Connect(function(enter)
-	if enter then execute() end
+        if enter then execute() end
 end)
 
 UserInputService.InputBegan:Connect(function(inp, gp)
-	if inp.KeyCode == Enum.KeyCode.Semicolon
-	or inp.KeyCode == Enum.KeyCode.Quote then
-		if not gp then
-			if isOpen then close() else open() end
-		end
-		return
-	end
+        if inp.KeyCode == Enum.KeyCode.Semicolon
+        or inp.KeyCode == Enum.KeyCode.Quote then
+                if not gp then
+                        if isOpen then close() else open() end
+                end
+                return
+        end
 
-	if not isOpen then return end
+        if not isOpen then return end
 
-	if inp.KeyCode == Enum.KeyCode.Escape then
-		close()
-		return
-	end
+        if inp.KeyCode == Enum.KeyCode.Escape then
+                close()
+                return
+        end
 
-	if inp.KeyCode == Enum.KeyCode.Tab then
-		local s = suggestions[selIdx] or suggestions[1]
-		if s then acceptSuggestion(s.name) end
-		return
-	end
+        if inp.KeyCode == Enum.KeyCode.Tab then
+                local s = suggestions[selIdx] or suggestions[1]
+                if s then acceptSuggestion(s.name) end
+                return
+        end
 
-	if inp.KeyCode == Enum.KeyCode.Up and #suggestions > 0 then
-		selIdx = ((selIdx - 2) % #suggestions) + 1
-		showDrop()
-		return
-	end
-	if inp.KeyCode == Enum.KeyCode.Down and #suggestions > 0 then
-		selIdx = (selIdx % #suggestions) + 1
-		showDrop()
-		return
-	end
+        if inp.KeyCode == Enum.KeyCode.Up and #suggestions > 0 then
+                selIdx = ((selIdx - 2) % #suggestions) + 1
+                showDrop()
+                return
+        end
+        if inp.KeyCode == Enum.KeyCode.Down and #suggestions > 0 then
+                selIdx = (selIdx % #suggestions) + 1
+                showDrop()
+                return
+        end
 end)
