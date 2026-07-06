@@ -43,8 +43,21 @@ end
 -- per-admin preference: whether they currently want to see help request notifications
 local helpUIEnabled = {}
 
+-- active countdown: stores the DistributedGameTime at which the countdown ends, or nil
+local countdownEndTime = nil
+
 Players.PlayerRemoving:Connect(function(player)
         helpUIEnabled[player.UserId] = nil
+end)
+
+-- sync an active countdown to players who join mid-countdown
+Players.PlayerAdded:Connect(function(player)
+        if countdownEndTime ~= nil then
+                local remaining = countdownEndTime - Workspace.DistributedGameTime
+                if remaining > 0.5 then
+                        CommandRemotes.CountdownStart:FireClient(player, countdownEndTime)
+                end
+        end
 end)
 
 -- if the last word of a message is a colour name, strip it and return it separately
@@ -412,6 +425,32 @@ HANDLERS["helpui"] = function(executor, args)
 
         CommandRemotes.HelpUIToggle:FireClient(executor, newState)
         ok(executor, "Help request notifications " .. (newState and "enabled" or "disabled") .. ".")
+end
+
+HANDLERS["countdown"] = function(executor, args)
+        if #args < 1 then fail(executor, "Usage: countdown <seconds>") return end
+        local seconds = tonumber(args[1])
+        if not seconds or seconds < 1 or seconds > 3600 then
+                fail(executor, "Seconds must be 1–3600.")
+                return
+        end
+        seconds = math.floor(seconds)
+
+        local myEndTime = Workspace.DistributedGameTime + seconds
+        countdownEndTime = myEndTime
+
+        for _, player in Players:GetPlayers() do
+                CommandRemotes.CountdownStart:FireClient(player, myEndTime)
+        end
+
+        -- clear the server-side record once the countdown has expired
+        task.delay(seconds + 1, function()
+                if countdownEndTime == myEndTime then
+                        countdownEndTime = nil
+                end
+        end)
+
+        ok(executor, "Countdown of " .. seconds .. "s started.")
 end
 
 CommandRemotes.CommandExecuted.OnServerEvent:Connect(function(executor: Player, cmdName: string, args: { string })

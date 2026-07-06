@@ -61,6 +61,11 @@ CommandRegistry.COMMANDS = {
                 args        = {},
                 permission  = "Admin",
         },
+        countdown = {
+                description = "Start a visible countdown for all players",
+                args        = { "seconds" },
+                permission  = "Admin",
+        },
 }
 
 return CommandRegistry
