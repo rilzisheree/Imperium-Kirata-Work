@@ -14,8 +14,8 @@ local C_DIM  = Color3.fromRGB(80,  80, 100)
 local C_OK   = Color3.fromRGB(130, 160, 255)
 local C_FAIL = Color3.fromRGB(215,  75,  75)
 
-local CARD_W    = 80
-local CARD_H    = 100
+local CARD_W    = 150
+local CARD_H    = 150
 local MARGIN_R  = 14
 local GAP       = 7
 local HOLD      = 2.5
@@ -94,36 +94,36 @@ local function notify(success, msg)
 
 	-- top accent bar (full width, colour-coded)
 	local accent = Instance.new("Frame", card)
-	accent.Size             = UDim2.new(1, -16, 0, 3)
-	accent.Position         = UDim2.new(0, 8, 0, 7)
+	accent.Size             = UDim2.new(1, -18, 0, 3)
+	accent.Position         = UDim2.new(0, 9, 0, 12)
 	accent.BackgroundColor3 = success and C_OK or C_FAIL
 	accent.BorderSizePixel  = 0
 	Instance.new("UICorner", accent).CornerRadius = UDim.new(0, 2)
 
-	-- title (wraps across two lines to fit the square width)
+	-- title
 	local title = Instance.new("TextLabel", card)
-	title.Size               = UDim2.new(1, -14, 0, 30)
-	title.Position           = UDim2.new(0, 7, 0, 16)
+	title.Size               = UDim2.new(1, -18, 0, 42)
+	title.Position           = UDim2.new(0, 9, 0, 24)
 	title.BackgroundTransparency = 1
 	title.Font               = Enum.Font.GothamBold
-	title.TextSize           = 11
+	title.TextSize           = 14
 	title.TextColor3         = success and C_OK or C_FAIL
 	title.TextXAlignment     = Enum.TextXAlignment.Left
 	title.TextYAlignment     = Enum.TextYAlignment.Top
 	title.TextWrapped        = true
 	title.Text               = success and "Command Executed" or "Command Failed"
 
-	-- subtitle (server feedback message, truncated to one line)
+	-- subtitle (server feedback message)
 	local sub = Instance.new("TextLabel", card)
-	sub.Size               = UDim2.new(1, -14, 0, 16)
-	sub.Position           = UDim2.new(0, 7, 0, 72)
+	sub.Size               = UDim2.new(1, -18, 0, 46)
+	sub.Position           = UDim2.new(0, 9, 0, 92)
 	sub.BackgroundTransparency = 1
 	sub.Font               = Enum.Font.Gotham
-	sub.TextSize           = 10
+	sub.TextSize           = 12
 	sub.TextColor3         = C_DIM
 	sub.TextXAlignment     = Enum.TextXAlignment.Left
-	sub.TextYAlignment     = Enum.TextYAlignment.Center
-	sub.TextWrapped        = false
+	sub.TextYAlignment     = Enum.TextYAlignment.Top
+	sub.TextWrapped        = true
 	sub.TextTruncate       = Enum.TextTruncate.AtEnd
 	sub.Text               = msg
 
