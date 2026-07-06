@@ -97,7 +97,7 @@ local function notify(success, msg)
 	accent.AnchorPoint      = Vector2.new(0, 0.5)
 	accent.Size             = UDim2.new(0, 3, 1, -14)
 	accent.Position         = UDim2.new(0, 10, 0.5, 0)
-	accent.BackgroundColor3 = success and C_OK or C_FAIL
+	accent.BackgroundColor3 = Color3.new(1, 1, 1)
 	accent.BorderSizePixel  = 0
 	Instance.new("UICorner", accent).CornerRadius = UDim.new(0, 2)
 
