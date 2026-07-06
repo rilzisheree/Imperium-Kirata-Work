@@ -8,17 +8,17 @@ local PGui = LP:WaitForChild("PlayerGui")
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes") :: ModuleScript)
 
 -- ── Layout ─────────────────────────────────────────────────────────────────────
-local CARD_W = 230
-local CARD_H = 48
+local CARD_W = 290
+local CARD_H = 44
 local MARGIN = 18
 
 local POS_IN = UDim2.new(0, MARGIN, 0.5, -CARD_H / 2)
 
 -- ── Colours ────────────────────────────────────────────────────────────────────
-local C_BG  = Color3.fromRGB(14,  14,  20)
-local C_BOR = Color3.fromRGB(80,  80, 110)
+local C_BG  = Color3.fromRGB(18,  18,  26)
+local C_BOR = Color3.fromRGB(70,  70, 100)
 local C_TXT = Color3.fromRGB(255, 255, 255)
-local C_BTN = Color3.fromRGB(160, 160, 180)
+local C_BTN = Color3.fromRGB(150, 150, 175)
 local C_HOV = Color3.fromRGB(255, 255, 255)
 
 -- ── Tick sound ─────────────────────────────────────────────────────────────────
@@ -31,6 +31,7 @@ tickSound.Parent             = SoundService
 -- ── Active state ───────────────────────────────────────────────────────────────
 local activeGui  = nil
 local activeTask = nil
+local muted      = false
 
 local function destroyActive()
         if activeTask then task.cancel(activeTask); activeTask = nil end
@@ -54,13 +55,12 @@ local function startCountdown(endTime: number)
         sg.Parent         = PGui
         activeGui = sg
 
-        -- Card — appears instantly at its resting position
         local card = Instance.new("Frame", sg)
         card.AnchorPoint            = Vector2.new(0, 0)
         card.Size                   = UDim2.new(0, CARD_W, 0, CARD_H)
         card.Position               = POS_IN
         card.BackgroundColor3       = C_BG
-        card.BackgroundTransparency = 0.10
+        card.BackgroundTransparency = 0.35
         card.BorderSizePixel        = 0
         card.ZIndex                 = 2
         Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
@@ -68,28 +68,46 @@ local function startCountdown(endTime: number)
         local stroke = Instance.new("UIStroke", card)
         stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         stroke.Color           = C_BOR
-        stroke.Thickness       = 1.5
+        stroke.Thickness       = 1
 
         -- Countdown label
         local label = Instance.new("TextLabel", card)
-        label.Size                   = UDim2.new(1, -40, 1, 0)
+        label.Size                   = UDim2.new(1, -82, 1, 0)
         label.Position               = UDim2.new(0, 14, 0, 0)
         label.BackgroundTransparency = 1
         label.Font                   = Enum.Font.GothamBold
-        label.TextSize               = 16
+        label.TextSize               = 14
         label.TextColor3             = C_TXT
         label.TextXAlignment         = Enum.TextXAlignment.Left
         label.TextYAlignment         = Enum.TextYAlignment.Center
         label.Text                   = labelFor(endTime - workspace.DistributedGameTime)
         label.ZIndex                 = 3
 
-        -- X button (plain ASCII X)
+        -- Mute button
+        local muteBtn = Instance.new("TextButton", card)
+        muteBtn.Size                   = UDim2.new(0, 38, 0, 28)
+        muteBtn.Position               = UDim2.new(1, -74, 0.5, -14)
+        muteBtn.BackgroundTransparency = 1
+        muteBtn.Font                   = Enum.Font.Gotham
+        muteBtn.TextSize               = 12
+        muteBtn.TextColor3             = C_BTN
+        muteBtn.Text                   = "Mute"
+        muteBtn.BorderSizePixel        = 0
+        muteBtn.ZIndex                 = 4
+        muteBtn.MouseEnter:Connect(function()  muteBtn.TextColor3 = C_HOV end)
+        muteBtn.MouseLeave:Connect(function()  muteBtn.TextColor3 = C_BTN end)
+        muteBtn.MouseButton1Click:Connect(function()
+                muted = not muted
+                muteBtn.Text = muted and "Unmute" or "Mute"
+        end)
+
+        -- X button
         local xBtn = Instance.new("TextButton", card)
-        xBtn.Size                   = UDim2.new(0, 28, 0, 28)
-        xBtn.Position               = UDim2.new(1, -34, 0.5, -14)
+        xBtn.Size                   = UDim2.new(0, 26, 0, 28)
+        xBtn.Position               = UDim2.new(1, -32, 0.5, -14)
         xBtn.BackgroundTransparency = 1
         xBtn.Font                   = Enum.Font.GothamBold
-        xBtn.TextSize               = 15
+        xBtn.TextSize               = 13
         xBtn.TextColor3             = C_BTN
         xBtn.Text                   = "X"
         xBtn.BorderSizePixel        = 0
@@ -111,7 +129,7 @@ local function startCountdown(endTime: number)
                         if floored ~= lastFloor then
                                 lastFloor  = floored
                                 label.Text = labelFor(remaining)
-                                if floored > 0 then
+                                if floored > 0 and not muted then
                                         tickSound:Play()
                                 end
                         end
