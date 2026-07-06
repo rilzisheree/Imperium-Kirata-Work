@@ -125,7 +125,7 @@ notifMsg.AutomaticSize          = Enum.AutomaticSize.Y
 notifMsg.BackgroundTransparency = 1
 notifMsg.TextColor3             = DEFAULT_COLOR
 notifMsg.TextTransparency       = 1
-notifMsg.TextSize               = 34
+notifMsg.TextSize               = 25
 notifMsg.Font                   = Enum.Font.Merriweather
 notifMsg.Text                   = ""
 notifMsg.TextWrapped            = true
@@ -146,7 +146,7 @@ notifSender.LayoutOrder            = 2
 notifSender.Size                   = UDim2.new(1, 0, 0, 0)
 notifSender.AutomaticSize          = Enum.AutomaticSize.Y
 notifSender.BackgroundTransparency = 1
-notifSender.TextColor3             = Color3.fromRGB(195, 195, 195)
+notifSender.TextColor3             = DEFAULT_COLOR
 notifSender.TextTransparency       = 1
 notifSender.TextSize               = 20
 notifSender.Font                   = Enum.Font.Merriweather
@@ -266,10 +266,9 @@ end
 local notifQueue: { { message: string, sender: string } } = {}
 local notifBusy = false
 
-local NOTIF_SLIDE   = 38   -- pixels the container travels on entry/exit
-local NOTIF_IN_T    = 0.55
-local NOTIF_OUT_T   = 0.45
-local NOTIF_REST_Y  = 0.80 -- bottom of container sits 20% above the bottom edge
+local NOTIF_IN_T   = 0.6
+local NOTIF_OUT_T  = 0.5
+local NOTIF_REST_Y = 0.80 -- bottom of container sits 20% above the bottom edge
 
 local function processNotifQueue()
 	if notifBusy or #notifQueue == 0 then return end
@@ -278,22 +277,18 @@ local function processNotifQueue()
 	local entry = table.remove(notifQueue, 1)
 	local hold  = calcHold(entry.message)
 
-	notifMsg.Text            = entry.message
-	notifSender.Text         = "-" .. entry.sender
+	notifMsg.Text                = entry.message
+	notifSender.Text             = "-" .. entry.sender
 	notifMsg.TextTransparency    = 1
 	notifSender.TextTransparency = 1
-	-- start slightly below the resting position
-	notifContainer.Position  = UDim2.new(0.5, 0, NOTIF_REST_Y, NOTIF_SLIDE)
-	notifContainer.Visible   = true
+	notifContainer.Visible       = true
 
-	-- slide up + fade in
-	tw(notifContainer, NOTIF_IN_T, { Position = UDim2.new(0.5, 0, NOTIF_REST_Y, 0) })
+	-- fade in
 	tw(notifMsg,    NOTIF_IN_T, { TextTransparency = 0 })
-	tw(notifSender, NOTIF_IN_T, { TextTransparency = 0.15 })
+	tw(notifSender, NOTIF_IN_T, { TextTransparency = 0 })
 
 	task.delay(NOTIF_IN_T + hold, function()
-		-- slide up + fade out
-		tw(notifContainer, NOTIF_OUT_T, { Position = UDim2.new(0.5, 0, NOTIF_REST_Y, -NOTIF_SLIDE) })
+		-- fade out
 		tw(notifMsg,    NOTIF_OUT_T, { TextTransparency = 1 })
 		tw(notifSender, NOTIF_OUT_T, { TextTransparency = 1 })
 
