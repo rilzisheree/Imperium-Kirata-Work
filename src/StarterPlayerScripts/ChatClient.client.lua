@@ -60,8 +60,10 @@ local INAUDIBLE_PILL_W = math.min(
 )
 
 -- input bar
-local BAR_H = 36
-local BTN_W = 34
+local BAR_H_MIN = 36    -- single-line height
+local BAR_H_MAX = 110   -- cap at ~5 lines (TextBox scrolls natively beyond this)
+local LINE_H    = 18    -- approximate rendered height of one line at TextSize 14 GothamSemibold
+local BTN_W     = 34
 
 local inputGui = Instance.new("ScreenGui")
 inputGui.Name           = "ChatInput"
@@ -72,7 +74,7 @@ inputGui.Parent         = PlayerGui
 
 local inputFrame = Instance.new("Frame", inputGui)
 inputFrame.AnchorPoint            = Vector2.new(0, 0)
-inputFrame.Size                   = UDim2.new(0.20, 0, 0, BAR_H)
+inputFrame.Size                   = UDim2.new(0.20, 0, 0, BAR_H_MIN)
 inputFrame.Position               = UDim2.new(0, 8, 0, 62)
 inputFrame.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
 inputFrame.BackgroundTransparency = 0.25
@@ -85,11 +87,13 @@ do
 end
 
 local inputBox = Instance.new("TextBox", inputFrame)
-inputBox.Size                   = UDim2.new(1, -(BTN_W + 18), 1, 0)
-inputBox.Position               = UDim2.new(0, 14, 0, 0)
+inputBox.Size                   = UDim2.new(1, -(BTN_W + 18), 0, LINE_H)
+inputBox.Position               = UDim2.new(0, 14, 0, math.floor((BAR_H_MIN - LINE_H) / 2))
 inputBox.BackgroundTransparency = 1
 inputBox.BorderSizePixel        = 0
 inputBox.ClearTextOnFocus       = false
+inputBox.MultiLine              = true
+inputBox.TextWrapped            = true
 inputBox.Font                   = Enum.Font.GothamSemibold
 inputBox.TextSize               = 14
 inputBox.TextColor3             = Color3.fromRGB(225, 225, 240)
@@ -97,13 +101,12 @@ inputBox.PlaceholderText        = "Press / to chat"
 inputBox.PlaceholderColor3      = Color3.fromRGB(120, 128, 160)
 inputBox.Text                   = ""
 inputBox.TextXAlignment         = Enum.TextXAlignment.Left
-inputBox.TextYAlignment         = Enum.TextYAlignment.Center
-inputBox.MultiLine              = false
+inputBox.TextYAlignment         = Enum.TextYAlignment.Top
 
 local sendBtn = Instance.new("TextButton", inputFrame)
-sendBtn.AnchorPoint            = Vector2.new(1, 0.5)
-sendBtn.Size                   = UDim2.new(0, BTN_W, 1, -10)
-sendBtn.Position               = UDim2.new(1, -5, 0.5, 0)
+sendBtn.AnchorPoint            = Vector2.new(1, 0)
+sendBtn.Size                   = UDim2.new(0, BTN_W, 0, BAR_H_MIN - 10)
+sendBtn.Position               = UDim2.new(1, -5, 0, 5)
 sendBtn.BackgroundColor3       = Color3.fromRGB(18, 18, 18)
 sendBtn.BackgroundTransparency = 0
 sendBtn.BorderSizePixel        = 0
@@ -118,6 +121,38 @@ do
 	s.Color = Color3.fromRGB(35, 35, 35); s.Thickness = 1
 	s.Transparency = 0.3; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 end
+
+-- ── Measurement proxy ─────────────────────────────────────────────────────────
+-- Invisible TextLabel that mirrors inputBox content.  TextLabel.TextBounds
+-- correctly reports wrapped height; TextBox.TextBounds does not.
+local measureLabel = Instance.new("TextLabel", inputFrame)
+measureLabel.Size                   = UDim2.new(1, -(BTN_W + 18), 0, 0)
+measureLabel.Position               = UDim2.new(0, 14, 0, 0)
+measureLabel.BackgroundTransparency = 1
+measureLabel.TextTransparency       = 1
+measureLabel.Visible                = false
+measureLabel.Font                   = Enum.Font.GothamSemibold
+measureLabel.TextSize               = 14
+measureLabel.TextWrapped            = true
+measureLabel.TextXAlignment         = Enum.TextXAlignment.Left
+measureLabel.TextYAlignment         = Enum.TextYAlignment.Top
+measureLabel.Text                   = ""
+
+-- ── Auto-height logic ─────────────────────────────────────────────────────────
+local function updateBarHeight()
+	local textH = math.max(measureLabel.TextBounds.Y, LINE_H)
+	local newH  = math.clamp(textH + 12, BAR_H_MIN, BAR_H_MAX)
+
+	inputFrame.Size = UDim2.new(0.20, 0, 0, newH)
+
+	-- Vertically center on a single line; top-align when text spans multiple.
+	local innerH  = newH - 12
+	local yOffset = math.max(0, math.floor((innerH - textH) / 2))
+	inputBox.Position = UDim2.new(0, 14, 0, 6 + yOffset)
+	inputBox.Size     = UDim2.new(1, -(BTN_W + 18), 0, innerH - yOffset)
+end
+
+measureLabel:GetPropertyChangedSignal("TextBounds"):Connect(updateBarHeight)
 
 -- bubble system
 local speakers = {}
@@ -329,14 +364,31 @@ local function submitMessage()
 	if text ~= "" then
 		ChatRemotes.MessageSent:FireServer(text)
 	end
-	inputBox.Text = ""
+	inputBox.Text     = ""
+	measureLabel.Text = ""
 	inputBox:ReleaseFocus()
+	-- Reset bar to single-line height.
+	inputFrame.Size   = UDim2.new(0.20, 0, 0, BAR_H_MIN)
+	inputBox.Position = UDim2.new(0, 14, 0, math.floor((BAR_H_MIN - LINE_H) / 2))
+	inputBox.Size     = UDim2.new(1, -(BTN_W + 18), 0, LINE_H)
 end
 
 inputBox:GetPropertyChangedSignal("Text"):Connect(function()
+	-- Strip control characters (newlines inserted by MultiLine on Enter).
+	local dirty = inputBox.Text:find("[\n\r]")
+	if dirty then
+		local c = inputBox.Text:gsub("[\n\r]", "")
+		inputBox.Text = c
+		inputBox.CursorPosition = #c + 1
+		return
+	end
+	-- Enforce character limit.
 	if #inputBox.Text > MAX_CHARS then
 		inputBox.Text = inputBox.Text:sub(1, MAX_CHARS)
+		return
 	end
+	-- Mirror into measurement label so TextBounds reflects wrapped height.
+	measureLabel.Text = inputBox.Text ~= "" and inputBox.Text or " "
 end)
 
 sendBtn.MouseButton1Click:Connect(submitMessage)
