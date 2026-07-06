@@ -108,7 +108,7 @@ local function notify(success, msg)
 	title.BackgroundTransparency = 1
 	title.Font               = Enum.Font.GothamBold
 	title.TextSize           = 12
-	title.TextColor3         = success and C_OK or C_FAIL
+	title.TextColor3         = Color3.new(1, 1, 1)
 	title.TextXAlignment     = Enum.TextXAlignment.Left
 	title.TextYAlignment     = Enum.TextYAlignment.Center
 	title.TextWrapped        = false
@@ -121,7 +121,7 @@ local function notify(success, msg)
 	sub.BackgroundTransparency = 1
 	sub.Font               = Enum.Font.Gotham
 	sub.TextSize           = 11
-	sub.TextColor3         = C_DIM
+	sub.TextColor3         = Color3.fromRGB(170, 170, 190)
 	sub.TextXAlignment     = Enum.TextXAlignment.Left
 	sub.TextYAlignment     = Enum.TextYAlignment.Center
 	sub.TextWrapped        = false
