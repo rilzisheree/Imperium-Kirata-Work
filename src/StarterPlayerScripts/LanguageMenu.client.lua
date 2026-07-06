@@ -63,10 +63,13 @@ indicator.TextColor3             = Color3.new(1, 1, 1)
 indicator.TextXAlignment         = Enum.TextXAlignment.Right
 indicator.TextYAlignment         = Enum.TextYAlignment.Center
 indicator.Text                   = "Language: English"
+indicator.Visible                = false   -- hidden until the server confirms a grant
 indicator.ZIndex                 = 5
 
 local function updateIndicator()
-	indicator.Text = "Language: " .. (selectedLanguage or "English")
+	indicator.Text    = "Language: " .. (selectedLanguage or "English")
+	-- Show the indicator only when the player has at least one granted language.
+	indicator.Visible = #grantedLanguages > 0
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
