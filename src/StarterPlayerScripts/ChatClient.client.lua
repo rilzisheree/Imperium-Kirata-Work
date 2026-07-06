@@ -248,20 +248,12 @@ local function createBubble(character, text)
 
 	data.count += 1
 
-	-- Measure both the real text and the inaudible placeholder.
-	-- The pill must fit whichever is wider so neither overflows when the
-	-- Heartbeat swaps them at runtime.  TextWrapped is always true so that
-	-- any text stays inside the pill regardless of distance tier.
-	local innerMax    = MAX_BUBBLE_W - PAD_H * 2
-	local measuredW   = TextService:GetTextSize(
+	-- Pill is exactly as wide as the text, capped at MAX_BUBBLE_W.
+	-- TextWrapped=true means anything that doesn't fit wraps downward instead of overflowing.
+	local measuredW = TextService:GetTextSize(
 		text, TEXT_SIZE, FONT, Vector2.new(math.huge, math.huge)
 	).X
-	local altW        = TextService:GetTextSize(
-		"[ Inaudible ]", TEXT_SIZE, FONT, Vector2.new(math.huge, math.huge)
-	).X
-	local singleLineW = math.max(measuredW, altW)
-	local pillW       = (singleLineW > innerMax) and MAX_BUBBLE_W
-	                    or (singleLineW + PAD_H * 2)
+	local pillW = math.min(measuredW + PAD_H * 2, MAX_BUBBLE_W)
 
 	local bubble = Instance.new("Frame", data.container)
 	bubble.LayoutOrder            = data.count
