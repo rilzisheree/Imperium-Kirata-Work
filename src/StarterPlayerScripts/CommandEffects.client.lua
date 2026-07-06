@@ -1,8 +1,3 @@
---[[
-        CommandEffects.client.lua
-        LocalScript — StarterPlayerScripts
-]]
-
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService      = game:GetService("TweenService")
@@ -11,36 +6,30 @@ local Lighting          = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
 
--- ── Colour map ─────────────────────────────────────────────────────────────────
-
 local COLOR_MAP = {
-        red    = Color3.fromRGB(255,  90,  90),
-        blue   = Color3.fromRGB(110, 160, 255),
-        green  = Color3.fromRGB( 90, 220,  90),
-        yellow = Color3.fromRGB(255, 230,  80),
-        orange = Color3.fromRGB(255, 160,  60),
-        purple = Color3.fromRGB(190, 110, 255),
-        pink   = Color3.fromRGB(255, 140, 210),
-        white  = Color3.fromRGB(255, 255, 255),
-        cyan   = Color3.fromRGB( 90, 225, 255),
-        lime   = Color3.fromRGB(140, 255,  90),
+	red    = Color3.fromRGB(255,  90,  90),
+	blue   = Color3.fromRGB(110, 160, 255),
+	green  = Color3.fromRGB( 90, 220,  90),
+	yellow = Color3.fromRGB(255, 230,  80),
+	orange = Color3.fromRGB(255, 160,  60),
+	purple = Color3.fromRGB(190, 110, 255),
+	pink   = Color3.fromRGB(255, 140, 210),
+	white  = Color3.fromRGB(255, 255, 255),
+	cyan   = Color3.fromRGB( 90, 225, 255),
+	lime   = Color3.fromRGB(140, 255,  90),
 }
 local DEFAULT_COLOR = Color3.fromRGB(255, 255, 255)
 
 local function resolveColor(name: string?): Color3
-        if name and COLOR_MAP[name:lower()] then
-                return COLOR_MAP[name:lower()]
-        end
-        return DEFAULT_COLOR
+	if name and COLOR_MAP[name:lower()] then
+		return COLOR_MAP[name:lower()]
+	end
+	return DEFAULT_COLOR
 end
-
--- ── Tween helper ───────────────────────────────────────────────────────────────
 
 local function tw(target, time, props)
-        TweenService:Create(target, TweenInfo.new(time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), props):Play()
+	TweenService:Create(target, TweenInfo.new(time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), props):Play()
 end
-
--- ── Root ScreenGui ─────────────────────────────────────────────────────────────
 
 local gui = Instance.new("ScreenGui")
 gui.Name           = "CommandEffects"
@@ -49,13 +38,9 @@ gui.ResetOnSpawn   = false
 gui.IgnoreGuiInset = true
 gui.Parent         = PlayerGui
 
--- ── Blur (SM only) ─────────────────────────────────────────────────────────────
-
 local blur = Instance.new("BlurEffect")
 blur.Size   = 0
 blur.Parent = Lighting
-
--- ── SM labels ──────────────────────────────────────────────────────────────────
 
 local smHeader = Instance.new("TextLabel")
 smHeader.Name                   = "SMHeader"
@@ -87,14 +72,11 @@ smBody.TextSize               = 28
 smBody.Font                   = Enum.Font.Merriweather
 smBody.Text                   = ""
 smBody.TextWrapped            = true
-smBody.TextScaled             = false
 smBody.TextXAlignment         = Enum.TextXAlignment.Center
 smBody.TextYAlignment         = Enum.TextYAlignment.Top
 smBody.ZIndex                 = 10
 smBody.Visible                = false
 smBody.Parent                 = gui
-
--- ── IM label ───────────────────────────────────────────────────────────────────
 
 local imLabel = Instance.new("TextLabel")
 imLabel.Name                   = "IMLabel"
@@ -115,133 +97,120 @@ imLabel.ZIndex                 = 10
 imLabel.Visible                = false
 imLabel.Parent                 = gui
 
--- ── Hold time ──────────────────────────────────────────────────────────────────
-
+-- reading time based on word count
 local function calcHold(text: string): number
-        local words = select(2, text:gsub("%S+", "")) + 1
-        return math.clamp(words * 0.45, 4, 10)
+	local words = select(2, text:gsub("%S+", "")) + 1
+	return math.clamp(words * 0.45, 4, 10)
 end
 
--- ── Glow helper ────────────────────────────────────────────────────────────────
--- Adds a UIStroke to each label so the text glows in the message colour.
--- Returns a cleanup function that removes the strokes.
-
+-- adds a coloured UIStroke to make text glow, returns a cleanup fn
 local function applyGlow(color: Color3, labels: { TextLabel }): () -> ()
-        local strokes = {}
-        for _, lbl in labels do
-                local s = Instance.new("UIStroke")
-                s.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual  -- applies to text, not border
-                s.Color           = color
-                s.Thickness       = 1
-                s.Transparency    = 0.92
-                s.Parent          = lbl
-                table.insert(strokes, s)
-        end
-        return function()
-                for _, s in strokes do s:Destroy() end
-        end
+	local strokes = {}
+	for _, lbl in labels do
+		local s = Instance.new("UIStroke")
+		s.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+		s.Color           = color
+		s.Thickness       = 1
+		s.Transparency    = 0.92
+		s.Parent          = lbl
+		table.insert(strokes, s)
+	end
+	return function()
+		for _, s in strokes do s:Destroy() end
+	end
 end
-
--- ── SM queue ───────────────────────────────────────────────────────────────────
 
 local smQueue: { { text: string, color: Color3, colorName: string? } } = {}
 local smBusy = false
 
 local function processSmQueue()
-        if smBusy or #smQueue == 0 then return end
-        smBusy = true
+	if smBusy or #smQueue == 0 then return end
+	smBusy = true
 
-        local entry     = table.remove(smQueue, 1)
-        local text      = entry.text
-        local color     = entry.color
-        local colorName = entry.colorName
-        local hold      = calcHold(text)
+	local entry     = table.remove(smQueue, 1)
+	local text      = entry.text
+	local color     = entry.color
+	local colorName = entry.colorName
+	local hold      = calcHold(text)
 
-        smBody.Text               = text
-        smBody.TextColor3         = color
-        smHeader.TextColor3       = color
-        smHeader.TextTransparency = 1
-        smBody.TextTransparency   = 1
-        smHeader.Visible          = true
-        smBody.Visible            = true
-        blur.Size                 = 0
+	smBody.Text               = text
+	smBody.TextColor3         = color
+	smHeader.TextColor3       = color
+	smHeader.TextTransparency = 1
+	smBody.TextTransparency   = 1
+	smHeader.Visible          = true
+	smBody.Visible            = true
+	blur.Size                 = 0
 
-        local removeGlow = colorName and applyGlow(color, { smHeader, smBody }) or nil
+	local removeGlow = colorName and applyGlow(color, { smHeader, smBody }) or nil
 
-        tw(blur,     0.6, { Size = 5 })
-        tw(smHeader, 0.6, { TextTransparency = 0 })
-        tw(smBody,   0.6, { TextTransparency = 0 })
+	tw(blur,     0.6, { Size = 5 })
+	tw(smHeader, 0.6, { TextTransparency = 0 })
+	tw(smBody,   0.6, { TextTransparency = 0 })
 
-        task.delay(0.6 + hold, function()
-                if removeGlow then removeGlow() end
-
-                tw(blur,     0.5, { Size = 0 })
-                tw(smHeader, 0.5, { TextTransparency = 1 })
-                tw(smBody,   0.5, { TextTransparency = 1 })
-                task.delay(0.55, function()
-                        smHeader.Visible          = false
-                        smHeader.TextTransparency = 0
-                        smBody.Visible            = false
-                        smBody.TextTransparency   = 0
-                        blur.Size                 = 0
-                        smBusy = false
-                        processSmQueue()
-                end)
-        end)
+	task.delay(0.6 + hold, function()
+		if removeGlow then removeGlow() end
+		tw(blur,     0.5, { Size = 0 })
+		tw(smHeader, 0.5, { TextTransparency = 1 })
+		tw(smBody,   0.5, { TextTransparency = 1 })
+		task.delay(0.55, function()
+			smHeader.Visible          = false
+			smHeader.TextTransparency = 0
+			smBody.Visible            = false
+			smBody.TextTransparency   = 0
+			blur.Size                 = 0
+			smBusy = false
+			processSmQueue()
+		end)
+	end)
 end
 
 local function showSM(text: string, colorName: string?)
-        table.insert(smQueue, {
-                text      = text,
-                color     = resolveColor(colorName),
-                colorName = colorName,
-        })
-        processSmQueue()
+	table.insert(smQueue, {
+		text      = text,
+		color     = resolveColor(colorName),
+		colorName = colorName,
+	})
+	processSmQueue()
 end
-
--- ── IM ─────────────────────────────────────────────────────────────────────────
 
 local function showIM(text: string, colorName: string?)
-        local color = resolveColor(colorName)
-        local hold  = calcHold(text)
+	local color = resolveColor(colorName)
+	local hold  = calcHold(text)
 
-        imLabel.Text             = text
-        imLabel.TextColor3       = color
-        imLabel.TextTransparency = 1
-        imLabel.Visible          = true
+	imLabel.Text             = text
+	imLabel.TextColor3       = color
+	imLabel.TextTransparency = 1
+	imLabel.Visible          = true
 
-        local removeGlow = colorName and applyGlow(color, { imLabel }) or nil
+	local removeGlow = colorName and applyGlow(color, { imLabel }) or nil
 
-        tw(imLabel, 0.6, { TextTransparency = 0 })
+	tw(imLabel, 0.6, { TextTransparency = 0 })
 
-        task.delay(0.6 + hold, function()
-                if removeGlow then removeGlow() end
-                tw(imLabel, 0.5, { TextTransparency = 1 })
-                task.delay(0.55, function()
-                        imLabel.Visible          = false
-                        imLabel.TextTransparency = 0
-                end)
-        end)
+	task.delay(0.6 + hold, function()
+		if removeGlow then removeGlow() end
+		tw(imLabel, 0.5, { TextTransparency = 1 })
+		task.delay(0.55, function()
+			imLabel.Visible          = false
+			imLabel.TextTransparency = 0
+		end)
+	end)
 end
-
--- ── Remote listeners ───────────────────────────────────────────────────────────
 
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 
 if CommandRemotes.SM then
-        CommandRemotes.SM.OnClientEvent:Connect(function(message: string, colorName: string?)
-                if typeof(message) == "string" and message ~= "" then
-                        showSM(message, colorName)
-                end
-        end)
+	CommandRemotes.SM.OnClientEvent:Connect(function(message: string, colorName: string?)
+		if typeof(message) == "string" and message ~= "" then
+			showSM(message, colorName)
+		end
+	end)
 end
 
 if CommandRemotes.IM then
-        CommandRemotes.IM.OnClientEvent:Connect(function(message: string, colorName: string?)
-                if typeof(message) == "string" and message ~= "" then
-                        showIM(message, colorName)
-                end
-        end)
+	CommandRemotes.IM.OnClientEvent:Connect(function(message: string, colorName: string?)
+		if typeof(message) == "string" and message ~= "" then
+			showIM(message, colorName)
+		end
+	end)
 end
-
-print("[CommandEffects] Ready.")

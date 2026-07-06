@@ -1,20 +1,21 @@
---[[
-	CommandRemotes.lua
-	ModuleScript — ReplicatedStorage
---]]
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService        = game:GetService("RunService")
 
 local CommandRemotes = {}
 
-local function getOrCreate(name: string): RemoteEvent
-	local existing = ReplicatedStorage:FindFirstChild(name)
-	if existing and existing:IsA("RemoteEvent") then return existing end
-	local event = Instance.new("RemoteEvent")
-	event.Name   = name
-	event.Parent = ReplicatedStorage
-	return event
+local function getOrCreate(name)
+	local e = ReplicatedStorage:FindFirstChild(name)
+	if e and e:IsA("RemoteEvent") then return e end
+	e = Instance.new("RemoteEvent")
+	e.Name   = name
+	e.Parent = ReplicatedStorage
+	return e
+end
+
+local function waitFor(name)
+	local r = ReplicatedStorage:WaitForChild(name, 15)
+	if not r then warn("CommandRemotes: timed out waiting for " .. name) end
+	return r :: RemoteEvent
 end
 
 if RunService:IsServer() then
@@ -23,19 +24,12 @@ if RunService:IsServer() then
 	CommandRemotes.SM              = getOrCreate("CmdSM")
 	CommandRemotes.IM              = getOrCreate("CmdIM")
 	CommandRemotes.Anxiety         = getOrCreate("CmdAnxiety")
-	print("[CommandRemotes] Ready on server.")
 else
-	local function wait(name: string): RemoteEvent
-		local r = ReplicatedStorage:WaitForChild(name, 15)
-		if not r then warn("[CommandRemotes] Timed out: " .. name) end
-		return r :: RemoteEvent
-	end
-	CommandRemotes.CommandExecuted = wait("CmdExecuted")
-	CommandRemotes.CommandFeedback = wait("CmdFeedback")
-	CommandRemotes.SM              = wait("CmdSM")
-	CommandRemotes.IM              = wait("CmdIM")
-	CommandRemotes.Anxiety         = wait("CmdAnxiety")
-	print("[CommandRemotes] Ready on client.")
+	CommandRemotes.CommandExecuted = waitFor("CmdExecuted")
+	CommandRemotes.CommandFeedback = waitFor("CmdFeedback")
+	CommandRemotes.SM              = waitFor("CmdSM")
+	CommandRemotes.IM              = waitFor("CmdIM")
+	CommandRemotes.Anxiety         = waitFor("CmdAnxiety")
 end
 
 return CommandRemotes
