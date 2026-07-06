@@ -744,12 +744,8 @@ local function buildWeatherTab()
 		CommandRemotes.WeatherSetProp:FireServer("Sound", "Volume", v)
 	end)
 
-	makeSlider(sf, "Fog Density (Atmosphere)", 0, 1, 0.3, 2, function(v)
+	makeSlider(sf, "Atmosphere Density", 0, 1, 0.3, 2, function(v)
 		CommandRemotes.WeatherSetProp:FireServer("Atmosphere", "Density", v)
-	end)
-
-	makeSlider(sf, "Fog End Distance", 0, 100000, 100000, 0, function(v)
-		CommandRemotes.WeatherSetProp:FireServer("Lighting", "FogEnd", v)
 	end)
 
 	makeSection(sf, "Particles")

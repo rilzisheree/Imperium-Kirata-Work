@@ -624,10 +624,27 @@ CommandRemotes.WeatherToggleEffect.OnServerEvent:Connect(function(player, effect
 		end
 
 	elseif effectName == "RainParticles" then
+		clearParticles()
 		if enabled then
-			createParticles(PRESETS.Rain.particles)
-		else
-			clearParticles()
+			-- Longer lifetime so particles fall the full ~150 studs from emitterPart to ground
+			local pe = Instance.new("ParticleEmitter")
+			local props = {
+				Color             = ColorSequence.new(Color3.fromRGB(170, 210, 255)),
+				Size              = NumberSequence.new(0.06),
+				Transparency      = NumberSequence.new(0.4),
+				Speed             = NumberRange.new(55, 70),
+				Rotation          = NumberRange.new(90, 90),
+				RotSpeed          = NumberRange.new(0, 0),
+				Rate              = 350,
+				Lifetime          = NumberRange.new(2.5, 3.5),
+				EmissionDirection = Enum.NormalId.Bottom,
+				LightInfluence    = 1,
+				LightEmission     = 0,
+			}
+			for _, key in PARTICLE_PROPS do
+				if props[key] ~= nil then pe[key] = props[key] end
+			end
+			pe.Parent = emitterPart
 		end
 
 	elseif POST_EFFECTS[effectName] then
