@@ -1,5 +1,4 @@
 local Players           = game:GetService("Players")
-local TweenService      = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService      = game:GetService("SoundService")
 
@@ -9,23 +8,18 @@ local PGui = LP:WaitForChild("PlayerGui")
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes") :: ModuleScript)
 
 -- ── Layout ─────────────────────────────────────────────────────────────────────
-local CARD_W  = 295
-local CARD_H  = 52
-local MARGIN  = 18    -- gap from the left edge of the screen
+local CARD_W = 230
+local CARD_H = 48
+local MARGIN = 18
 
--- Anchored top-left; Y offset centres the card vertically
-local POS_IN  = UDim2.new(0,  MARGIN,          0.5, -CARD_H / 2)
-local POS_OUT = UDim2.new(0, -(CARD_W + 40),   0.5, -CARD_H / 2)
+local POS_IN = UDim2.new(0, MARGIN, 0.5, -CARD_H / 2)
 
-local tweenIn  = TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-local tweenOut = TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-
--- ── Colours (matches rest of admin UI) ────────────────────────────────────────
-local C_BG   = Color3.fromRGB(14,  14,  20)
-local C_BOR  = Color3.fromRGB(80,  80, 110)
-local C_TXT  = Color3.fromRGB(255, 255, 255)
-local C_BTN  = Color3.fromRGB(170, 170, 190)
-local C_HOV  = Color3.fromRGB(255, 255, 255)
+-- ── Colours ────────────────────────────────────────────────────────────────────
+local C_BG  = Color3.fromRGB(14,  14,  20)
+local C_BOR = Color3.fromRGB(80,  80, 110)
+local C_TXT = Color3.fromRGB(255, 255, 255)
+local C_BTN = Color3.fromRGB(160, 160, 180)
+local C_HOV = Color3.fromRGB(255, 255, 255)
 
 -- ── Tick sound ─────────────────────────────────────────────────────────────────
 local tickSound = Instance.new("Sound")
@@ -43,19 +37,9 @@ local function destroyActive()
         if activeGui  then activeGui:Destroy();     activeGui  = nil end
 end
 
--- ── Helpers ────────────────────────────────────────────────────────────────────
 local function labelFor(n: number): string
         n = math.max(0, math.floor(n))
         return "Countdown: " .. n .. (n == 1 and " Second" or " Seconds")
-end
-
-local function doSlideOut(bar: Frame, sg: ScreenGui)
-        local t = TweenService:Create(bar, tweenOut, { Position = POS_OUT })
-        t:Play()
-        t.Completed:Connect(function()
-                if activeGui == sg then activeGui = nil end
-                sg:Destroy()
-        end)
 end
 
 -- ── Build widget and run tick loop ─────────────────────────────────────────────
@@ -70,15 +54,15 @@ local function startCountdown(endTime: number)
         sg.Parent         = PGui
         activeGui = sg
 
-        -- Card
+        -- Card — appears instantly at its resting position
         local card = Instance.new("Frame", sg)
-        card.AnchorPoint      = Vector2.new(0, 0)
-        card.Size             = UDim2.new(0, CARD_W, 0, CARD_H)
-        card.Position         = POS_OUT
-        card.BackgroundColor3 = C_BG
+        card.AnchorPoint            = Vector2.new(0, 0)
+        card.Size                   = UDim2.new(0, CARD_W, 0, CARD_H)
+        card.Position               = POS_IN
+        card.BackgroundColor3       = C_BG
         card.BackgroundTransparency = 0.10
-        card.BorderSizePixel  = 0
-        card.ZIndex           = 2
+        card.BorderSizePixel        = 0
+        card.ZIndex                 = 2
         Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
 
         local stroke = Instance.new("UIStroke", card)
@@ -86,41 +70,37 @@ local function startCountdown(endTime: number)
         stroke.Color           = C_BOR
         stroke.Thickness       = 1.5
 
-        -- Countdown text
+        -- Countdown label
         local label = Instance.new("TextLabel", card)
-        label.Size               = UDim2.new(1, -50, 1, 0)
-        label.Position           = UDim2.new(0, 16, 0, 0)
+        label.Size                   = UDim2.new(1, -40, 1, 0)
+        label.Position               = UDim2.new(0, 14, 0, 0)
         label.BackgroundTransparency = 1
-        label.Font               = Enum.Font.GothamBold
-        label.TextSize           = 20
-        label.TextColor3         = C_TXT
-        label.TextXAlignment     = Enum.TextXAlignment.Left
-        label.TextYAlignment     = Enum.TextYAlignment.Center
-        label.Text               = labelFor(endTime - workspace.DistributedGameTime)
-        label.ZIndex             = 3
+        label.Font                   = Enum.Font.GothamBold
+        label.TextSize               = 16
+        label.TextColor3             = C_TXT
+        label.TextXAlignment         = Enum.TextXAlignment.Left
+        label.TextYAlignment         = Enum.TextYAlignment.Center
+        label.Text                   = labelFor(endTime - workspace.DistributedGameTime)
+        label.ZIndex                 = 3
 
-        -- X button
+        -- X button (plain ASCII X)
         local xBtn = Instance.new("TextButton", card)
-        xBtn.Size               = UDim2.new(0, 30, 0, 30)
-        xBtn.Position           = UDim2.new(1, -38, 0.5, -15)
+        xBtn.Size                   = UDim2.new(0, 28, 0, 28)
+        xBtn.Position               = UDim2.new(1, -34, 0.5, -14)
         xBtn.BackgroundTransparency = 1
-        xBtn.Font               = Enum.Font.GothamBold
-        xBtn.TextSize           = 16
-        xBtn.TextColor3         = C_BTN
-        xBtn.Text               = "✕"
-        xBtn.BorderSizePixel    = 0
-        xBtn.ZIndex             = 4
+        xBtn.Font                   = Enum.Font.GothamBold
+        xBtn.TextSize               = 15
+        xBtn.TextColor3             = C_BTN
+        xBtn.Text                   = "X"
+        xBtn.BorderSizePixel        = 0
+        xBtn.ZIndex                 = 4
         xBtn.MouseEnter:Connect(function()  xBtn.TextColor3 = C_HOV end)
         xBtn.MouseLeave:Connect(function()  xBtn.TextColor3 = C_BTN end)
         xBtn.MouseButton1Click:Connect(function()
-                if activeTask then task.cancel(activeTask); activeTask = nil end
-                doSlideOut(card, sg)
+                destroyActive()
         end)
 
-        -- Slide in
-        TweenService:Create(card, tweenIn, { Position = POS_IN }):Play()
-
-        -- Tick loop (polls every 50 ms, only re-renders on whole-second change)
+        -- Tick loop
         local lastFloor = nil
 
         activeTask = task.spawn(function()
@@ -139,7 +119,8 @@ local function startCountdown(endTime: number)
                         if remaining <= 0 then
                                 label.Text = "Countdown: 0 Seconds"
                                 activeTask = nil
-                                doSlideOut(card, sg)
+                                task.wait(0.8)
+                                destroyActive()
                                 break
                         end
 
