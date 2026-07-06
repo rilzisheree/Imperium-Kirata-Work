@@ -56,13 +56,6 @@ local HOLD_DURATION    = 7      -- seconds bubble stays on screen
 local MAX_CHARS        = 200
 
 local MAX_BUBBLE_W = 360   -- max bubble pill width before text wraps
-local INAUDIBLE_TEXT     = "[ Inaudible ]"
--- Pre-measured once so the Heartbeat can resize pills without re-calling GetTextSize every frame.
-local INAUDIBLE_PILL_W   = math.min(
-	math.ceil(TextService:GetTextSize(INAUDIBLE_TEXT, TEXT_SIZE, Enum.Font.GothamSemibold,
-		Vector2.new(math.huge, math.huge)).X) + PAD_H * 2 + 6,
-	MAX_BUBBLE_W
-)
 local BILLBOARD_H  = 500   -- BillboardGui pixel height for the bubble stack area
 local STUD_ABOVE   = 1.9   -- world-space studs above Head centre; scales with zoom → always glued
 local PAD_H        = 14
@@ -73,6 +66,14 @@ local TEXT_SIZE    = 18
 local BG_COLOR    = Color3.fromRGB(240, 240, 240)
 local BG_TRANS    = 0.06
 local TEXT_COLOR  = Color3.fromRGB(25, 25, 25)
+
+local INAUDIBLE_TEXT  = "[ Inaudible ]"
+-- Pre-measured once so the Heartbeat can resize pills without re-calling GetTextSize every frame.
+local INAUDIBLE_PILL_W = math.min(
+	math.ceil(TextService:GetTextSize(INAUDIBLE_TEXT, TEXT_SIZE, FONT,
+		Vector2.new(math.huge, math.huge)).X) + PAD_H * 2 + 6,
+	MAX_BUBBLE_W
+)
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- 4. INPUT BAR
