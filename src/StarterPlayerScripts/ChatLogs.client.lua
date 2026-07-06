@@ -25,8 +25,8 @@ local ChatRemotes = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 
 local MAX_ENTRIES = 500   -- oldest entry is evicted when this is exceeded
 
-local WIN_W   = 460
-local WIN_H   = 455
+local WIN_W   = 445
+local WIN_H   = 500
 local TITLE_H = 38
 local SRCH_H  = 34
 
@@ -223,7 +223,7 @@ local function makeRow(entry, layoutOrder)
 	lbl.AutomaticSize         = Enum.AutomaticSize.Y
 	lbl.BackgroundTransparency = 1
 	lbl.Font                  = Enum.Font.Code
-	lbl.TextSize              = 12
+	lbl.TextSize              = 13
 	lbl.TextColor3            = C_TXT
 	lbl.TextXAlignment        = Enum.TextXAlignment.Left
 	lbl.TextYAlignment        = Enum.TextYAlignment.Top
