@@ -134,11 +134,6 @@ notifMsg.TextYAlignment         = Enum.TextYAlignment.Center
 notifMsg.ZIndex                 = 10
 notifMsg.Parent                 = notifContainer
 
-local notifMsgStroke = Instance.new("UIStroke", notifMsg)
-notifMsgStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-notifMsgStroke.Color           = Color3.new(0, 0, 0)
-notifMsgStroke.Thickness       = 2.5
-notifMsgStroke.Transparency    = 0.25
 
 local notifSender = Instance.new("TextLabel")
 notifSender.Name                   = "NotifSender"
@@ -156,11 +151,6 @@ notifSender.TextYAlignment         = Enum.TextYAlignment.Center
 notifSender.ZIndex                 = 10
 notifSender.Parent                 = notifContainer
 
-local notifSenderStroke = Instance.new("UIStroke", notifSender)
-notifSenderStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-notifSenderStroke.Color           = Color3.new(0, 0, 0)
-notifSenderStroke.Thickness       = 2
-notifSenderStroke.Transparency    = 0.25
 
 -- reading time based on word count
 local function calcHold(text: string): number
