@@ -1074,54 +1074,182 @@ resetBtn.MouseButton1Click:Connect(function()
 	CommandRemotes.WeatherReset:FireServer()
 end)
 
--- ── Client-side rain particles (anchored part that tracks the camera) ─────────
--- Follows the camera via RenderStepped — no welds, no character dependency.
-local rainEnabled  = false
-local rainRate     = 1500
-local rainPart     = nil   -- the anchored emitter Part in Workspace
-local rainStepConn = nil   -- RenderStepped connection
+-- ── Client-side rain VFX ─────────────────────────────────────────────────────
+--  Layer 1 — wide background streaks  (80×80, 25 studs above cam)
+--  Layer 2 — dense foreground drops   (22×22,  6 studs above cam)
+--  Layer 3 — ground splash / mist     (28×28, just below cam)
+--  Screen  — dark overlay + animated drop streaks sliding down the screen
+
+local rainEnabled   = false
+local rainRate      = 1500
+
+local rainPart1, rainPart2, rainPart3 = nil, nil, nil
+local rainPE1,   rainPE2,   rainPE3   = nil, nil, nil
+local rainScreenGui = nil
+local rainStepConn  = nil
+local rainDropConn  = nil
+local dropAccum     = 0
+
+local function makePart(sx, sz)
+	local p = Instance.new("Part")
+	p.Size         = Vector3.new(sx, 1, sz)
+	p.Anchored     = true
+	p.CanCollide   = false
+	p.Transparency = 1
+	p.CastShadow   = false
+	p.Parent       = Workspace
+	return p
+end
 
 local function detachRain()
 	if rainStepConn then rainStepConn:Disconnect(); rainStepConn = nil end
-	if rainPart     then rainPart:Destroy();        rainPart     = nil end
+	if rainDropConn then rainDropConn:Disconnect(); rainDropConn = nil end
+	if rainPart1    then rainPart1:Destroy();       rainPart1    = nil end
+	if rainPart2    then rainPart2:Destroy();       rainPart2    = nil end
+	if rainPart3    then rainPart3:Destroy();       rainPart3    = nil end
+	if rainScreenGui then rainScreenGui:Destroy();  rainScreenGui = nil end
+	rainPE1 = nil; rainPE2 = nil; rainPE3 = nil
+	dropAccum = 0
 end
 
 local function attachRain()
 	detachRain()
 	if not rainEnabled then return end
 
-	local part = Instance.new("Part")
-	part.Name         = "RainEmitter"
-	part.Size         = Vector3.new(40, 1, 40)
-	part.Anchored     = true
-	part.CanCollide   = false
-	part.Transparency = 1
-	part.CastShadow   = false
-	part.Parent       = Workspace
+	-- ── Layer 1: wide background streaks ─────────────────────────────────────
+	rainPart1 = makePart(80, 80)
+	rainPE1   = Instance.new("ParticleEmitter", rainPart1)
+	rainPE1.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0,   Color3.fromRGB(195, 225, 255)),
+		ColorSequenceKeypoint.new(1,   Color3.fromRGB(170, 210, 255)),
+	})
+	rainPE1.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0,   0.035),
+		NumberSequenceKeypoint.new(1,   0.035),
+	})
+	rainPE1.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0,   0.55),
+		NumberSequenceKeypoint.new(0.8, 0.65),
+		NumberSequenceKeypoint.new(1,   1.0),
+	})
+	rainPE1.Speed             = NumberRange.new(58, 78)
+	rainPE1.Rotation          = NumberRange.new(90, 90)
+	rainPE1.RotSpeed          = NumberRange.new(0, 0)
+	rainPE1.SpreadAngle       = Vector2.new(6, 0)   -- wind angle (one axis only)
+	rainPE1.Rate              = rainRate * 2
+	rainPE1.Lifetime          = NumberRange.new(0.55, 0.80)
+	rainPE1.EmissionDirection = Enum.NormalId.Bottom
+	rainPE1.LightInfluence    = 0.7
+	rainPE1.LightEmission     = 0
 
-	local pe = Instance.new("ParticleEmitter")
-	pe.Color             = ColorSequence.new(Color3.fromRGB(170, 210, 255))
-	pe.Size              = NumberSequence.new(0.06)
-	pe.Transparency      = NumberSequence.new(0.4)
-	pe.Speed             = NumberRange.new(40, 55)
-	pe.Rotation          = NumberRange.new(90, 90)
-	pe.RotSpeed          = NumberRange.new(0, 0)
-	pe.Rate              = rainRate
-	pe.Lifetime          = NumberRange.new(0.8, 1.2)
-	pe.EmissionDirection = Enum.NormalId.Bottom
-	pe.LightInfluence    = 1
-	pe.LightEmission     = 0
-	pe.Parent            = part
+	-- ── Layer 2: dense foreground drops ──────────────────────────────────────
+	rainPart2 = makePart(22, 22)
+	rainPE2   = Instance.new("ParticleEmitter", rainPart2)
+	rainPE2.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0,   Color3.fromRGB(215, 238, 255)),
+		ColorSequenceKeypoint.new(1,   Color3.fromRGB(195, 225, 255)),
+	})
+	rainPE2.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0,   0.05),
+		NumberSequenceKeypoint.new(1,   0.05),
+	})
+	rainPE2.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0,   0.15),
+		NumberSequenceKeypoint.new(0.6, 0.25),
+		NumberSequenceKeypoint.new(1,   1.0),
+	})
+	rainPE2.Speed             = NumberRange.new(65, 85)
+	rainPE2.Rotation          = NumberRange.new(90, 90)
+	rainPE2.RotSpeed          = NumberRange.new(0, 0)
+	rainPE2.SpreadAngle       = Vector2.new(5, 0)
+	rainPE2.Rate              = rainRate
+	rainPE2.Lifetime          = NumberRange.new(0.15, 0.28)
+	rainPE2.EmissionDirection = Enum.NormalId.Bottom
+	rainPE2.LightInfluence    = 0.85
+	rainPE2.LightEmission     = 0.05
 
-	rainPart = part
+	-- ── Layer 3: ground splash / rising mist ─────────────────────────────────
+	rainPart3 = makePart(28, 28)
+	rainPE3   = Instance.new("ParticleEmitter", rainPart3)
+	rainPE3.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0,   Color3.fromRGB(200, 225, 255)),
+		ColorSequenceKeypoint.new(1,   Color3.fromRGB(180, 205, 240)),
+	})
+	rainPE3.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0,   0.08),
+		NumberSequenceKeypoint.new(0.4, 0.22),
+		NumberSequenceKeypoint.new(1,   0),
+	})
+	rainPE3.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0,   0.60),
+		NumberSequenceKeypoint.new(0.5, 0.80),
+		NumberSequenceKeypoint.new(1,   1.0),
+	})
+	rainPE3.Speed             = NumberRange.new(3, 10)
+	rainPE3.Rotation          = NumberRange.new(0, 360)
+	rainPE3.RotSpeed          = NumberRange.new(-15, 15)
+	rainPE3.SpreadAngle       = Vector2.new(55, 55)
+	rainPE3.Rate              = math.max(1, rainRate * 0.12)
+	rainPE3.Lifetime          = NumberRange.new(0.4, 0.9)
+	rainPE3.EmissionDirection = Enum.NormalId.Top   -- splashing upward
+	rainPE3.LightInfluence    = 1
+	rainPE3.LightEmission     = 0
 
-	-- Move the part directly above the camera every frame
+	-- ── Screen overlay + animated drop streaks ────────────────────────────────
+	rainScreenGui = Instance.new("ScreenGui")
+	rainScreenGui.Name           = "RainScreenGui"
+	rainScreenGui.DisplayOrder   = 98
+	rainScreenGui.ResetOnSpawn   = false
+	rainScreenGui.IgnoreGuiInset = true
+	rainScreenGui.Parent         = PGui
+
+	-- Dark blue-tinted atmospheric overlay
+	local overlay = Instance.new("Frame", rainScreenGui)
+	overlay.Size                   = UDim2.new(1, 0, 1, 0)
+	overlay.BackgroundColor3       = Color3.fromRGB(14, 24, 45)
+	overlay.BackgroundTransparency = 0.82
+	overlay.BorderSizePixel        = 0
+	overlay.ZIndex                 = 1
+
+	-- Animated screen drop streaks via Heartbeat
+	dropAccum = 0
+	rainDropConn = RunService.Heartbeat:Connect(function(dt)
+		if not rainEnabled or not rainScreenGui then return end
+		dropAccum += dt
+		if dropAccum < 0.045 then return end
+		dropAccum = 0
+
+		local count = math.min(6, math.max(1, math.floor(rainRate / 350)))
+		for _ = 1, count do
+			local streak = Instance.new("Frame", rainScreenGui)
+			streak.BorderSizePixel        = 0
+			streak.BackgroundColor3       = Color3.fromRGB(195, 225, 255)
+			streak.BackgroundTransparency = (math.random(45, 72)) / 100
+			streak.ZIndex                 = 2
+			local h = math.random(35, 110)
+			local xScale = math.random(0, 1000) / 1000
+			streak.Size     = UDim2.new(0, math.random(1, 2), 0, h)
+			streak.Position = UDim2.new(xScale, 0, -0.14, 0)
+			local dur = math.random(18, 45) / 100
+			local t = TweenService:Create(streak,
+				TweenInfo.new(dur, Enum.EasingStyle.Linear),
+				{ Position = UDim2.new(xScale, 0, 1.14, 0) }
+			)
+			t:Play()
+			t.Completed:Connect(function()
+				if streak.Parent then streak:Destroy() end
+			end)
+		end
+	end)
+
+	-- ── RenderStepped: position all layers relative to camera ─────────────────
 	rainStepConn = RunService.RenderStepped:Connect(function()
 		local cam = Workspace.CurrentCamera
-		if cam then
-			local p = cam.CFrame.Position
-			part.CFrame = CFrame.new(p.X, p.Y + 20, p.Z)
-		end
+		if not cam then return end
+		local cp = cam.CFrame.Position
+		rainPart1.CFrame = CFrame.new(cp.X, cp.Y + 25, cp.Z)
+		rainPart2.CFrame = CFrame.new(cp.X, cp.Y +  6, cp.Z)
+		rainPart3.CFrame = CFrame.new(cp.X, cp.Y -  3, cp.Z)
 	end)
 end
 
@@ -1142,10 +1270,9 @@ CommandRemotes.WeatherClientEffect.OnClientEvent:Connect(function(effectName, va
 		if value then attachRain() else detachRain() end
 	elseif effectName == "RainRate" then
 		rainRate = value
-		if rainPart then
-			local pe = rainPart:FindFirstChildOfClass("ParticleEmitter")
-			if pe then pe.Rate = rainRate end
-		end
+		if rainPE1 then rainPE1.Rate = rainRate * 2                        end
+		if rainPE2 then rainPE2.Rate = rainRate                            end
+		if rainPE3 then rainPE3.Rate = math.max(1, rainRate * 0.12)        end
 	end
 end)
 
