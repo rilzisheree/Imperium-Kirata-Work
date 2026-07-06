@@ -280,6 +280,7 @@ local function createBubble(character, text)
 	label.TextWrapped            = true                    -- always wrap; pill width is pre-measured
 	label.RichText               = false
 	label.TextTransparency       = 1
+	label.TextStrokeTransparency = 1                       -- disable the default glow/outline
 	label.Text                   = text
 
 	-- Fade in: plain opacity tween, same feel as Roblox's default bubble chat.
