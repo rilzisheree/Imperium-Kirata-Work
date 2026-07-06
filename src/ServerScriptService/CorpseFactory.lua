@@ -91,14 +91,16 @@ function CorpseFactory.Create(target: Player, lifetime: number?): (boolean, stri
 
         local cloneHumanoid = clone:FindFirstChildOfClass("Humanoid")
         if cloneHumanoid then
-                cloneHumanoid.DisplayName          = target.DisplayName .. " (corpse)"
-                cloneHumanoid.PlatformStand        = true
-                cloneHumanoid.WalkSpeed            = 0
-                cloneHumanoid.JumpPower            = 0
-                cloneHumanoid.AutoRotate           = false
-                cloneHumanoid.RequiresNeck         = false
-                cloneHumanoid.BreakJointsOnDeath   = false
-                cloneHumanoid.EvaluateStateMachine = false
+                cloneHumanoid.DisplayName           = ""
+                cloneHumanoid.NameDisplayDistance   = 0
+                cloneHumanoid.HealthDisplayDistance = 0
+                cloneHumanoid.PlatformStand         = true
+                cloneHumanoid.WalkSpeed             = 0
+                cloneHumanoid.JumpPower             = 0
+                cloneHumanoid.AutoRotate            = false
+                cloneHumanoid.RequiresNeck          = false
+                cloneHumanoid.BreakJointsOnDeath    = false
+                cloneHumanoid.EvaluateStateMachine  = false
         end
 
         local cloneRoot = clone:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -119,7 +121,7 @@ function CorpseFactory.Create(target: Player, lifetime: number?): (boolean, stri
         -- flops apart naturally instead of falling as one stiff slab
         ragdollize(clone)
 
-        clone.Name = target.Name .. "_Corpse"
+        clone.Name = "Corpse"
         clone:SetAttribute("CorpseOwnerUserId", target.UserId)
         clone.Parent = corpsesFolder
 
