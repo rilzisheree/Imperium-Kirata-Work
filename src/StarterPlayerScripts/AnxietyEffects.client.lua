@@ -185,7 +185,7 @@ local function runAnxiety(level: number)
 
         local gui = Instance.new("ScreenGui")
         gui.Name           = "AnxietyEffect"
-        gui.DisplayOrder   = 60
+        gui.DisplayOrder   = 97
         gui.ResetOnSpawn   = false
         gui.IgnoreGuiInset = true
         gui.Parent         = PlayerGui
