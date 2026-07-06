@@ -41,7 +41,7 @@ local WEATHER_ORDER = { "Clear", "Rain", "Storm", "Fog", "Snow", "Sandstorm", "W
 local TABS          = { "Weather", "Lighting", "Atmosphere", "Clouds", "Environment" }
 
 -- ── Layout constants ──────────────────────────────────────────────────────────
-local MENU_W    = 500
+local MENU_W    = 600
 local PAD       = 12
 local HEADER_H  = 44
 local TAB_H     = 34
