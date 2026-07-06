@@ -1321,8 +1321,8 @@ local function attachRain()
 
 	-- Rain particle texture confirmed present in this place file (rainPart PE).
 	-- Using the same ID on all streak layers guarantees it loads correctly.
-	local STREAK_TEX = "rbxassetid://85952396415094"   -- rain-particles asset
-	local MIST_TEX   = "rbxassetid://85952396415094"
+	local STREAK_TEX = "rbxassetid://241868005"
+	local MIST_TEX   = "rbxassetid://241868005"
 
 	-- ── Layer 1: far background streaks (80×80, 28 above cam) ────────────────
 	-- Covers the full horizon so rain never looks like it stops at a boundary.
@@ -1457,7 +1457,7 @@ local function attachRain()
 
 	-- ── Sound layer 1: rainOutside ────────────────────────────────────────────────
 	rainSoundLight         = Instance.new("Sound", SoundService)
-	rainSoundLight.SoundId = "rbxassetid://110175241065326"
+	rainSoundLight.SoundId = "rbxassetid://1516791621"
 	rainSoundLight.Looped  = true
 	rainSoundLight.Volume  = 0   -- start silent, tween in
 	rainSoundLight:Play()
@@ -1470,7 +1470,7 @@ local function attachRain()
 	-- Two layers of the same looping rain slightly out of phase produce a
 	-- fuller, less repetitive sound without needing a second asset.
 	rainSoundHeavy         = Instance.new("Sound", SoundService)
-	rainSoundHeavy.SoundId = "rbxassetid://110175241065326"
+	rainSoundHeavy.SoundId = "rbxassetid://1516791621"
 	rainSoundHeavy.Looped  = true
 	rainSoundHeavy.Volume  = 0
 	rainSoundHeavy.TimePosition = 4.5   -- offset so it doesn't perfectly double
@@ -1553,16 +1553,8 @@ end)
 CommandRemotes.WeatherClientEffect.OnClientEvent:Connect(function(effectName, value)
 	if typeof(effectName) ~= "string" then return end
 	if effectName == "RainParticles" then
-		if typeof(value) ~= "boolean" then return end
-		rainEnabled = value
-		-- Keep the toggle pill in the Weather tab in sync, even when the preset
-		-- button auto-triggers rain (rather than the user flipping the toggle).
-		if _G.__rainToggleSet then _G.__rainToggleSet(value) end
-		if value then
-			attachRain()
-		else
-			detachRain()
-		end
+		-- Client-side rain removed; server WorldSpace particles handle visuals.
+		return
 	elseif effectName == "RainRate" then
 		if typeof(value) ~= "number" then return end
 		rainRate = math.clamp(value, 0, 5000)

@@ -45,7 +45,7 @@
       "rainOutside": {
         "$className": "Sound",
         "$properties": {
-          "SoundId": "rbxassetid://110175241065326",
+          "SoundId": "rbxassetid://1516791621",
           "Looped": true,
           "Volume": 0.5,
           "RollOffMaxDistance": 1000000
@@ -54,7 +54,7 @@
       "outsideAmbience": {
         "$className": "Sound",
         "$properties": {
-          "SoundId": "rbxassetid://110175241065326",
+          "SoundId": "rbxassetid://1516791621",
           "Looped": true,
           "Volume": 0.3,
           "TimePosition": 4.5,
@@ -76,7 +76,7 @@
         "RainEmitter": {
           "$className": "ParticleEmitter",
           "$properties": {
-            "Texture": "rbxassetid://85952396415094",
+            "Texture": "rbxassetid://241868005",
             "Enabled": false,
             "Rate": 0
           }

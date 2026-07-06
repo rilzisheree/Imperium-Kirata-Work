@@ -53,11 +53,13 @@ if not fxFolder then
 	fxFolder.Parent = Workspace
 end
 
--- Large invisible part positioned above the play area for particle emitters
+-- Emitter part floats above the map centre. 1024×1024 covers a normal play
+-- area without spreading particles too thin. y=200 gives enough fall height
+-- (~2 seconds at average speed) for rain to look like it comes from the sky.
 local emitterPart = Instance.new("Part")
 emitterPart.Name         = "WeatherEmitter"
-emitterPart.Size         = Vector3.new(2048, 1, 2048)
-emitterPart.CFrame       = CFrame.new(0, 150, 0)
+emitterPart.Size         = Vector3.new(1024, 1, 1024)
+emitterPart.CFrame       = CFrame.new(0, 200, 0)
 emitterPart.Anchored     = true
 emitterPart.CanCollide   = false
 emitterPart.Transparency = 1
@@ -118,34 +120,35 @@ local PRESETS = {
 			Haze    = 22,
 		},
 		clouds    = { Cover = 0.92, Density = 0.80, Color = Color3.fromRGB(120, 130, 148) },
-		soundId   = 110175241065326,   -- rbxassetid://110175241065326 (rainOutside)
+		soundId   = 1516791621,
 		particles = {
 			{
-				-- Overhead world-space emitter (server-side, replicates to all clients).
-				-- Uses the same texture as the client-side camera-locked layers.
-				Texture           = "rbxassetid://85952396415094",
+				-- World-space rain: falls from y=200, visible to all players.
+				-- Streak texture + VelocityParallel + Squash = proper rain lines.
+				Texture           = "rbxassetid://241868005",
 				Color             = ColorSequence.new({
-					ColorSequenceKeypoint.new(0, Color3.fromRGB(185, 218, 255)),
-					ColorSequenceKeypoint.new(1, Color3.fromRGB(155, 195, 245)),
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(192, 222, 255)),
+					ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 198, 248)),
 				}),
 				Size              = NumberSequence.new({
-					NumberSequenceKeypoint.new(0, 0.09),
-					NumberSequenceKeypoint.new(1, 0.06),
+					NumberSequenceKeypoint.new(0, 0.07),
+					NumberSequenceKeypoint.new(1, 0.05),
 				}),
 				Transparency      = NumberSequence.new({
-					NumberSequenceKeypoint.new(0,   0.25),
-					NumberSequenceKeypoint.new(0.7, 0.55),
+					NumberSequenceKeypoint.new(0,   0.20),
+					NumberSequenceKeypoint.new(0.75, 0.55),
 					NumberSequenceKeypoint.new(1,   1.00),
 				}),
-				Squash            = NumberSequence.new(14),
+				Squash            = NumberSequence.new(12),
 				Orientation       = Enum.ParticleOrientation.VelocityParallel,
-				Speed             = NumberRange.new(65, 90),
+				SpreadAngle       = Vector2.new(4, 0),
+				Speed             = NumberRange.new(90, 130),
 				Rotation          = NumberRange.new(0, 0),
 				RotSpeed          = NumberRange.new(0, 0),
-				Rate              = 350,
-				Lifetime          = NumberRange.new(1.2, 1.8),
+				Rate              = 3000,
+				Lifetime          = NumberRange.new(1.5, 2.2),
 				EmissionDirection = Enum.NormalId.Bottom,
-				LightInfluence    = 0.6,
+				LightInfluence    = 0.55,
 				LightEmission     = 0,
 			},
 		},
@@ -169,32 +172,33 @@ local PRESETS = {
 			Haze    = 30,
 		},
 		clouds    = { Cover = 1,    Density = 0.95, Color = Color3.fromRGB( 55,  58,  72) },
-		soundId   = 110175241065326,   -- same rain asset, louder volume set below
+		soundId   = 1516791621,
 		particles = {
 			{
-				Texture           = "rbxassetid://85952396415094",
+				Texture           = "rbxassetid://241868005",
 				Color             = ColorSequence.new({
-					ColorSequenceKeypoint.new(0, Color3.fromRGB(148, 190, 255)),
-					ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 168, 245)),
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(155, 195, 255)),
+					ColorSequenceKeypoint.new(1, Color3.fromRGB(122, 165, 245)),
 				}),
 				Size              = NumberSequence.new({
-					NumberSequenceKeypoint.new(0, 0.11),
-					NumberSequenceKeypoint.new(1, 0.07),
+					NumberSequenceKeypoint.new(0, 0.08),
+					NumberSequenceKeypoint.new(1, 0.06),
 				}),
 				Transparency      = NumberSequence.new({
-					NumberSequenceKeypoint.new(0,   0.18),
-					NumberSequenceKeypoint.new(0.7, 0.45),
+					NumberSequenceKeypoint.new(0,   0.15),
+					NumberSequenceKeypoint.new(0.70, 0.45),
 					NumberSequenceKeypoint.new(1,   1.00),
 				}),
-				Squash            = NumberSequence.new(16),
+				Squash            = NumberSequence.new(15),
 				Orientation       = Enum.ParticleOrientation.VelocityParallel,
-				Speed             = NumberRange.new(88, 118),
+				SpreadAngle       = Vector2.new(5, 0),
+				Speed             = NumberRange.new(110, 155),
 				Rotation          = NumberRange.new(0, 0),
 				RotSpeed          = NumberRange.new(0, 0),
-				Rate              = 600,
-				Lifetime          = NumberRange.new(0.8, 1.3),
+				Rate              = 5000,
+				Lifetime          = NumberRange.new(1.3, 2.0),
 				EmissionDirection = Enum.NormalId.Bottom,
-				LightInfluence    = 0.55,
+				LightInfluence    = 0.50,
 				LightEmission     = 0,
 			},
 		},
@@ -380,7 +384,7 @@ local PARTICLE_PROPS = {
 	"Speed", "Rotation", "RotSpeed",
 	"Rate", "Lifetime", "EmissionDirection",
 	"LightInfluence", "LightEmission",
-	"Squash", "Orientation",           -- needed for rain streaks
+	"Squash", "Orientation", "SpreadAngle",
 }
 
 local function cancelActiveTweens()
@@ -409,9 +413,6 @@ local function createParticles(list)
 		pe.Parent = emitterPart
 	end
 end
-
--- Presets that automatically activate client-side rain particles
-local RAIN_PRESETS = { Rain = true, Storm = true }
 
 local function applyWeather(weatherName)
 	local preset = PRESETS[weatherName]
@@ -453,21 +454,6 @@ local function applyWeather(weatherName)
 
 	currentWeather            = weatherName
 	activeWeatherValue.Value  = weatherName
-
-	-- Auto-enable client rain for Rain/Storm; disable for everything else.
-	-- This means clicking the preset immediately triggers full visible rain —
-	-- the user no longer needs to find and flip the "Rain Particles" toggle.
-	local wantsRain = RAIN_PRESETS[weatherName] == true
-	if wantsRain ~= rainParticlesActive then
-		rainParticlesActive = wantsRain
-		-- Also push the current rain rate so clients know the intensity
-		for _, player in Players:GetPlayers() do
-			CommandRemotes.WeatherClientEffect:FireClient(player, "RainParticles", wantsRain)
-			if wantsRain then
-				CommandRemotes.WeatherClientEffect:FireClient(player, "RainRate", rainLocalRate)
-			end
-		end
-	end
 
 	-- Broadcast to all clients so menus update their highlight
 	for _, player in Players:GetPlayers() do
@@ -661,15 +647,6 @@ CommandRemotes.WeatherReset.OnServerEvent:Connect(function(player)
 		for _, p in Players:GetPlayers() do
 			CommandRemotes.WeatherClientEffect:FireClient(p, "RainParticles", false)
 		end
-	end
-end)
-
--- Send active client effects to players who join mid-session
-Players.PlayerAdded:Connect(function(player)
-	if rainParticlesActive then
-		task.wait(2)  -- wait for client scripts to load
-		CommandRemotes.WeatherClientEffect:FireClient(player, "RainParticles", true)
-		CommandRemotes.WeatherClientEffect:FireClient(player, "RainRate", rainLocalRate)
 	end
 end)
 
