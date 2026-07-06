@@ -109,7 +109,7 @@ header.BorderSizePixel  = 0
 header.ZIndex           = 11
 
 local titleLbl = Instance.new("TextLabel", header)
-titleLbl.Size               = UDim2.new(1, -44, 1, 0)
+titleLbl.Size               = UDim2.new(1, -PAD, 1, 0)
 titleLbl.Position           = UDim2.new(0, PAD, 0, 0)
 titleLbl.BackgroundTransparency = 1
 titleLbl.Font               = Enum.Font.GothamBold
@@ -119,20 +119,6 @@ titleLbl.TextXAlignment     = Enum.TextXAlignment.Left
 titleLbl.TextYAlignment     = Enum.TextYAlignment.Center
 titleLbl.Text               = "Weather & Environment"
 titleLbl.ZIndex             = 12
-
-local headerClose = Instance.new("TextButton", header)
-headerClose.AnchorPoint        = Vector2.new(1, 0.5)
-headerClose.Position           = UDim2.new(1, -8, 0.5, 0)
-headerClose.Size               = UDim2.new(0, 28, 0, 28)
-headerClose.BackgroundColor3   = Color3.fromRGB(55, 25, 25)
-headerClose.BackgroundTransparency = 0.35
-headerClose.Font               = Enum.Font.GothamBold
-headerClose.TextSize           = 14
-headerClose.TextColor3         = Color3.fromRGB(220, 90, 90)
-headerClose.Text               = "✕"
-headerClose.AutoButtonColor    = false
-headerClose.ZIndex             = 12
-Instance.new("UICorner", headerClose).CornerRadius = UDim.new(0, 6)
 
 -- ── Divider helper ────────────────────────────────────────────────────────────
 local function makeDivider(parent, yPos)
@@ -252,7 +238,7 @@ resetBtn.BackgroundTransparency = 0.25
 resetBtn.Font               = Enum.Font.Gotham
 resetBtn.TextSize           = 11
 resetBtn.TextColor3         = C_ACC
-resetBtn.Text               = "↺  Reset"
+resetBtn.Text               = "Reset"
 resetBtn.AutoButtonColor    = false
 resetBtn.ZIndex             = 12
 Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 6)
@@ -1068,7 +1054,6 @@ local function updateHighlight(name)
 end
 
 -- ── Button connections ────────────────────────────────────────────────────────
-headerClose.MouseButton1Click:Connect(closeMenu)
 closeFooter.MouseButton1Click:Connect(closeMenu)
 
 resetBtn.MouseButton1Click:Connect(function()
