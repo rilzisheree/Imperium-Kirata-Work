@@ -102,7 +102,7 @@ closeBtn.BorderSizePixel        = 0
 closeBtn.Font                   = Enum.Font.GothamBold
 closeBtn.TextSize               = 13
 closeBtn.TextColor3             = Color3.fromRGB(240, 90, 90)
-closeBtn.Text                   = "✕"
+closeBtn.Text                   = "X"
 closeBtn.AutoButtonColor        = false
 Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 5)
 
