@@ -65,6 +65,16 @@ local function resolvePlayer(executor: Player, name: string): Player?
 	return nil
 end
 
+-- returns a list of players; "all" targets everyone, otherwise resolves by name
+local function resolveTargets(executor: Player, name: string): { Player }?
+	if name:lower() == "all" then
+		return Players:GetPlayers()
+	end
+	local target = resolvePlayer(executor, name)
+	if not target then return nil end
+	return { target }
+end
+
 local function joinArgs(args: { string }, from: number): string
 	local parts = {}
 	for i = from, #args do table.insert(parts, args[i]) end
@@ -85,29 +95,35 @@ HANDLERS["sm"] = function(executor, args)
 end
 
 HANDLERS["im"] = function(executor, args)
-	if #args < 2 then fail(executor, "Usage: im <player> <message> [colour]") return end
-	local target = resolvePlayer(executor, args[1])
-	if not target then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	if #args < 2 then fail(executor, "Usage: im <player|all> <message> [colour]") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
 	local raw = joinArgs(args, 2)
-	if raw == "" then fail(executor, "Usage: im <player> <message> [colour]") return end
+	if raw == "" then fail(executor, "Usage: im <player|all> <message> [colour]") return end
 	local msg, colour = stripColour(raw)
 	if msg == "" then msg = raw; colour = nil end
-	CommandRemotes.IM:FireClient(target, msg, colour)
-	ok(executor, 'Message sent to ' .. target.DisplayName .. ': "' .. msg .. '"' .. (colour and " (" .. colour .. ")" or ""))
+	for _, target in targets do
+		CommandRemotes.IM:FireClient(target, msg, colour)
+	end
+	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
+	ok(executor, 'Message sent to ' .. recipient .. ': "' .. msg .. '"' .. (colour and " (" .. colour .. ")" or ""))
 end
 
 HANDLERS["anxiety"] = function(executor, args)
-	if #args < 2 then fail(executor, "Usage: anxiety <player> <level 1-5>") return end
-	local target = resolvePlayer(executor, args[1])
-	if not target then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	if #args < 2 then fail(executor, "Usage: anxiety <player|all> <level 1-5>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
 	local level = tonumber(args[2])
 	if not level or level < 1 or level > 5 then
 		fail(executor, "Level must be 1–5.")
 		return
 	end
 	level = math.round(level)
-	CommandRemotes.Anxiety:FireClient(target, level)
-	ok(executor, "Anxiety level " .. level .. " triggered on " .. target.DisplayName .. ".")
+	for _, target in targets do
+		CommandRemotes.Anxiety:FireClient(target, level)
+	end
+	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
+	ok(executor, "Anxiety level " .. level .. " triggered on " .. recipient .. ".")
 end
 
 CommandRemotes.CommandExecuted.OnServerEvent:Connect(function(executor: Player, cmdName: string, args: { string })

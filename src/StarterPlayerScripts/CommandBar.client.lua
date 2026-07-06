@@ -13,8 +13,8 @@ local PGui = LP:WaitForChild("PlayerGui")
 
 local COMMANDS = {
 	sm       = { args = { "message" },           description = "Server message to all" },
-	im       = { args = { "player", "message" },  description = "Message to one player" },
-	anxiety  = { args = { "player", "level" },    description = "Anxiety effect (1–5)" },
+	im       = { args = { "player|all", "message" },  description = "Message to a player or all" },
+	anxiety  = { args = { "player|all", "level" },    description = "Anxiety effect (1–5)" },
 	chatlogs = { args = {},                       description = "Open / close chat logs" },
 }
 
@@ -220,6 +220,9 @@ end
 local function getPlayerMatches(partial)
 	local out = {}
 	local p   = partial:lower()
+	if p == "" or ("all"):sub(1, #p) == p then
+		table.insert(out, { name = "all", description = "everyone in server" })
+	end
 	if p == "" or ("me"):sub(1, #p) == p then
 		table.insert(out, { name = "me", description = "yourself" })
 	end
@@ -270,7 +273,8 @@ local function updateSuggestions()
 	local def     = COMMANDS[cmdName]
 	local argSlot = numComplete
 
-	if def and def.args[argSlot] == "player" then
+	local argType = def and def.args[argSlot]
+	if argType == "player" or argType == "player|all" then
 		suggestions = getPlayerMatches(partial)
 		selIdx      = 1
 		showDrop()
