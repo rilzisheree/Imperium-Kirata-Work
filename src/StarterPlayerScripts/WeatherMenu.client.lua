@@ -753,6 +753,10 @@ local function buildWeatherTab()
 	makeToggle(sf, "Rain Particles", false, function(enabled)
 		CommandRemotes.WeatherToggleEffect:FireServer("RainParticles", enabled)
 	end)
+
+	makeSlider(sf, "Rain Amount", 100, 5000, 1500, 0, function(v)
+		CommandRemotes.WeatherSetProp:FireServer("RainLocal", "Rate", v)
+	end)
 end
 
 -- ── Tab: Lighting ─────────────────────────────────────────────────────────────
@@ -1071,7 +1075,8 @@ end)
 
 -- ── Client-side rain particles (attached to player character) ─────────────────
 local rainEnabled = false
-local rainPart    = nil  -- the emitter Part welded above the character
+local rainRate    = 1500  -- synced from server slider
+local rainPart    = nil   -- the emitter Part welded above the character
 
 local function detachRain()
 	if rainPart then
@@ -1088,7 +1093,7 @@ local function attachRain(char)
 
 	local part = Instance.new("Part")
 	part.Name         = "RainEmitter"
-	part.Size         = Vector3.new(60, 1, 60)
+	part.Size         = Vector3.new(30, 1, 30)  -- smaller = denser coverage
 	part.Anchored     = false
 	part.CanCollide   = false
 	part.Transparency = 1
@@ -1108,7 +1113,7 @@ local function attachRain(char)
 	pe.Speed             = NumberRange.new(40, 55)
 	pe.Rotation          = NumberRange.new(90, 90)
 	pe.RotSpeed          = NumberRange.new(0, 0)
-	pe.Rate              = 500
+	pe.Rate              = rainRate
 	pe.Lifetime          = NumberRange.new(0.8, 1.2)
 	pe.EmissionDirection = Enum.NormalId.Bottom
 	pe.LightInfluence    = 1
@@ -1134,14 +1139,20 @@ CommandRemotes.WeatherSync.OnClientEvent:Connect(function(weatherName)
 	end
 end)
 
-CommandRemotes.WeatherClientEffect.OnClientEvent:Connect(function(effectName, enabled)
+CommandRemotes.WeatherClientEffect.OnClientEvent:Connect(function(effectName, value)
 	if effectName == "RainParticles" then
-		rainEnabled = enabled
-		if enabled then
+		rainEnabled = value
+		if value then
 			local char = LP.Character
 			if char then attachRain(char) end
 		else
 			detachRain()
+		end
+	elseif effectName == "RainRate" then
+		rainRate = value
+		if rainPart then
+			local pe = rainPart:FindFirstChildOfClass("ParticleEmitter")
+			if pe then pe.Rate = rainRate end
 		end
 	end
 end)

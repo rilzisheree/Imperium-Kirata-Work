@@ -343,6 +343,7 @@ local currentWeather      = nil
 local activeTweens        = {}
 local clockTimeTween      = nil   -- separate tween so it doesn't cancel weather presets
 local rainParticlesActive = false -- tracked so late-joining players get rain too
+local rainLocalRate       = 1500  -- current rain amount (synced to late joiners)
 
 local TWEEN_INFO = TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
@@ -558,6 +559,15 @@ CommandRemotes.WeatherSetProp.OnServerEvent:Connect(function(player, target, pro
 			end
 		end
 
+	elseif target == "RainLocal" then
+		-- Client-side rain rate — broadcast to all players
+		if prop == "Rate" and typeof(value) == "number" then
+			rainLocalRate = math.clamp(value, 0, 5000)
+			for _, p in Players:GetPlayers() do
+				CommandRemotes.WeatherClientEffect:FireClient(p, "RainRate", rainLocalRate)
+			end
+		end
+
 	elseif target == "Sound" then
 		if prop == "Volume" and typeof(value) == "number" then
 			weatherSound.Volume = math.clamp(value, 0, 10)
@@ -612,6 +622,7 @@ Players.PlayerAdded:Connect(function(player)
 	if rainParticlesActive then
 		task.wait(2)  -- wait for client scripts to load
 		CommandRemotes.WeatherClientEffect:FireClient(player, "RainParticles", true)
+		CommandRemotes.WeatherClientEffect:FireClient(player, "RainRate", rainLocalRate)
 	end
 end)
 
