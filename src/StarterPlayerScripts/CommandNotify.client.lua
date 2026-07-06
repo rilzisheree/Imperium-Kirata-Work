@@ -14,8 +14,8 @@ local C_DIM  = Color3.fromRGB(80,  80, 100)
 local C_OK   = Color3.fromRGB(130, 160, 255)
 local C_FAIL = Color3.fromRGB(215,  75,  75)
 
-local CARD_W    = 150
-local CARD_H    = 150
+local CARD_W    = 220
+local CARD_H    = 52
 local MARGIN_R  = 14
 local GAP       = 7
 local HOLD      = 2.5
@@ -92,38 +92,39 @@ local function notify(success, msg)
 	stroke.Color           = C_BOR
 	stroke.Thickness       = 1.5
 
-	-- top accent bar (full width, colour-coded)
+	-- left accent bar
 	local accent = Instance.new("Frame", card)
-	accent.Size             = UDim2.new(1, -18, 0, 3)
-	accent.Position         = UDim2.new(0, 9, 0, 12)
+	accent.AnchorPoint      = Vector2.new(0, 0.5)
+	accent.Size             = UDim2.new(0, 3, 1, -14)
+	accent.Position         = UDim2.new(0, 10, 0.5, 0)
 	accent.BackgroundColor3 = success and C_OK or C_FAIL
 	accent.BorderSizePixel  = 0
 	Instance.new("UICorner", accent).CornerRadius = UDim.new(0, 2)
 
 	-- title
 	local title = Instance.new("TextLabel", card)
-	title.Size               = UDim2.new(1, -18, 0, 42)
-	title.Position           = UDim2.new(0, 9, 0, 24)
+	title.Size               = UDim2.new(1, -28, 0, 17)
+	title.Position           = UDim2.new(0, 22, 0, 8)
 	title.BackgroundTransparency = 1
 	title.Font               = Enum.Font.GothamBold
-	title.TextSize           = 14
+	title.TextSize           = 12
 	title.TextColor3         = success and C_OK or C_FAIL
 	title.TextXAlignment     = Enum.TextXAlignment.Left
-	title.TextYAlignment     = Enum.TextYAlignment.Top
-	title.TextWrapped        = true
+	title.TextYAlignment     = Enum.TextYAlignment.Center
+	title.TextWrapped        = false
 	title.Text               = success and "Command Executed" or "Command Failed"
 
 	-- subtitle (server feedback message)
 	local sub = Instance.new("TextLabel", card)
-	sub.Size               = UDim2.new(1, -18, 0, 46)
-	sub.Position           = UDim2.new(0, 9, 0, 92)
+	sub.Size               = UDim2.new(1, -28, 0, 14)
+	sub.Position           = UDim2.new(0, 22, 0, 27)
 	sub.BackgroundTransparency = 1
 	sub.Font               = Enum.Font.Gotham
-	sub.TextSize           = 12
+	sub.TextSize           = 11
 	sub.TextColor3         = C_DIM
 	sub.TextXAlignment     = Enum.TextXAlignment.Left
-	sub.TextYAlignment     = Enum.TextYAlignment.Top
-	sub.TextWrapped        = true
+	sub.TextYAlignment     = Enum.TextYAlignment.Center
+	sub.TextWrapped        = false
 	sub.TextTruncate       = Enum.TextTruncate.AtEnd
 	sub.Text               = msg
 
