@@ -218,7 +218,7 @@ end
 -- blind overlay
 local blindGui = Instance.new("ScreenGui")
 blindGui.Name           = "BlindEffect"
-blindGui.DisplayOrder   = 200   -- above game UI; CoreGui (chat, topbar) still renders on top
+blindGui.DisplayOrder   = 95    -- below CmdBarGui (100) and CmdNotifyGui (110); CoreGui chat is always on top
 blindGui.ResetOnSpawn   = false -- we handle respawn cleanup ourselves
 blindGui.IgnoreGuiInset = true
 blindGui.Enabled        = false
