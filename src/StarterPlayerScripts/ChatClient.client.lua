@@ -123,20 +123,36 @@ do
 end
 
 -- ── Measurement proxy ─────────────────────────────────────────────────────────
--- Invisible TextLabel that mirrors inputBox content.  TextLabel.TextBounds
+-- Off-screen TextLabel that mirrors inputBox content.  TextLabel.TextBounds
 -- correctly reports wrapped height; TextBox.TextBounds does not.
-local measureLabel = Instance.new("TextLabel", inputFrame)
-measureLabel.Size                   = UDim2.new(1, -(BTN_W + 18), 0, 0)
-measureLabel.Position               = UDim2.new(0, 14, 0, 0)
+-- Must NOT be Visible=false: Roblox skips layout (including TextBounds) for
+-- invisible elements, so the signal never fires and the bar never grows.
+-- Instead we keep it rendered but fully transparent and positioned off-screen,
+-- matching the same pattern used by CommandBar.client.lua.
+-- inputBox width = parent width - (BTN_W + 18); no extra subtraction for
+-- position because position does not reduce the rendered width.
+local function measureWidth()
+	return math.max(1, inputFrame.AbsoluteSize.X - (BTN_W + 18))
+end
+
+local measureLabel = Instance.new("TextLabel", inputGui)
+measureLabel.Size                   = UDim2.fromOffset(measureWidth(), 0)
+measureLabel.AutomaticSize          = Enum.AutomaticSize.Y
+measureLabel.Position               = UDim2.fromOffset(-9999, -9999)
 measureLabel.BackgroundTransparency = 1
 measureLabel.TextTransparency       = 1
-measureLabel.Visible                = false
 measureLabel.Font                   = Enum.Font.GothamSemibold
 measureLabel.TextSize               = 14
 measureLabel.TextWrapped            = true
 measureLabel.TextXAlignment         = Enum.TextXAlignment.Left
 measureLabel.TextYAlignment         = Enum.TextYAlignment.Top
 measureLabel.Text                   = ""
+measureLabel.ZIndex                 = 1
+
+-- Keep the measurement label's width in sync with the input box's actual width.
+inputFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+	measureLabel.Size = UDim2.fromOffset(measureWidth(), 0)
+end)
 
 -- ── Auto-height logic ─────────────────────────────────────────────────────────
 local function updateBarHeight()
