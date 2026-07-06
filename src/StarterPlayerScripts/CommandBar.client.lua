@@ -22,9 +22,7 @@ local TIER_ORDER = { Everyone = 0, Helper = 1, Moderator = 2, Admin = 3, Owner =
 -- player's tier via CmdPermissions. Starts empty until the remote fires.
 -- "chatlogs" is always present — it's handled locally and has no server permission.
 -- "language" is gated separately by LanguageGrants and is never included here.
-local COMMANDS = {
-        chatlogs = { args = {}, description = "Open / close chat logs" },
-}
+local COMMANDS = {}
 
 -- Rebuild the visible command list whenever the server confirms the player's tier.
 -- Only commands whose required permission is <= the player's tier are included.
@@ -33,15 +31,19 @@ CommandRemotes.Permissions.OnClientEvent:Connect(function(tier: string)
         if typeof(tier) ~= "string" then return end
         local myLevel = TIER_ORDER[tier] or 0
 
-        -- Preserve the two specially-gated entries across the rebuild.
-        local keepLanguage  = COMMANDS["language"]
-        local keepChatlogs  = COMMANDS["chatlogs"]
+        -- Preserve the language grant entry across the rebuild (it has its own gate).
+        local keepLanguage = COMMANDS["language"]
 
         -- Wipe and repopulate.
         for k in pairs(COMMANDS) do COMMANDS[k] = nil end
 
-        COMMANDS["chatlogs"] = keepChatlogs
+        -- chatlogs is Admin+ (local-only command, not in CommandRegistry)
+        if myLevel >= TIER_ORDER["Admin"] then
+                COMMANDS["chatlogs"] = { args = {}, description = "Open / close chat logs" }
+        end
 
+        -- Add every Registry command this tier can run, excluding language
+        -- (language is never shown via the tier filter — only via LanguageGrants).
         for name, def in pairs(CommandRegistry.COMMANDS) do
                 if name ~= "language" then
                         local required = TIER_ORDER[def.permission] or 0
