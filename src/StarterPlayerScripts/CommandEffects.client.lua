@@ -131,6 +131,7 @@ notifMsg.Text                   = ""
 notifMsg.TextWrapped            = true
 notifMsg.TextXAlignment         = Enum.TextXAlignment.Center
 notifMsg.TextYAlignment         = Enum.TextYAlignment.Center
+notifMsg.TextStrokeTransparency = 1
 notifMsg.ZIndex                 = 10
 notifMsg.Parent                 = notifContainer
 
@@ -148,6 +149,7 @@ notifSender.Font                   = Enum.Font.Merriweather
 notifSender.Text                   = ""
 notifSender.TextXAlignment         = Enum.TextXAlignment.Center
 notifSender.TextYAlignment         = Enum.TextYAlignment.Center
+notifSender.TextStrokeTransparency = 1
 notifSender.ZIndex                 = 10
 notifSender.Parent                 = notifContainer
 
