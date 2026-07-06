@@ -496,7 +496,7 @@ HANDLERS["language"] = function(executor, args)
 end
 
 HANDLERS["setwaypoint"] = function(executor, args)
-	if #args < 1 then fail(executor, "Usage: setwaypoint <player|all>") return end
+	if #args < 1 then fail(executor, "Usage: setwaypoint <player|all> [title]") return end
 	local targets = resolveTargets(executor, args[1])
 	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
 
@@ -506,15 +506,17 @@ HANDLERS["setwaypoint"] = function(executor, args)
 		fail(executor, "Could not determine your position.")
 		return
 	end
-	local pos = rootPart.Position
+	local pos   = rootPart.Position
+	local title = joinArgs(args, 2)  -- empty string if no title given
 
 	for _, target in targets do
 		activeWaypoints[target.UserId] = pos
-		CommandRemotes.WaypointSet:FireClient(target, pos)
+		CommandRemotes.WaypointSet:FireClient(target, pos, title)
 	end
 
 	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
-	ok(executor, "Waypoint set for " .. recipient .. ".")
+	local titleNote = title ~= "" and ' ("' .. title .. '")' or ""
+	ok(executor, "Waypoint set for " .. recipient .. titleNote .. ".")
 end
 
 HANDLERS["clearwaypoints"] = function(executor, args)

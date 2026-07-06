@@ -8,8 +8,8 @@ local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 
 -- ── active waypoint state ──────────────────────────────────────────────────────
 
-local waypointPart    = nil   -- Part anchored in Workspace (client-local)
-local heartbeatConn   = nil   -- RunService.Heartbeat connection for distance updates
+local waypointPart  = nil   -- Part anchored in Workspace (client-local)
+local heartbeatConn = nil   -- RunService.Heartbeat connection for distance updates
 
 -- ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -36,9 +36,10 @@ end
 
 -- ── create ─────────────────────────────────────────────────────────────────────
 
-local function createWaypoint(pos: Vector3)
+local function createWaypoint(pos: Vector3, title: string?)
 	clearWaypoint()
-	waypointPos = pos
+
+	local hasTitle = title and title ~= ""
 
 	-- Invisible anchor part, client-local (never replicates to other players)
 	local part = Instance.new("Part")
@@ -52,21 +53,41 @@ local function createWaypoint(pos: Vector3)
 	part.CFrame       = CFrame.new(pos)
 	part.Parent       = Workspace
 
-	-- BillboardGui: always visible through terrain/objects, stacked above marker
+	-- BillboardGui: always visible through terrain/objects, floats above marker
 	local billboard = Instance.new("BillboardGui")
-	billboard.Name                    = "WaypointBillboard"
-	billboard.Adornee                 = part
-	billboard.AlwaysOnTop             = true
-	billboard.Size                    = UDim2.new(0, 64, 0, 88)
-	billboard.StudsOffsetWorldSpace   = Vector3.new(0, 4, 0)
-	billboard.ResetOnSpawn            = false
-	billboard.Parent                  = part
+	billboard.Name                  = "WaypointBillboard"
+	billboard.Adornee               = part
+	billboard.AlwaysOnTop           = true
+	billboard.Size                  = UDim2.new(0, 52, 0, 76)
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, 4, 0)
+	billboard.ResetOnSpawn          = false
+	billboard.Parent                = part
 
-	-- White upward-pointing triangle
+	-- Optional title label (top slot)
+	if hasTitle then
+		local titleLabel = Instance.new("TextLabel")
+		titleLabel.Name                   = "TitleLabel"
+		titleLabel.Size                   = UDim2.new(1, 0, 0.26, 0)
+		titleLabel.Position               = UDim2.new(0, 0, 0, 0)
+		titleLabel.BackgroundTransparency = 1
+		titleLabel.Text                   = title :: string
+		titleLabel.TextColor3             = Color3.new(1, 1, 1)
+		titleLabel.TextScaled             = true
+		titleLabel.Font                   = Enum.Font.Gotham
+		titleLabel.TextStrokeColor3       = Color3.new(0, 0, 0)
+		titleLabel.TextStrokeTransparency = 0.4
+		titleLabel.ZIndex                 = 5
+		titleLabel.Parent                 = billboard
+	end
+
+	-- Triangle — offset down when a title is present
+	local triY  = hasTitle and 0.26 or 0
+	local triH  = hasTitle and 0.47 or 0.65
+
 	local triangle = Instance.new("TextLabel")
 	triangle.Name                   = "Triangle"
-	triangle.Size                   = UDim2.new(1, 0, 0.65, 0)
-	triangle.Position               = UDim2.new(0, 0, 0, 0)
+	triangle.Size                   = UDim2.new(1, 0, triH, 0)
+	triangle.Position               = UDim2.new(0, 0, triY, 0)
 	triangle.BackgroundTransparency = 1
 	triangle.Text                   = "▲"
 	triangle.TextColor3             = Color3.new(1, 1, 1)
@@ -77,11 +98,14 @@ local function createWaypoint(pos: Vector3)
 	triangle.ZIndex                 = 5
 	triangle.Parent                 = billboard
 
-	-- Distance label beneath the triangle
+	-- Distance label (always at the bottom)
+	local distY = hasTitle and 0.73 or 0.65
+	local distH = hasTitle and 0.27 or 0.35
+
 	local distLabel = Instance.new("TextLabel")
 	distLabel.Name                   = "DistLabel"
-	distLabel.Size                   = UDim2.new(1, 0, 0.35, 0)
-	distLabel.Position               = UDim2.new(0, 0, 0.65, 0)
+	distLabel.Size                   = UDim2.new(1, 0, distH, 0)
+	distLabel.Position               = UDim2.new(0, 0, distY, 0)
 	distLabel.BackgroundTransparency = 1
 	distLabel.Text                   = "..."
 	distLabel.TextColor3             = Color3.new(1, 1, 1)
@@ -99,8 +123,7 @@ local function createWaypoint(pos: Vector3)
 		local character = LocalPlayer.Character
 		local root      = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if root then
-			local dist     = (root.Position - pos).Magnitude
-			distLabel.Text = formatDist(dist)
+			distLabel.Text = formatDist((root.Position - pos).Magnitude)
 		end
 	end)
 end
@@ -108,9 +131,9 @@ end
 -- ── remote listeners ───────────────────────────────────────────────────────────
 
 if CommandRemotes.WaypointSet then
-	CommandRemotes.WaypointSet.OnClientEvent:Connect(function(pos: Vector3)
+	CommandRemotes.WaypointSet.OnClientEvent:Connect(function(pos: Vector3, title: string?)
 		if typeof(pos) == "Vector3" then
-			createWaypoint(pos)
+			createWaypoint(pos, title)
 		end
 	end)
 end
