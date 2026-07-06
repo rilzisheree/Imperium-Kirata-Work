@@ -162,17 +162,34 @@ dStroke.Transparency = 0.4
 dStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 Instance.new("UIListLayout", drop).SortOrder = Enum.SortOrder.LayoutOrder
 
+-- ── Measurement proxy ─────────────────────────────────────────────────────────
+-- A hidden TextLabel that mirrors the TextBox content.  TextLabel.TextBounds
+-- correctly reports the wrapped height; TextBox.TextBounds does not.
+-- Parented to the ScreenGui but positioned off-screen so it is never visible.
+local measureLabel = Instance.new("TextLabel", sg)
+measureLabel.Size                  = UDim2.fromOffset(BAR_W - 42, 0)
+measureLabel.AutomaticSize         = Enum.AutomaticSize.Y
+measureLabel.Position              = UDim2.fromOffset(-9999, -9999)
+measureLabel.BackgroundTransparency = 1
+measureLabel.TextTransparency      = 1
+measureLabel.Font                  = Enum.Font.Code
+measureLabel.TextSize              = 14
+measureLabel.TextWrapped           = true
+measureLabel.TextXAlignment        = Enum.TextXAlignment.Left
+measureLabel.TextYAlignment        = Enum.TextYAlignment.Top
+measureLabel.Text                  = ""
+measureLabel.ZIndex                = 1
+
 -- ── Auto-height logic ─────────────────────────────────────────────────────────
--- Grows the bar as text wraps onto new lines (up to BAR_H_MAX), then stops.
--- Roblox's MultiLine TextBox natively scrolls content once the box is fixed.
 local function updateBarHeight()
-        local textH  = math.max(box.TextBounds.Y, LINE_H)
-        local newH   = math.clamp(textH + 12, BAR_H_MIN, BAR_H_MAX)
+        -- Use the measurement label's reported bounds — reliable for wrapped text.
+        local textH = math.max(measureLabel.TextBounds.Y, LINE_H)
+        local newH  = math.clamp(textH + 12, BAR_H_MIN, BAR_H_MAX)
 
         frame.Size   = UDim2.new(0, BAR_W, 0, newH)
         prompt.Size  = UDim2.new(0, 28, 0, newH)
 
-        -- Vertically center the text when it fits on one line; top-align otherwise.
+        -- Vertically center on a single line; top-align when text spans multiple.
         local innerH  = newH - 12
         local yOffset = math.max(0, math.floor((innerH - textH) / 2))
         box.Position  = UDim2.new(0, 38, 0, 6 + yOffset)
@@ -182,7 +199,7 @@ local function updateBarHeight()
         drop.Position = UDim2.new(0.5, 0, 0, BAR_Y + newH + 3)
 end
 
-box:GetPropertyChangedSignal("TextBounds"):Connect(function()
+measureLabel:GetPropertyChangedSignal("TextBounds"):Connect(function()
         if isOpen then updateBarHeight() end
 end)
 
@@ -418,7 +435,8 @@ local function close()
         hideDrop()
         box.Text = ""
         box:ReleaseFocus()
-        -- Reset bar back to single-line height for next open.
+        -- Reset measurement label and bar back to single-line height for next open.
+        measureLabel.Text = ""
         frame.Size    = UDim2.new(0, BAR_W, 0, BAR_H_MIN)
         prompt.Size   = UDim2.new(0, 28, 0, BAR_H_MIN)
         box.Position  = UDim2.new(0, 38, 0, math.floor((BAR_H_MIN - LINE_H) / 2))
@@ -460,6 +478,8 @@ box:GetPropertyChangedSignal("Text"):Connect(function()
                 box.CursorPosition = #c + 1
                 return
         end
+        -- Mirror into the measurement label so TextBounds reflects wrapped height.
+        measureLabel.Text = box.Text ~= "" and box.Text or " "
         updateSuggestions()
 end)
 
