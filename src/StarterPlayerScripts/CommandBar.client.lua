@@ -94,13 +94,15 @@ sg.IgnoreGuiInset = false
 sg.DisplayOrder   = 100
 sg.Parent         = PGui
 
-local BAR_W = 520
-local BAR_H = 46
-local BAR_Y = 12
+local BAR_W     = 520
+local BAR_H_MIN = 46    -- height with a single line of text
+local BAR_H_MAX = 112   -- cap at ~5 lines (beyond this the TextBox scrolls natively)
+local BAR_Y     = 12
+local LINE_H    = 18    -- approximate rendered height of one line at TextSize 14 Code
 
 local frame = Instance.new("Frame", sg)
 frame.AnchorPoint      = Vector2.new(0.5, 0)
-frame.Size             = UDim2.new(0, BAR_W, 0, BAR_H)
+frame.Size             = UDim2.new(0, BAR_W, 0, BAR_H_MIN)
 frame.Position         = UDim2.new(0.5, 0, 0, BAR_Y)
 frame.BackgroundColor3 = C_BG
 frame.BorderSizePixel  = 0
@@ -112,7 +114,7 @@ fStroke.Color = C_BOR; fStroke.Thickness = 1.5
 fStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
 local prompt = Instance.new("TextLabel", frame)
-prompt.Size               = UDim2.new(0, 28, 1, 0)
+prompt.Size               = UDim2.new(0, 28, 0, BAR_H_MIN)
 prompt.Position           = UDim2.new(0, 8, 0, 0)
 prompt.BackgroundTransparency = 1
 prompt.Font               = Enum.Font.GothamBold
@@ -124,20 +126,22 @@ prompt.TextYAlignment     = Enum.TextYAlignment.Center
 prompt.ZIndex             = 11
 
 local box = Instance.new("TextBox", frame)
-box.Size               = UDim2.new(1, -42, 1, -12)
-box.Position           = UDim2.new(0, 38, 0, 6)
+box.Size                  = UDim2.new(1, -42, 0, LINE_H)
+box.Position              = UDim2.new(0, 38, 0, math.floor((BAR_H_MIN - LINE_H) / 2))
 box.BackgroundTransparency = 1
-box.BorderSizePixel    = 0
-box.ClearTextOnFocus   = false
-box.Font               = Enum.Font.Code
-box.TextSize           = 14
-box.TextColor3         = C_TXT
-box.PlaceholderText    = "Enter command…"
-box.PlaceholderColor3  = C_DIM
-box.Text               = ""
-box.TextXAlignment     = Enum.TextXAlignment.Left
-box.TextYAlignment     = Enum.TextYAlignment.Center
-box.ZIndex             = 11
+box.BorderSizePixel       = 0
+box.ClearTextOnFocus      = false
+box.MultiLine             = true
+box.TextWrapped           = true
+box.Font                  = Enum.Font.Code
+box.TextSize              = 14
+box.TextColor3            = C_TXT
+box.PlaceholderText       = "Enter command…"
+box.PlaceholderColor3     = C_DIM
+box.Text                  = ""
+box.TextXAlignment        = Enum.TextXAlignment.Left
+box.TextYAlignment        = Enum.TextYAlignment.Top
+box.ZIndex                = 11
 
 local ROW_H  = 30
 local MAX_AC = 6
@@ -145,7 +149,7 @@ local MAX_AC = 6
 local drop = Instance.new("Frame", sg)
 drop.AnchorPoint      = Vector2.new(0.5, 0)
 drop.Size             = UDim2.new(0, BAR_W, 0, 0)
-drop.Position         = UDim2.new(0.5, 0, 0, BAR_Y + BAR_H + 3)
+drop.Position         = UDim2.new(0.5, 0, 0, BAR_Y + BAR_H_MIN + 3)
 drop.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
 drop.BorderSizePixel  = 0
 drop.Visible          = false
@@ -157,6 +161,30 @@ dStroke.Color = C_BOR; dStroke.Thickness = 1
 dStroke.Transparency = 0.4
 dStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 Instance.new("UIListLayout", drop).SortOrder = Enum.SortOrder.LayoutOrder
+
+-- ── Auto-height logic ─────────────────────────────────────────────────────────
+-- Grows the bar as text wraps onto new lines (up to BAR_H_MAX), then stops.
+-- Roblox's MultiLine TextBox natively scrolls content once the box is fixed.
+local function updateBarHeight()
+        local textH  = math.max(box.TextBounds.Y, LINE_H)
+        local newH   = math.clamp(textH + 12, BAR_H_MIN, BAR_H_MAX)
+
+        frame.Size   = UDim2.new(0, BAR_W, 0, newH)
+        prompt.Size  = UDim2.new(0, 28, 0, newH)
+
+        -- Vertically center the text when it fits on one line; top-align otherwise.
+        local innerH  = newH - 12
+        local yOffset = math.max(0, math.floor((innerH - textH) / 2))
+        box.Position  = UDim2.new(0, 38, 0, 6 + yOffset)
+        box.Size      = UDim2.new(1, -42, 0, innerH - yOffset)
+
+        -- Keep the autocomplete dropdown pinned directly below the bar.
+        drop.Position = UDim2.new(0.5, 0, 0, BAR_Y + newH + 3)
+end
+
+box:GetPropertyChangedSignal("TextBounds"):Connect(function()
+        if isOpen then updateBarHeight() end
+end)
 
 local rows = {}
 for i = 1, MAX_AC do
@@ -390,6 +418,12 @@ local function close()
         hideDrop()
         box.Text = ""
         box:ReleaseFocus()
+        -- Reset bar back to single-line height for next open.
+        frame.Size    = UDim2.new(0, BAR_W, 0, BAR_H_MIN)
+        prompt.Size   = UDim2.new(0, 28, 0, BAR_H_MIN)
+        box.Position  = UDim2.new(0, 38, 0, math.floor((BAR_H_MIN - LINE_H) / 2))
+        box.Size      = UDim2.new(1, -42, 0, LINE_H)
+        drop.Position = UDim2.new(0.5, 0, 0, BAR_Y + BAR_H_MIN + 3)
 end
 
 local function execute()
@@ -418,8 +452,10 @@ end
 
 box:GetPropertyChangedSignal("Text"):Connect(function()
         if not isOpen then return end
-        if box.Text:find("\t") then
-                local c = box.Text:gsub("\t", "")
+        -- Strip control characters that must not enter the command string.
+        local dirty = box.Text:find("[\t\n\r]")
+        if dirty then
+                local c = box.Text:gsub("[\t\n\r]", "")
                 box.Text = c
                 box.CursorPosition = #c + 1
                 return
@@ -443,6 +479,13 @@ UserInputService.InputBegan:Connect(function(inp, gp)
 
         if inp.KeyCode == Enum.KeyCode.Escape then
                 close()
+                return
+        end
+
+        -- MultiLine TextBox suppresses the FocusLost(enter) path, so we
+        -- intercept Return here instead.
+        if inp.KeyCode == Enum.KeyCode.Return or inp.KeyCode == Enum.KeyCode.KeypadEnter then
+                execute()
                 return
         end
 
