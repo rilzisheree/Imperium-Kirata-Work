@@ -52,8 +52,17 @@ Players.PlayerRemoving:Connect(function(player)
         helpUIEnabled[player.UserId] = nil
 end)
 
--- sync an active countdown to players who join mid-countdown
+-- push the player's permission tier to their client on join so CommandBar
+-- knows which commands to show in autocomplete
+local function pushPermissions(player: Player)
+        local tier = getTier(player) or "Everyone"
+        CommandRemotes.Permissions:FireClient(player, tier)
+end
+
 Players.PlayerAdded:Connect(function(player)
+        pushPermissions(player)
+
+        -- sync an active countdown to players who join mid-countdown
         if countdownEndTime ~= nil then
                 local remaining = countdownEndTime - Workspace.DistributedGameTime
                 if remaining > 0.5 then
@@ -61,6 +70,11 @@ Players.PlayerAdded:Connect(function(player)
                 end
         end
 end)
+
+-- handle players already connected when this script loads (Studio edge case)
+for _, player in Players:GetPlayers() do
+        task.spawn(pushPermissions, player)
+end
 
 -- if the last word of a message is a colour name, strip it and return it separately
 local COLOUR_NAMES = {

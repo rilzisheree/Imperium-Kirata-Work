@@ -41,6 +41,7 @@ if RunService:IsServer() then
         CommandRemotes.LanguageOpen         = getOrCreate("CmdLanguageOpen")
         CommandRemotes.LanguageGrants       = getOrCreate("CmdLanguageGrants")
         CommandRemotes.LanguageSelect       = getOrCreate("CmdLanguageSelect")
+        CommandRemotes.Permissions          = getOrCreate("CmdPermissions")
 else
         CommandRemotes.CommandExecuted = waitFor("CmdExecuted")
         CommandRemotes.CommandFeedback = waitFor("CmdFeedback")
@@ -64,6 +65,7 @@ else
         CommandRemotes.LanguageOpen         = waitFor("CmdLanguageOpen")
         CommandRemotes.LanguageGrants       = waitFor("CmdLanguageGrants")
         CommandRemotes.LanguageSelect       = waitFor("CmdLanguageSelect")
+        CommandRemotes.Permissions          = waitFor("CmdPermissions")
 end
 
 return CommandRemotes

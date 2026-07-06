@@ -8,43 +8,64 @@ local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService  = game:GetService("UserInputService")
 
-local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
-local LanguageData   = require(ReplicatedStorage:WaitForChild("LanguageData"))
+local CommandRemotes  = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
+local LanguageData    = require(ReplicatedStorage:WaitForChild("LanguageData"))
+local CommandRegistry = require(ReplicatedStorage:WaitForChild("CommandRegistry"))
 
 local LP   = Players.LocalPlayer
 local PGui = LP:WaitForChild("PlayerGui")
 
+-- Mirror of the server's TIER_ORDER — used to filter commands by permission.
+local TIER_ORDER = { Everyone = 0, Helper = 1, Moderator = 2, Admin = 3, Owner = 4 }
+
+-- Commands visible to this player. Rebuilt whenever the server sends the
+-- player's tier via CmdPermissions. Starts empty until the remote fires.
+-- "chatlogs" is always present — it's handled locally and has no server permission.
+-- "language" is gated separately by LanguageGrants and is never included here.
 local COMMANDS = {
-        sm       = { args = { "message" },           description = "Server message to all" },
-        im       = { args = { "player|all", "message" },  description = "Message to a player or all" },
-        anxiety  = { args = { "player|all", "level" },    description = "Anxiety effect (1–5)" },
-        blind    = { args = { "player|all", "[duration]" }, description = "Black overlay (optional fade)" },
-        unblind  = { args = { "player|all" },              description = "Remove blind effect" },
-        chatlogs = { args = {},                            description = "Open / close chat logs" },
-        createcorpse = { args = { "player|all", "[lifetime]" }, description = "Spawn a corpse at a player's location" },
-        re       = { args = { "player|all" },                  description = "Refresh a player's character in place" },
-        respawn  = { args = { "player|all" },                  description = "Respawn a player at the default spawn location" },
-        help     = { args = { "message" },                     description = "Send a help request to online admins" },
-        helpui   = { args = {},                                description = "Toggle help request notifications" },
-        notif    = { args = { "player|all", "message" },       description = "Send a custom notification to a player" },
-        weather    = { args = {},                                description = "Open the Weather Control panel" },
-        countdown     = { args = { "seconds" },                description = "Visible countdown for all players" },
-        stopcountdown  = { args = {},                                description = "Stop the current countdown" },
-        accesslanguage = { args = { "player|all", "language" },      description = "Grant a player access to a language" },
-        -- NOTE: "language" is NOT listed here initially.
-        -- It is added/removed dynamically below based on the player's grants,
-        -- so players without any granted languages never see it in autocomplete.
+        chatlogs = { args = {}, description = "Open / close chat logs" },
 }
+
+-- Rebuild the visible command list whenever the server confirms the player's tier.
+-- Only commands whose required permission is <= the player's tier are included.
+-- "language" and "chatlogs" are excluded here — they have their own gates.
+CommandRemotes.Permissions.OnClientEvent:Connect(function(tier: string)
+        if typeof(tier) ~= "string" then return end
+        local myLevel = TIER_ORDER[tier] or 0
+
+        -- Preserve the two specially-gated entries across the rebuild.
+        local keepLanguage  = COMMANDS["language"]
+        local keepChatlogs  = COMMANDS["chatlogs"]
+
+        -- Wipe and repopulate.
+        for k in pairs(COMMANDS) do COMMANDS[k] = nil end
+
+        COMMANDS["chatlogs"] = keepChatlogs
+
+        for name, def in pairs(CommandRegistry.COMMANDS) do
+                if name ~= "language" then
+                        local required = TIER_ORDER[def.permission] or 0
+                        if myLevel >= required then
+                                COMMANDS[name] = { args = def.args, description = def.description }
+                        end
+                end
+        end
+
+        -- Re-apply the language grant gate.
+        if keepLanguage then
+                COMMANDS["language"] = keepLanguage
+        end
+end)
 
 -- Dynamically show or hide the `language` command in autocomplete based on
 -- whether this player has been granted at least one language by an admin.
 CommandRemotes.LanguageGrants.OnClientEvent:Connect(function(grants: { string })
-	if typeof(grants) ~= "table" then return end
-	if #grants > 0 then
-		COMMANDS["language"] = { args = {}, description = "Open language selection menu" }
-	else
-		COMMANDS["language"] = nil
-	end
+        if typeof(grants) ~= "table" then return end
+        if #grants > 0 then
+                COMMANDS["language"] = { args = {}, description = "Open language selection menu" }
+        else
+                COMMANDS["language"] = nil
+        end
 end)
 
 -- BindableEvent that ChatLogs.client.lua listens to (we create it here so it exists when ChatLogs loads)
