@@ -25,21 +25,12 @@ local function stripLiveBehaviour(model: Model)
                         inst:Destroy()
                 elseif inst:IsA("Sound") then
                         inst:Destroy()
+                elseif inst:IsA("ForceField") then
+                        inst:Destroy()
                 elseif inst:IsA("ParticleEmitter") or inst:IsA("Fire") or inst:IsA("Smoke") or inst:IsA("Trail") then
                         inst:Destroy()
                 end
         end
-end
-
-local function findGroundY(position: Vector3, ignoreInstance: Instance): number
-        local params = RaycastParams.new()
-        params.FilterType = Enum.RaycastFilterType.Exclude
-        params.FilterDescendantsInstances = { ignoreInstance }
-        local result = Workspace:Raycast(position + Vector3.new(0, 10, 0), Vector3.new(0, -100, 0), params)
-        if result then
-                return result.Position.Y
-        end
-        return position.Y
 end
 
 -- creates a static, non-living copy of `target`'s current appearance at
@@ -88,28 +79,17 @@ function CorpseFactory.Create(target: Player, lifetime: number?): (boolean, stri
                 return false, "couldn't build a corpse rig for " .. target.DisplayName
         end
 
-        -- lay the corpse down where the target is standing, keeping their facing
+        -- tip the corpse over onto its back right where the target is standing,
+        -- keeping their facing, then let gravity carry it the rest of the way down
         local originalCFrame = rootPart.CFrame
-        local groundY         = findGroundY(originalCFrame.Position, character)
-        local fallenCFrame    = CFrame.new(originalCFrame.Position + Vector3.new(0, 10, 0))
-                * originalCFrame.Rotation
-                * CFrame.Angles(math.rad(-90), 0, 0)
-
+        local fallenCFrame    = originalCFrame * CFrame.Angles(math.rad(-90), 0, 0)
         clone:PivotTo(fallenCFrame)
-
-        -- settle the corpse flush against the ground using its real bounding box
-        -- so it never clips through or floats above the floor
-        local boundsCFrame, boundsSize = clone:GetBoundingBox()
-        local lowestY = boundsCFrame.Position.Y - boundsSize.Y / 2
-        clone:PivotTo(fallenCFrame + Vector3.new(0, (groundY - lowestY) + 0.05, 0))
 
         for _, part in clone:GetDescendants() do
                 if part:IsA("BasePart") then
-                        part.Anchored   = true
-                        part.CanCollide = true
-                        part.CanQuery   = true
-                        part.CanTouch   = false
-                        part.Massless   = true
+                        part.Anchored = false
+                        part.CanQuery = true
+                        part.CanTouch = false
                 end
         end
 
