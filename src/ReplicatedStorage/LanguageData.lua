@@ -25,7 +25,6 @@ LanguageData.LANGUAGES = {
 	{ name = "Turkish",    tag = "TR", isoCode = "tr" },
 	{ name = "Portuguese", tag = "PT", isoCode = "pt" },
 	{ name = "Italian",    tag = "IT", isoCode = "it" },
-	{ name = "Arabic",     tag = "AR", isoCode = "ar" },
 }
 
 -- Fast lookup by lowercase name: LanguageData.BY_NAME["korean"] → { name, tag, isoCode }
