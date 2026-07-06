@@ -28,6 +28,7 @@ if RunService:IsServer() then
         CommandRemotes.Unblind         = getOrCreate("CmdUnblind")
         CommandRemotes.HelpRequest     = getOrCreate("CmdHelpRequest")
         CommandRemotes.HelpUIToggle    = getOrCreate("CmdHelpUIToggle")
+        CommandRemotes.Notif           = getOrCreate("CmdNotif")
 else
         CommandRemotes.CommandExecuted = waitFor("CmdExecuted")
         CommandRemotes.CommandFeedback = waitFor("CmdFeedback")
@@ -38,6 +39,7 @@ else
         CommandRemotes.Unblind         = waitFor("CmdUnblind")
         CommandRemotes.HelpRequest     = waitFor("CmdHelpRequest")
         CommandRemotes.HelpUIToggle    = waitFor("CmdHelpUIToggle")
+        CommandRemotes.Notif           = waitFor("CmdNotif")
 end
 
 return CommandRemotes

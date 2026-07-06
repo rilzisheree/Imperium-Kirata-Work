@@ -51,6 +51,11 @@ CommandRegistry.COMMANDS = {
                 args        = {},
                 permission  = "Admin",
         },
+        notif = {
+                description = "Send a custom notification to a player or all players",
+                args        = { "player|all", "message" },
+                permission  = "Admin",
+        },
 }
 
 return CommandRegistry

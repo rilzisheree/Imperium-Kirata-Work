@@ -385,6 +385,19 @@ HANDLERS["help"] = function(executor, args)
         ok(executor, "Help request sent.")
 end
 
+HANDLERS["notif"] = function(executor, args)
+        if #args < 2 then fail(executor, "Usage: notif <player|all> <message>") return end
+        local targets = resolveTargets(executor, args[1])
+        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+        local msg = joinArgs(args, 2)
+        if msg == "" then fail(executor, "Usage: notif <player|all> <message>") return end
+        for _, target in targets do
+                CommandRemotes.Notif:FireClient(target, msg, executor.Name)
+        end
+        local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
+        ok(executor, 'Notification sent to ' .. recipient .. ': "' .. msg .. '"')
+end
+
 HANDLERS["helpui"] = function(executor, args)
         local uid     = executor.UserId
         local current = helpUIEnabled[uid]

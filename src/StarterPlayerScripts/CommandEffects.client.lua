@@ -97,6 +97,71 @@ imLabel.ZIndex                 = 10
 imLabel.Visible                = false
 imLabel.Parent                 = gui
 
+-- ── notif UI ──────────────────────────────────────────────────────────────────
+-- No background: just text with dark outline strokes for readability.
+-- Positioned so its bottom sits 20% above the screen's bottom edge (Y = 0.80).
+local notifContainer = Instance.new("Frame")
+notifContainer.Name                   = "NotifContainer"
+notifContainer.AnchorPoint            = Vector2.new(0.5, 1)
+notifContainer.Position               = UDim2.new(0.5, 0, 0.80, 0)
+notifContainer.Size                   = UDim2.new(0.55, 0, 0, 0)
+notifContainer.AutomaticSize          = Enum.AutomaticSize.Y
+notifContainer.BackgroundTransparency = 1
+notifContainer.ZIndex                 = 10
+notifContainer.Visible                = false
+notifContainer.Parent                 = gui
+
+local notifList = Instance.new("UIListLayout", notifContainer)
+notifList.FillDirection       = Enum.FillDirection.Vertical
+notifList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+notifList.SortOrder           = Enum.SortOrder.LayoutOrder
+notifList.Padding             = UDim.new(0, 5)
+
+local notifMsg = Instance.new("TextLabel")
+notifMsg.Name                   = "NotifMsg"
+notifMsg.LayoutOrder            = 1
+notifMsg.Size                   = UDim2.new(1, 0, 0, 0)
+notifMsg.AutomaticSize          = Enum.AutomaticSize.Y
+notifMsg.BackgroundTransparency = 1
+notifMsg.TextColor3             = DEFAULT_COLOR
+notifMsg.TextTransparency       = 1
+notifMsg.TextSize               = 34
+notifMsg.Font                   = Enum.Font.Merriweather
+notifMsg.Text                   = ""
+notifMsg.TextWrapped            = true
+notifMsg.TextXAlignment         = Enum.TextXAlignment.Center
+notifMsg.TextYAlignment         = Enum.TextYAlignment.Center
+notifMsg.ZIndex                 = 10
+notifMsg.Parent                 = notifContainer
+
+local notifMsgStroke = Instance.new("UIStroke", notifMsg)
+notifMsgStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+notifMsgStroke.Color           = Color3.new(0, 0, 0)
+notifMsgStroke.Thickness       = 2.5
+notifMsgStroke.Transparency    = 0.25
+
+local notifSender = Instance.new("TextLabel")
+notifSender.Name                   = "NotifSender"
+notifSender.LayoutOrder            = 2
+notifSender.Size                   = UDim2.new(1, 0, 0, 0)
+notifSender.AutomaticSize          = Enum.AutomaticSize.Y
+notifSender.BackgroundTransparency = 1
+notifSender.TextColor3             = Color3.fromRGB(195, 195, 195)
+notifSender.TextTransparency       = 1
+notifSender.TextSize               = 20
+notifSender.Font                   = Enum.Font.Merriweather
+notifSender.Text                   = ""
+notifSender.TextXAlignment         = Enum.TextXAlignment.Center
+notifSender.TextYAlignment         = Enum.TextYAlignment.Center
+notifSender.ZIndex                 = 10
+notifSender.Parent                 = notifContainer
+
+local notifSenderStroke = Instance.new("UIStroke", notifSender)
+notifSenderStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+notifSenderStroke.Color           = Color3.new(0, 0, 0)
+notifSenderStroke.Thickness       = 2
+notifSenderStroke.Transparency    = 0.25
+
 -- reading time based on word count
 local function calcHold(text: string): number
 	local words = select(2, text:gsub("%S+", "")) + 1
@@ -197,6 +262,56 @@ local function showIM(text: string, colorName: string?)
 	end)
 end
 
+-- ── notif queue ───────────────────────────────────────────────────────────────
+local notifQueue: { { message: string, sender: string } } = {}
+local notifBusy = false
+
+local NOTIF_SLIDE   = 38   -- pixels the container travels on entry/exit
+local NOTIF_IN_T    = 0.55
+local NOTIF_OUT_T   = 0.45
+local NOTIF_REST_Y  = 0.80 -- bottom of container sits 20% above the bottom edge
+
+local function processNotifQueue()
+	if notifBusy or #notifQueue == 0 then return end
+	notifBusy = true
+
+	local entry = table.remove(notifQueue, 1)
+	local hold  = calcHold(entry.message)
+
+	notifMsg.Text            = entry.message
+	notifSender.Text         = "-" .. entry.sender
+	notifMsg.TextTransparency    = 1
+	notifSender.TextTransparency = 1
+	-- start slightly below the resting position
+	notifContainer.Position  = UDim2.new(0.5, 0, NOTIF_REST_Y, NOTIF_SLIDE)
+	notifContainer.Visible   = true
+
+	-- slide up + fade in
+	tw(notifContainer, NOTIF_IN_T, { Position = UDim2.new(0.5, 0, NOTIF_REST_Y, 0) })
+	tw(notifMsg,    NOTIF_IN_T, { TextTransparency = 0 })
+	tw(notifSender, NOTIF_IN_T, { TextTransparency = 0.15 })
+
+	task.delay(NOTIF_IN_T + hold, function()
+		-- slide up + fade out
+		tw(notifContainer, NOTIF_OUT_T, { Position = UDim2.new(0.5, 0, NOTIF_REST_Y, -NOTIF_SLIDE) })
+		tw(notifMsg,    NOTIF_OUT_T, { TextTransparency = 1 })
+		tw(notifSender, NOTIF_OUT_T, { TextTransparency = 1 })
+
+		task.delay(NOTIF_OUT_T + 0.05, function()
+			notifContainer.Visible = false
+			notifMsg.Text          = ""
+			notifSender.Text       = ""
+			notifBusy              = false
+			processNotifQueue()
+		end)
+	end)
+end
+
+local function showNotif(message: string, sender: string)
+	table.insert(notifQueue, { message = message, sender = sender })
+	processNotifQueue()
+end
+
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 
 if CommandRemotes.SM then
@@ -211,6 +326,15 @@ if CommandRemotes.IM then
 	CommandRemotes.IM.OnClientEvent:Connect(function(message: string, colorName: string?)
 		if typeof(message) == "string" and message ~= "" then
 			showIM(message, colorName)
+		end
+	end)
+end
+
+if CommandRemotes.Notif then
+	CommandRemotes.Notif.OnClientEvent:Connect(function(message: string, sender: string)
+		if typeof(message) == "string" and message ~= ""
+		and typeof(sender) == "string" and sender ~= "" then
+			showNotif(message, sender)
 		end
 	end)
 end

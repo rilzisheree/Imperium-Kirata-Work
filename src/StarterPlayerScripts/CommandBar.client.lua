@@ -23,6 +23,7 @@ local COMMANDS = {
         respawn  = { args = { "player|all" },                  description = "Respawn a player at the default spawn location" },
         help     = { args = { "message" },                     description = "Send a help request to online admins" },
         helpui   = { args = {},                                description = "Toggle help request notifications" },
+        notif    = { args = { "player|all", "message" },       description = "Send a custom notification to a player" },
 }
 
 -- BindableEvent that ChatLogs.client.lua listens to (we create it here so it exists when ChatLogs loads)
