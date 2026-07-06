@@ -147,8 +147,12 @@ local function startCountdown(endTime: number)
         end)
 end
 
--- ── Remote ─────────────────────────────────────────────────────────────────────
+-- ── Remotes ────────────────────────────────────────────────────────────────────
 CommandRemotes.CountdownStart.OnClientEvent:Connect(function(endTime: number)
         if typeof(endTime) ~= "number" then return end
         startCountdown(endTime)
+end)
+
+CommandRemotes.CountdownStop.OnClientEvent:Connect(function()
+        destroyActive()
 end)

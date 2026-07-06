@@ -37,6 +37,7 @@ if RunService:IsServer() then
         CommandRemotes.WeatherToggleEffect  = getOrCreate("CmdWeatherToggleEffect")
         CommandRemotes.WeatherClientEffect  = getOrCreate("CmdWeatherClientEffect")
         CommandRemotes.CountdownStart       = getOrCreate("CmdCountdownStart")
+        CommandRemotes.CountdownStop        = getOrCreate("CmdCountdownStop")
 else
         CommandRemotes.CommandExecuted = waitFor("CmdExecuted")
         CommandRemotes.CommandFeedback = waitFor("CmdFeedback")
@@ -56,6 +57,7 @@ else
         CommandRemotes.WeatherToggleEffect  = waitFor("CmdWeatherToggleEffect")
         CommandRemotes.WeatherClientEffect  = waitFor("CmdWeatherClientEffect")
         CommandRemotes.CountdownStart       = waitFor("CmdCountdownStart")
+        CommandRemotes.CountdownStop        = waitFor("CmdCountdownStop")
 end
 
 return CommandRemotes

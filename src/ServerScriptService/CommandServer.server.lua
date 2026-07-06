@@ -453,6 +453,18 @@ HANDLERS["countdown"] = function(executor, args)
         ok(executor, "Countdown of " .. seconds .. "s started.")
 end
 
+HANDLERS["stopcountdown"] = function(executor, args)
+        if countdownEndTime == nil then
+                fail(executor, "No countdown is currently running.")
+                return
+        end
+        countdownEndTime = nil
+        for _, player in Players:GetPlayers() do
+                CommandRemotes.CountdownStop:FireClient(player)
+        end
+        ok(executor, "Countdown stopped.")
+end
+
 CommandRemotes.CommandExecuted.OnServerEvent:Connect(function(executor: Player, cmdName: string, args: { string })
         if typeof(cmdName) ~= "string" then return end
         if typeof(args) ~= "table" then args = {} end

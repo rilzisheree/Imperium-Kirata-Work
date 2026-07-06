@@ -25,7 +25,8 @@ local COMMANDS = {
         helpui   = { args = {},                                description = "Toggle help request notifications" },
         notif    = { args = { "player|all", "message" },       description = "Send a custom notification to a player" },
         weather    = { args = {},                                description = "Open the Weather Control panel" },
-        countdown  = { args = { "seconds" },                   description = "Visible countdown for all players" },
+        countdown     = { args = { "seconds" },                description = "Visible countdown for all players" },
+        stopcountdown = { args = {},                           description = "Stop the current countdown" },
 }
 
 -- BindableEvent that ChatLogs.client.lua listens to (we create it here so it exists when ChatLogs loads)
