@@ -55,15 +55,14 @@ local MUFFLED_DISTANCE = 33     -- studs: [Inaudible]
 local HOLD_DURATION    = 7      -- seconds bubble stays on screen
 local MAX_CHARS        = 200
 
-local MAX_BUBBLE_W = 300   -- max bubble pill width (pixels) — wrap kicks in above this
-local BILLBOARD_H  = 600   -- BillboardGui height in pixels (300 above + 300 below head centre)
-local HEAD_GAP_PX  = 110   -- pixels above head CENTRE where bubble stack bottom sits
---                            increase HEAD_GAP_PX to move text higher
-local PAD_H        = 12
-local PAD_V        = 7
-local CORNER      = 10
-local FONT        = Enum.Font.GothamSemibold
-local TEXT_SIZE   = 15
+local MAX_BUBBLE_W = 360   -- max bubble pill width before text wraps
+local BILLBOARD_H  = 700   -- BillboardGui pixel height (350 above + 350 below head centre)
+local HEAD_GAP_PX  = 120   -- pixels above head CENTRE where bubble stack bottom sits
+local PAD_H        = 14
+local PAD_V        = 9
+local CORNER       = 12
+local FONT         = Enum.Font.GothamSemibold
+local TEXT_SIZE    = 18
 local BG_COLOR    = Color3.fromRGB(240, 240, 240)
 local BG_TRANS    = 0.06
 local TEXT_COLOR  = Color3.fromRGB(25, 25, 25)
@@ -144,13 +143,11 @@ end
 --    never changes with zoom.  The bubble stack bottom is always HEAD_GAP_PX
 --    pixels above the head centre, regardless of camera distance.
 --
---  Layout (BILLBOARD_H = 600, HEAD_GAP_PX = 110):
---    Y=0   ─── billboard top       (300 px above head centre)
---    Y=190 ─── container top       (110 px above head centre)
---    Y=190 ─── container bottom (AnchorPoint.Y=1, bottom at Y=190)
---              → content bottom sits 300-190 = 110 px above head centre ✓
---    Y=300 ─── head centre  (StudsOffset 0 → BillboardGui centre)
---    Y=600 ─── billboard bottom
+--  Layout (all values derived from constants above):
+--    Y=0              ─── billboard top   (BILLBOARD_H/2 px above head centre)
+--    Y=halfH-HEAD_GAP ─── container bottom (HEAD_GAP_PX px above head centre) ✓
+--    Y=halfH          ─── head centre     (StudsOffset 0 → BillboardGui centre)
+--    Y=BILLBOARD_H    ─── billboard bottom
 -- ══════════════════════════════════════════════════════════════════════════════
 
 local speakers = {}
