@@ -50,7 +50,7 @@ end)
 local ChatRemotes = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 
 -- ── 3. Constants ─────────────────────────────────────────────────────────────
-local FULL_DISTANCE    = 23     -- studs: full text
+local FULL_DISTANCE    = 30     -- studs: full text
 local MUFFLED_DISTANCE = 33     -- studs: [Inaudible]
 local HOLD_DURATION    = 7      -- seconds bubble stays on screen
 local MAX_CHARS        = 200
