@@ -57,7 +57,7 @@ local MAX_CHARS        = 200
 
 local MAX_BUBBLE_W = 360   -- max bubble pill width before text wraps
 local BILLBOARD_H  = 500   -- BillboardGui pixel height for the bubble stack area
-local STUD_ABOVE   = 2.2   -- world-space studs above Head centre; scales with zoom → always glued
+local STUD_ABOVE   = 1.9   -- world-space studs above Head centre; scales with zoom → always glued
 local PAD_H        = 14
 local PAD_V        = 9
 local CORNER       = 12
@@ -232,7 +232,11 @@ RunService.Heartbeat:Connect(function()
 
 		for _, b in ipairs(data.bubbles) do
 			if b.label and b.label.Parent then
-				local want = showFull and b.originalText or "[ Inaudible ]"
+				-- If the bubble was locked as inaudible at creation time, it never
+				-- reveals the original text no matter how close the player moves.
+				local want = (b.lockedInaudible or not showFull)
+					and "[ Inaudible ]"
+					or b.originalText
 				if b.label.Text ~= want then b.label.Text = want end
 			end
 		end
@@ -245,12 +249,26 @@ local function createBubble(character, text)
 
 	data.count += 1
 
-	-- Pill is exactly as wide as the text, capped at MAX_BUBBLE_W.
-	-- TextWrapped=true means anything that doesn't fit wraps downward instead of overflowing.
-	local measuredW = TextService:GetTextSize(
-		text, TEXT_SIZE, FONT, Vector2.new(math.huge, math.huge)
-	).X
-	local pillW = math.min(measuredW + PAD_H * 2, MAX_BUBBLE_W)
+	-- Pill must fit whichever is wider: the real message or "[ Inaudible ]".
+	-- That way the pill never needs to rewrap when the label text is swapped at runtime.
+	local INF2     = Vector2.new(math.huge, math.huge)
+	local msgW     = TextService:GetTextSize(text,            TEXT_SIZE, FONT, INF2).X
+	local inaW     = TextService:GetTextSize("[ Inaudible ]", TEXT_SIZE, FONT, INF2).X
+	local pillW    = math.min(math.max(msgW, inaW) + PAD_H * 2, MAX_BUBBLE_W)
+
+	-- Lock the "inaudible" state at the moment the bubble is created.
+	-- If the sender was already out of full-hearing range when the message arrived,
+	-- the bubble stays as [Inaudible] for its whole lifetime — moving closer later
+	-- will not reveal the original text.
+	local lockedInaudible = false
+	if character.Name ~= LocalPlayer.Name then
+		local localRoot  = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+		local senderRoot = character:FindFirstChild("HumanoidRootPart")
+		if localRoot and senderRoot then
+			lockedInaudible = (localRoot.Position - senderRoot.Position).Magnitude > FULL_DISTANCE
+		end
+	end
+	local displayText = lockedInaudible and "[ Inaudible ]" or text
 
 	local bubble = Instance.new("Frame", data.container)
 	bubble.LayoutOrder            = data.count
@@ -281,14 +299,14 @@ local function createBubble(character, text)
 	label.RichText               = false
 	label.TextTransparency       = 1
 	label.TextStrokeTransparency = 1                       -- disable the default glow/outline
-	label.Text                   = text
+	label.Text                   = displayText
 
 	-- Fade in: plain opacity tween, same feel as Roblox's default bubble chat.
 	local fadeIn = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	TweenService:Create(bubble, fadeIn, { BackgroundTransparency = BG_TRANS }):Play()
 	TweenService:Create(label,  fadeIn, { TextTransparency = 0 }):Play()
 
-	local entry = { label = label, bubble = bubble, originalText = text }
+	local entry = { label = label, bubble = bubble, originalText = text, lockedInaudible = lockedInaudible }
 	table.insert(data.bubbles, entry)
 
 	task.delay(HOLD_DURATION, function()
