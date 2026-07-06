@@ -1,0 +1,66 @@
+Before making any changes, thoroughly read and understand my existing admin command system, UI, RemoteEvents, and coding style. Reuse the current architecture and only add the functionality described below.
+
+Create two new admin commands:
+
+setwaypoint <target>
+
+clearwaypoints <target>
+
+--------------------------------------------------
+SETWAYPOINT
+--------------------------------------------------
+
+Description:
+- Places a waypoint for the specified player(s) to follow.
+
+Requirements:
+
+Follow the existing admin command framework and coding style.
+
+Support all existing target selectors (username, display name, me, all, etc.) if the command system already provides them.
+
+When executed, place a waypoint at the admin's current position for the targeted player(s).
+
+The waypoint should be clearly visible in the 3D world and easy to locate from a distance.
+
+Display the distance from the player to the waypoint (e.g. "245m"), updating in real time as they move.
+
+The waypoint should remain visible until it is manually removed or replaced.
+
+
+
+Waypoints should replicate correctly so only the targeted player(s) can see their assigned waypoint.
+
+
+
+
+
+Ensure players who respawn continue to see their assigned waypoint until it is removed.
+
+Keep it as an white triangle or an Dot or even an arrow.
+
+Integrate seamlessly into the existing admin system without breaking any current functionality.
+
+--------------------------------------------------
+CLEARWAYPOINTS
+--------------------------------------------------
+
+Description:
+- Removes any active waypoint(s) for the specified player(s).
+
+Requirements:
+- Follow the existing admin command framework and coding style.
+- Support all existing target selectors.
+- Immediately remove the player's active waypoint and any associated UI.
+- If the player has no active waypoint, do nothing without throwing errors.
+- Support clearing waypoints for multiple targeted players at once.
+- Ensure no orphaned markers, UI elements, or connections remain after clearing.
+
+--------------------------------------------------
+GENERAL REQUIREMENTS
+--------------------------------------------------
+
+- Keep the system efficient
+- Ensure waypoints replicate correctly and only the intended players can see them.
+- Integrate seamlessly into the existing admin system without breaking any current commands or functionality.
+- Follow the existing coding style and project architecture.

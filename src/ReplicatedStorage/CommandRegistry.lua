@@ -81,6 +81,16 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all", "language" },
                 permission  = "Admin",
         },
+        setwaypoint = {
+                description = "Place a waypoint at your position for a player or all players",
+                args        = { "player|all" },
+                permission  = "Admin",
+        },
+        clearwaypoints = {
+                description = "Remove any active waypoint for a player or all players",
+                args        = { "player|all" },
+                permission  = "Admin",
+        },
 }
 
 return CommandRegistry

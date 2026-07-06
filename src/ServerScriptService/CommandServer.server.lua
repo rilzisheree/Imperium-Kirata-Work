@@ -48,8 +48,12 @@ local helpUIEnabled = {}
 -- active countdown: stores the DistributedGameTime at which the countdown ends, or nil
 local countdownEndTime = nil
 
+-- active waypoints: userId -> Vector3 world position
+local activeWaypoints = {}
+
 Players.PlayerRemoving:Connect(function(player)
         helpUIEnabled[player.UserId] = nil
+        activeWaypoints[player.UserId] = nil
 end)
 
 -- push the player's permission tier to their client on join so CommandBar
@@ -489,6 +493,51 @@ HANDLERS["language"] = function(executor, args)
         end
         CommandRemotes.LanguageOpen:FireClient(executor)
         ok(executor, "Language menu opened.")
+end
+
+HANDLERS["setwaypoint"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: setwaypoint <player|all>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	local character = executor.Character
+	local rootPart  = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not rootPart then
+		fail(executor, "Could not determine your position.")
+		return
+	end
+	local pos = rootPart.Position
+
+	for _, target in targets do
+		activeWaypoints[target.UserId] = pos
+		CommandRemotes.WaypointSet:FireClient(target, pos)
+	end
+
+	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
+	ok(executor, "Waypoint set for " .. recipient .. ".")
+end
+
+HANDLERS["clearwaypoints"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: clearwaypoints <player|all>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	local cleared = {}
+	for _, target in targets do
+		if activeWaypoints[target.UserId] then
+			activeWaypoints[target.UserId] = nil
+			CommandRemotes.WaypointClear:FireClient(target)
+			table.insert(cleared, target.DisplayName)
+		end
+	end
+
+	if #cleared == 0 then
+		local recipient = #targets == 1 and targets[1].DisplayName or "the targeted players"
+		ok(executor, recipient .. " had no active waypoint.")
+		return
+	end
+
+	ok(executor, "Waypoint cleared for " .. table.concat(cleared, ", ") .. ".")
 end
 
 HANDLERS["accesslanguage"] = function(executor, args)
