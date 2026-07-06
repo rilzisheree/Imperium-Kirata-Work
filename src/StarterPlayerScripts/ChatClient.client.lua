@@ -57,7 +57,7 @@ local MAX_CHARS        = 200
 
 local MAX_BUBBLE_W = 360   -- max bubble pill width before text wraps
 local BILLBOARD_H  = 500   -- BillboardGui pixel height for the bubble stack area
-local STUD_ABOVE   = 2.5   -- world-space studs above Head centre; scales with zoom → always glued
+local STUD_ABOVE   = 2.2   -- world-space studs above Head centre; scales with zoom → always glued
 local PAD_H        = 14
 local PAD_V        = 9
 local CORNER       = 12
@@ -276,7 +276,7 @@ local function createBubble(character, text)
 	label.Font                   = FONT
 	label.TextSize               = TEXT_SIZE
 	label.TextColor3             = TEXT_COLOR
-	label.TextXAlignment         = Enum.TextXAlignment.Left
+	label.TextXAlignment         = Enum.TextXAlignment.Center
 	label.TextWrapped            = true                    -- always wrap; pill width is pre-measured
 	label.RichText               = false
 	label.TextTransparency       = 1
