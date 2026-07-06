@@ -1319,13 +1319,10 @@ local function attachRain()
 
 	local alpha = rainAlpha()
 
-	-- Rain streak texture: a thin elongated gradient that reads clearly as a
-	-- raindrop when combined with VelocityParallel + high Squash.
-	-- rbxassetid://6101261926 is a well-known free rain-streak sprite.
-	-- If the asset fails to load the emitter falls back to the default circle,
-	-- which still works — but the streak texture makes a huge visual difference.
-	local STREAK_TEX = "rbxassetid://6101261926"
-	local MIST_TEX   = "rbxassetid://243728835"   -- soft ring/ripple for splash
+	-- Rain particle texture confirmed present in this place file (rainPart PE).
+	-- Using the same ID on all streak layers guarantees it loads correctly.
+	local STREAK_TEX = "rbxassetid://241868005"
+	local MIST_TEX   = "rbxassetid://241868005"   -- same asset; will look like mist when large+transparent
 
 	-- ── Layer 1: far background streaks (80×80, 28 above cam) ────────────────
 	-- Covers the full horizon so rain never looks like it stops at a boundary.
@@ -1458,9 +1455,10 @@ local function attachRain()
 	-- Set all rates instantly (rain is visible immediately, no 1-second ramp delay)
 	applyRates(true)
 
-	-- ── Sound layer 1: light rain patter ──────────────────────────────────────
+	-- ── Sound layer 1: confirmed in-place rain ambient (rainOutside) ────────────
+	-- rbxassetid://1516791621 is the rainOutside Sound already in this place.
 	rainSoundLight         = Instance.new("Sound", SoundService)
-	rainSoundLight.SoundId = "rbxassetid://9119733991"   -- light rain ambient
+	rainSoundLight.SoundId = "rbxassetid://1516791621"
 	rainSoundLight.Looped  = true
 	rainSoundLight.Volume  = 0   -- start silent, tween in
 	rainSoundLight:Play()
@@ -1469,12 +1467,14 @@ local function attachRain()
 		{ Volume = rainVolLight() }
 	):Play()
 
-	-- ── Sound layer 2: heavier rain wash (cross-fades in above ~35% intensity) ─
-	-- Replace this asset ID with any looping heavy-rain sound from the Toolbox.
+	-- ── Sound layer 2: second instance of same sound, slightly offset ──────────
+	-- Two layers of the same looping rain slightly out of phase produce a
+	-- fuller, less repetitive sound without needing a second asset.
 	rainSoundHeavy         = Instance.new("Sound", SoundService)
-	rainSoundHeavy.SoundId = "rbxassetid://2869677987"   -- heavier rain wash
+	rainSoundHeavy.SoundId = "rbxassetid://1516791621"
 	rainSoundHeavy.Looped  = true
 	rainSoundHeavy.Volume  = 0
+	rainSoundHeavy.TimePosition = 4.5   -- offset so it doesn't perfectly double
 	rainSoundHeavy:Play()
 	if rainVolHeavy() > 0 then
 		TweenService:Create(rainSoundHeavy,
