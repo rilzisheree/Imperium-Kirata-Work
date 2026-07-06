@@ -15,7 +15,7 @@ local COMMANDS = {
 	sm       = { args = { "message" },           description = "Server message to all" },
 	im       = { args = { "player|all", "message" },  description = "Message to a player or all" },
 	anxiety  = { args = { "player|all", "level" },    description = "Anxiety effect (1–5)" },
-	blind    = { args = { "player|all" },              description = "Black overlay on player" },
+	blind    = { args = { "player|all", "[duration]" }, description = "Black overlay (optional fade)" },
 	unblind  = { args = { "player|all" },              description = "Remove blind effect" },
 	chatlogs = { args = {},                            description = "Open / close chat logs" },
 }

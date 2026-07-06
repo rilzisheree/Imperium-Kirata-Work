@@ -127,14 +127,27 @@ HANDLERS["anxiety"] = function(executor, args)
 end
 
 HANDLERS["blind"] = function(executor, args)
-	if #args < 1 then fail(executor, "Usage: blind <player|all>") return end
+	if #args < 1 then fail(executor, "Usage: blind <player|all> [duration 1-120]") return end
 	local targets = resolveTargets(executor, args[1])
 	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	local duration = 0
+	if args[2] then
+		local d = tonumber(args[2])
+		if not d or d < 1 or d > 120 then
+			fail(executor, "Duration must be 1–120 seconds.")
+			return
+		end
+		duration = math.floor(d)
+	end
 	for _, target in targets do
-		CommandRemotes.Blind:FireClient(target)
+		CommandRemotes.Blind:FireClient(target, duration)
 	end
 	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
-	ok(executor, "Blinded " .. recipient .. ".")
+	if duration > 0 then
+		ok(executor, "Blinding " .. recipient .. " over " .. duration .. "s.")
+	else
+		ok(executor, "Blinded " .. recipient .. ".")
+	end
 end
 
 HANDLERS["unblind"] = function(executor, args)

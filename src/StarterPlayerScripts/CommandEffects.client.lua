@@ -230,17 +230,36 @@ blindFrame.BackgroundColor3       = Color3.new(0, 0, 0)
 blindFrame.BackgroundTransparency = 0
 blindFrame.BorderSizePixel        = 0
 
-local isBlinded = false
+local isBlinded  = false
+local blindTween = nil
 
-local function applyBlind()
+local function applyBlind(duration: number?)
 	if isBlinded then return end
-	isBlinded       = true
+	isBlinded        = true
 	blindGui.Enabled = true
+
+	if duration and duration > 0 then
+		-- start fully transparent and slowly darken over `duration` seconds
+		blindFrame.BackgroundTransparency = 1
+		blindTween = TweenService:Create(
+			blindFrame,
+			TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+			{ BackgroundTransparency = 0 }
+		)
+		blindTween:Play()
+	else
+		blindFrame.BackgroundTransparency = 0
+	end
 end
 
 local function removeBlind()
 	if not isBlinded then return end
-	isBlinded        = false
+	isBlinded = false
+	if blindTween then
+		blindTween:Cancel()
+		blindTween = nil
+	end
+	blindFrame.BackgroundTransparency = 0
 	blindGui.Enabled = false
 end
 

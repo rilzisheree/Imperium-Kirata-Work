@@ -17,8 +17,8 @@ CommandRegistry.COMMANDS = {
 		permission  = "Admin",
 	},
 	blind = {
-		description = "Block a player's vision with a black overlay",
-		args        = { "player|all" },
+		description = "Block a player's vision (optional fade 1–120s)",
+		args        = { "player|all", "[duration]" },
 		permission  = "Admin",
 	},
 	unblind = {
