@@ -15,7 +15,7 @@ local C_OK   = Color3.fromRGB(130, 160, 255)
 local C_FAIL = Color3.fromRGB(215,  75,  75)
 
 local CARD_W    = 80
-local CARD_H    = 80
+local CARD_H    = 100
 local MARGIN_R  = 14
 local GAP       = 7
 local HOLD      = 2.5
@@ -116,7 +116,7 @@ local function notify(success, msg)
 	-- subtitle (server feedback message, truncated to one line)
 	local sub = Instance.new("TextLabel", card)
 	sub.Size               = UDim2.new(1, -14, 0, 16)
-	sub.Position           = UDim2.new(0, 7, 0, 52)
+	sub.Position           = UDim2.new(0, 7, 0, 72)
 	sub.BackgroundTransparency = 1
 	sub.Font               = Enum.Font.Gotham
 	sub.TextSize           = 10
