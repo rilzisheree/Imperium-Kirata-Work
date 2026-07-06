@@ -82,9 +82,10 @@ local C_TXT  = Color3.fromRGB(235, 235, 252)
 local C_DIM  = Color3.fromRGB(80,  80, 100)
 local C_DESC = Color3.fromRGB(110, 110, 140)
 
-local isOpen      = false
-local suggestions = {}
-local selIdx      = 1
+local isOpen       = false
+local suggestions  = {}
+local selIdx       = 1   -- 1-based index into suggestions (can exceed MAX_AC)
+local scrollOffset = 0   -- how many suggestions are scrolled past at the top
 
 local sg = Instance.new("ScreenGui")
 sg.Name           = "CmdBarGui"
@@ -219,18 +220,20 @@ for i = 1, MAX_AC do
 
         local ri = i
         rb.MouseEnter:Connect(function()
-                selIdx = ri
+                -- Map the hovered row back to its position in the full suggestions list.
+                selIdx = scrollOffset + ri
                 for j, r in ipairs(rows) do
                         if r.Visible then
-                                r.BackgroundTransparency = (j == selIdx) and 0.55 or 1
-                                r:FindFirstChild("Accent").Visible = (j == selIdx)
+                                local isSel = (scrollOffset + j == selIdx)
+                                r.BackgroundTransparency = isSel and 0.55 or 1
+                                r:FindFirstChild("Accent").Visible = isSel
                                 local n = r:FindFirstChild("N")
-                                if n then n.TextColor3 = (j == selIdx) and Color3.new(1,1,1) or C_TXT end
+                                if n then n.TextColor3 = isSel and Color3.new(1,1,1) or C_TXT end
                         end
                 end
         end)
         rb.MouseButton1Click:Connect(function()
-                local s = suggestions[ri]
+                local s = suggestions[scrollOffset + ri]
                 if s then acceptSuggestion(s.name) end
         end)
 
@@ -238,25 +241,30 @@ for i = 1, MAX_AC do
 end
 
 local function hideDrop()
-        suggestions = {}
+        suggestions  = {}
         selIdx       = 1
+        scrollOffset = 0
         drop.Visible = false
         for _, r in ipairs(rows) do r.Visible = false end
 end
 
 local function showDrop()
-        local n = math.min(#suggestions, MAX_AC)
-        if n == 0 then hideDrop() return end
+        local total   = #suggestions
+        local visible = math.min(total, MAX_AC)
+        if visible == 0 then hideDrop() return end
 
-        drop.Size    = UDim2.new(0, BAR_W, 0, n * ROW_H)
+        -- Clamp scrollOffset so the window never goes past the last item.
+        scrollOffset = math.clamp(scrollOffset, 0, math.max(0, total - MAX_AC))
+
+        drop.Size    = UDim2.new(0, BAR_W, 0, visible * ROW_H)
         drop.Visible = true
 
         for i = 1, MAX_AC do
                 local r = rows[i]
-                local s = suggestions[i]
-                r.Visible = (i <= n)
+                local s = suggestions[scrollOffset + i]  -- offset into full list
+                r.Visible = (i <= visible)
                 if s then
-                        local sel = (i == selIdx)
+                        local sel = (scrollOffset + i == selIdx)
                         r.BackgroundTransparency = sel and 0.55 or 1
                         r:FindFirstChild("Accent").Visible = sel
                         local nl = r:FindFirstChild("N")
@@ -264,7 +272,7 @@ local function showDrop()
                         local dv = r:FindFirstChild("Div")
                         if nl then nl.Text = s.name;        nl.TextColor3 = sel and Color3.new(1,1,1) or C_TXT end
                         if dl then dl.Text = s.description or "" end
-                        if dv then dv.Visible = (i < n) end
+                        if dv then dv.Visible = (i < visible) end
                 end
         end
 end
@@ -446,11 +454,27 @@ UserInputService.InputBegan:Connect(function(inp, gp)
 
         if inp.KeyCode == Enum.KeyCode.Up and #suggestions > 0 then
                 selIdx = ((selIdx - 2) % #suggestions) + 1
+                -- If selection scrolled above the visible window, shift the window up.
+                if selIdx <= scrollOffset then
+                        scrollOffset = selIdx - 1
+                end
+                -- Wrap-around: jumped from top to bottom — show the last page.
+                if selIdx > scrollOffset + MAX_AC then
+                        scrollOffset = math.max(0, #suggestions - MAX_AC)
+                end
                 showDrop()
                 return
         end
         if inp.KeyCode == Enum.KeyCode.Down and #suggestions > 0 then
                 selIdx = (selIdx % #suggestions) + 1
+                -- If selection scrolled below the visible window, shift the window down.
+                if selIdx > scrollOffset + MAX_AC then
+                        scrollOffset = selIdx - MAX_AC
+                end
+                -- Wrap-around: jumped from bottom to top — reset to first page.
+                if selIdx <= scrollOffset then
+                        scrollOffset = 0
+                end
                 showDrop()
                 return
         end
