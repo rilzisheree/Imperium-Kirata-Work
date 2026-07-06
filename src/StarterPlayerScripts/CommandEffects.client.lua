@@ -242,6 +242,11 @@ local function showIM(text: string, colorName: string?)
 	end)
 end
 
+local notifSound = Instance.new("Sound")
+notifSound.SoundId = "rbxassetid://131390520971848"
+notifSound.Volume  = 1
+notifSound.Parent  = gui
+
 -- ── notif queue ───────────────────────────────────────────────────────────────
 local notifQueue: { { message: string, sender: string } } = {}
 local notifBusy = false
@@ -263,6 +268,7 @@ local function processNotifQueue()
 	notifSender.TextTransparency = 1
 	notifMsg.Visible             = true
 	notifSender.Visible          = true
+	notifSound:Play()
 
 	-- fade in
 	tw(notifMsg,    NOTIF_IN_T, { TextTransparency = 0 })
