@@ -59,7 +59,15 @@ function CorpseFactory.Create(target: Player, lifetime: number?): (boolean, stri
 
         local corpsesFolder = getCorpsesFolder()
 
+        local wasArchivable = character.Archivable
+        character.Archivable = true
         local clone = character:Clone()
+        character.Archivable = wasArchivable
+
+        if not clone then
+                return false, "couldn't clone " .. target.DisplayName .. "'s character"
+        end
+
         stripLiveBehaviour(clone)
 
         local cloneHumanoid = clone:FindFirstChildOfClass("Humanoid")
