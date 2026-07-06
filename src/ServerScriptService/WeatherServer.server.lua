@@ -118,13 +118,12 @@ local PRESETS = {
 			Haze    = 22,
 		},
 		clouds    = { Cover = 0.92, Density = 0.80, Color = Color3.fromRGB(120, 130, 148) },
-		-- Confirmed working in-place rain sound (rbxassetid://1516791621 = rainOutside)
-		soundId   = 1516791621,
+		soundId   = 110175241065326,   -- rbxassetid://110175241065326 (rainOutside)
 		particles = {
 			{
 				-- Overhead world-space emitter (server-side, replicates to all clients).
-				-- Uses the same confirmed texture as the client-side camera-locked layers.
-				Texture           = "rbxassetid://241868005",
+				-- Uses the same texture as the client-side camera-locked layers.
+				Texture           = "rbxassetid://85952396415094",
 				Color             = ColorSequence.new({
 					ColorSequenceKeypoint.new(0, Color3.fromRGB(185, 218, 255)),
 					ColorSequenceKeypoint.new(1, Color3.fromRGB(155, 195, 245)),
@@ -170,10 +169,10 @@ local PRESETS = {
 			Haze    = 30,
 		},
 		clouds    = { Cover = 1,    Density = 0.95, Color = Color3.fromRGB( 55,  58,  72) },
-		soundId   = 1516791621,   -- same rain asset, louder volume set below
+		soundId   = 110175241065326,   -- same rain asset, louder volume set below
 		particles = {
 			{
-				Texture           = "rbxassetid://241868005",
+				Texture           = "rbxassetid://85952396415094",
 				Color             = ColorSequence.new({
 					ColorSequenceKeypoint.new(0, Color3.fromRGB(148, 190, 255)),
 					ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 168, 245)),

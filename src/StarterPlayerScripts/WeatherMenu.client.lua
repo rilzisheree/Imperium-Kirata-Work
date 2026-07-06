@@ -1321,8 +1321,8 @@ local function attachRain()
 
 	-- Rain particle texture confirmed present in this place file (rainPart PE).
 	-- Using the same ID on all streak layers guarantees it loads correctly.
-	local STREAK_TEX = "rbxassetid://241868005"
-	local MIST_TEX   = "rbxassetid://241868005"   -- same asset; will look like mist when large+transparent
+	local STREAK_TEX = "rbxassetid://85952396415094"   -- rain-particles asset
+	local MIST_TEX   = "rbxassetid://85952396415094"
 
 	-- ── Layer 1: far background streaks (80×80, 28 above cam) ────────────────
 	-- Covers the full horizon so rain never looks like it stops at a boundary.
@@ -1455,10 +1455,9 @@ local function attachRain()
 	-- Set all rates instantly (rain is visible immediately, no 1-second ramp delay)
 	applyRates(true)
 
-	-- ── Sound layer 1: confirmed in-place rain ambient (rainOutside) ────────────
-	-- rbxassetid://1516791621 is the rainOutside Sound already in this place.
+	-- ── Sound layer 1: rainOutside ────────────────────────────────────────────────
 	rainSoundLight         = Instance.new("Sound", SoundService)
-	rainSoundLight.SoundId = "rbxassetid://1516791621"
+	rainSoundLight.SoundId = "rbxassetid://110175241065326"
 	rainSoundLight.Looped  = true
 	rainSoundLight.Volume  = 0   -- start silent, tween in
 	rainSoundLight:Play()
@@ -1471,7 +1470,7 @@ local function attachRain()
 	-- Two layers of the same looping rain slightly out of phase produce a
 	-- fuller, less repetitive sound without needing a second asset.
 	rainSoundHeavy         = Instance.new("Sound", SoundService)
-	rainSoundHeavy.SoundId = "rbxassetid://1516791621"
+	rainSoundHeavy.SoundId = "rbxassetid://110175241065326"
 	rainSoundHeavy.Looped  = true
 	rainSoundHeavy.Volume  = 0
 	rainSoundHeavy.TimePosition = 4.5   -- offset so it doesn't perfectly double
