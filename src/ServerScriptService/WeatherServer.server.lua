@@ -425,10 +425,197 @@ local function applyWeather(weatherName)
 	end
 end
 
+-- ── Roblox default environment (used by WeatherReset) ─────────────────────────
+local DEFAULTS = {
+	lighting = {
+		Brightness           = 2,
+		ClockTime            = 14,
+		ExposureCompensation = 0,
+		ShadowSoftness       = 0.25,
+		GeographicLatitude   = 41.7333,
+		Ambient              = Color3.fromRGB( 70,  70,  70),
+		OutdoorAmbient       = Color3.fromRGB(140, 140, 140),
+		FogEnd               = 100000,
+		FogStart             = 0,
+		FogColor             = Color3.fromRGB(191, 191, 191),
+	},
+	atmosphere = {
+		Density = 0,
+		Offset  = 0,
+		Color   = Color3.fromRGB(199, 199, 199),
+		Decay   = Color3.fromRGB(106, 127, 139),
+		Glare   = 0,
+		Haze    = 0,
+	},
+	clouds = {
+		Cover   = 0.5,
+		Density = 0.5,
+		Color   = Color3.fromRGB(235, 235, 235),
+	},
+}
+
+-- ── Property whitelists for WeatherSetProp ─────────────────────────────────────
+local LIGHTING_NUM = {
+	Brightness           = { min = 0,   max = 10  },
+	ClockTime            = { min = 0,   max = 24  },
+	ExposureCompensation = { min = -5,  max = 5   },
+	ShadowSoftness       = { min = 0,   max = 1   },
+	GeographicLatitude   = { min = -90, max = 90  },
+	FogEnd               = { min = 0,   max = 1e6 },
+	FogStart             = { min = 0,   max = 1e6 },
+}
+local LIGHTING_COLOR = { Ambient = true, OutdoorAmbient = true, FogColor = true }
+local ATM_NUM   = {
+	Density = { min = 0, max = 1   },
+	Offset  = { min = 0, max = 1   },
+	Haze    = { min = 0, max = 100 },
+	Glare   = { min = 0, max = 10  },
+}
+local ATM_COLOR = { Color = true, Decay = true }
+local CLD_NUM   = { Cover = { min = 0, max = 1 }, Density = { min = 0, max = 1 } }
+local CLD_COLOR = { Color = true }
+
+-- ── Environment toggle state (saved values for restore) ────────────────────────
+local savedAtmDensity = atmosphere and atmosphere.Density or 0.12
+local savedCloudCover = clouds     and clouds.Cover       or 0.5
+
+local POST_EFFECTS = {
+	BloomEffect = true, SunRaysEffect = true,
+	ColorCorrectionEffect = true, DepthOfFieldEffect = true,
+}
+
 -- ── remote handlers ────────────────────────────────────────────────────────────
 CommandRemotes.WeatherApply.OnServerEvent:Connect(function(player, weatherName)
 	if not hasPermission(player, "Admin") then return end
 	if typeof(weatherName) ~= "string"    then return end
 	if not PRESETS[weatherName]            then return end
 	applyWeather(weatherName)
+end)
+
+-- Live property edit — client sliders send changes here
+CommandRemotes.WeatherSetProp.OnServerEvent:Connect(function(player, target, prop, value)
+	if not hasPermission(player, "Admin")    then return end
+	if typeof(target) ~= "string"            then return end
+	if typeof(prop)   ~= "string"            then return end
+
+	if target == "Lighting" then
+		local numInfo = LIGHTING_NUM[prop]
+		if numInfo and typeof(value) == "number" then
+			Lighting[prop] = math.clamp(value, numInfo.min, numInfo.max)
+		elseif LIGHTING_COLOR[prop] and typeof(value) == "Color3" then
+			Lighting[prop] = value
+		end
+
+	elseif target == "Atmosphere" then
+		if not atmosphere then return end
+		local numInfo = ATM_NUM[prop]
+		if numInfo and typeof(value) == "number" then
+			atmosphere[prop] = math.clamp(value, numInfo.min, numInfo.max)
+			if prop == "Density" then savedAtmDensity = atmosphere.Density end
+		elseif ATM_COLOR[prop] and typeof(value) == "Color3" then
+			atmosphere[prop] = value
+		end
+
+	elseif target == "Clouds" then
+		if not clouds then return end
+		local numInfo = CLD_NUM[prop]
+		if numInfo and typeof(value) == "number" then
+			clouds[prop] = math.clamp(value, numInfo.min, numInfo.max)
+			if prop == "Cover" then savedCloudCover = clouds.Cover end
+		elseif CLD_COLOR[prop] and typeof(value) == "Color3" then
+			clouds[prop] = value
+		end
+
+	elseif target == "Particles" then
+		if typeof(value) ~= "number" then return end
+		if prop == "Rate" then
+			local rate = math.clamp(value, 0, 2000)
+			for _, e in emitterPart:GetChildren() do
+				if e:IsA("ParticleEmitter") then e.Rate = rate end
+			end
+		elseif prop == "Speed" then
+			local spd = math.clamp(value, 0, 200)
+			for _, e in emitterPart:GetChildren() do
+				if e:IsA("ParticleEmitter") then
+					e.Speed = NumberRange.new(spd, spd * 1.3)
+				end
+			end
+		end
+
+	elseif target == "Sound" then
+		if prop == "Volume" and typeof(value) == "number" then
+			weatherSound.Volume = math.clamp(value, 0, 10)
+		end
+	end
+end)
+
+-- Restore Roblox default environment
+CommandRemotes.WeatherReset.OnServerEvent:Connect(function(player)
+	if not hasPermission(player, "Admin") then return end
+
+	cancelActiveTweens()
+
+	local t1 = TweenService:Create(Lighting, TWEEN_INFO, DEFAULTS.lighting)
+	t1:Play()
+	table.insert(activeTweens, t1)
+
+	if atmosphere then
+		local t2 = TweenService:Create(atmosphere, TWEEN_INFO, DEFAULTS.atmosphere)
+		t2:Play()
+		table.insert(activeTweens, t2)
+		savedAtmDensity = DEFAULTS.atmosphere.Density
+	end
+
+	if clouds then
+		local t3 = TweenService:Create(clouds, TWEEN_INFO, DEFAULTS.clouds)
+		t3:Play()
+		table.insert(activeTweens, t3)
+		savedCloudCover = DEFAULTS.clouds.Cover
+	end
+
+	clearParticles()
+	weatherSound:Stop()
+
+	currentWeather           = nil
+	activeWeatherValue.Value = ""
+
+	for _, p in Players:GetPlayers() do
+		CommandRemotes.WeatherSync:FireClient(p, "")
+	end
+end)
+
+-- Toggle post-processing effects and world atmosphere/clouds
+CommandRemotes.WeatherToggleEffect.OnServerEvent:Connect(function(player, effectName, enabled)
+	if not hasPermission(player, "Admin") then return end
+	if typeof(effectName) ~= "string"     then return end
+	if typeof(enabled)    ~= "boolean"    then return end
+
+	if effectName == "Atmosphere" then
+		if not atmosphere then return end
+		if enabled then
+			atmosphere.Density = math.max(savedAtmDensity, 0.05)
+		else
+			savedAtmDensity    = atmosphere.Density
+			atmosphere.Density = 0
+		end
+
+	elseif effectName == "Clouds" then
+		if not clouds then return end
+		if enabled then
+			clouds.Cover = math.max(savedCloudCover, 0.1)
+		else
+			savedCloudCover = clouds.Cover
+			clouds.Cover    = 0
+		end
+
+	elseif POST_EFFECTS[effectName] then
+		local effect = Lighting:FindFirstChildOfClass(effectName)
+		if enabled and not effect then
+			effect        = Instance.new(effectName)
+			effect.Parent = Lighting
+		end
+		if effect then
+			effect.Enabled = enabled
+		end
+	end
 end)
