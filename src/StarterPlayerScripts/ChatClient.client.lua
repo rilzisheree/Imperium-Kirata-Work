@@ -267,7 +267,8 @@ local function createBubble(character, text)
 	-- (Previously we forced every pill to be at least as wide as "[ Inaudible ]",
 	-- which made single-word bubbles far too wide.)
 	local INF2  = Vector2.new(math.huge, math.huge)
-	local pillW = math.min(TextService:GetTextSize(displayText, TEXT_SIZE, FONT, INF2).X + PAD_H * 2, MAX_BUBBLE_W)
+	-- Add a small render buffer (6px) so sub-pixel differences never cause a spurious wrap.
+	local pillW = math.min(math.ceil(TextService:GetTextSize(displayText, TEXT_SIZE, FONT, INF2).X) + PAD_H * 2 + 6, MAX_BUBBLE_W)
 
 	local bubble = Instance.new("Frame", data.container)
 	bubble.LayoutOrder            = data.count
