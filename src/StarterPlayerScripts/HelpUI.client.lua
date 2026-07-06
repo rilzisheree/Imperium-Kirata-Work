@@ -115,7 +115,7 @@ end
 local function createCard(payload)
         orderCounter += 1
 
-        local card = Instance.new("Frame")
+        local card = Instance.new("TextButton")
         card.Name                   = "HelpCard"
         card.LayoutOrder            = orderCounter
         card.Size                   = UDim2.new(1, 0, 0, 0)
@@ -123,6 +123,8 @@ local function createCard(payload)
         card.BackgroundColor3       = BG_COLOR
         card.BackgroundTransparency = 1
         card.BorderSizePixel        = 0
+        card.Text                   = ""
+        card.AutoButtonColor        = false
         card:SetAttribute("FromUserId", payload.fromUserId)
         card:SetAttribute("RequestId", payload.requestId)
         card.Parent = holder
@@ -198,23 +200,17 @@ local function createCard(payload)
         local pad2 = Instance.new("UIPadding", msgLbl)
         pad2.PaddingTop = UDim.new(0, 4)
 
-        local button = Instance.new("TextButton", card)
-        button.BackgroundTransparency = 1
-        button.Size                   = UDim2.new(1, 0, 1, 0)
-        button.Text                   = ""
-        button.ZIndex                 = card.ZIndex + 1
-
-        button.MouseEnter:Connect(function()
+        card.MouseEnter:Connect(function()
                 hoveredCard = card
                 focusCameraOn(payload.fromUserId)
         end)
-        button.MouseLeave:Connect(function()
+        card.MouseLeave:Connect(function()
                 if hoveredCard == card then
                         hoveredCard = nil
                         restoreCamera()
                 end
         end)
-        button.MouseButton1Click:Connect(function()
+        card.MouseButton1Click:Connect(function()
                 removeCard(payload.requestId)
         end)
 
