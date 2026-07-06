@@ -1,20 +1,28 @@
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService      = game:GetService("TweenService")
+local SoundService      = game:GetService("SoundService")
 
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
 
-local CARD_W    = 300
-local PAD       = 12
-local CORNER    = 10
-local BG_COLOR  = Color3.fromRGB(15, 15, 20)
-local BG_TRANS  = 0.18
-local NAME_CLR  = Color3.fromRGB(240, 240, 250)
-local USER_CLR  = Color3.fromRGB(150, 150, 175)
-local MSG_CLR   = Color3.fromRGB(220, 220, 235)
+local CARD_W       = 300
+local PAD          = 12
+local CORNER       = 10
+local BG_COLOR     = Color3.fromRGB(15, 15, 20)
+local BG_TRANS     = 0.18
+local NAME_CLR     = Color3.fromRGB(240, 240, 250)
+local USER_CLR     = Color3.fromRGB(150, 150, 175)
+local MSG_CLR      = Color3.fromRGB(220, 220, 235)
+local AUTO_DISMISS = 45
+
+local popSound = Instance.new("Sound")
+popSound.Name     = "HelpPop"
+popSound.SoundId  = "rbxasset://sounds/electronicpingshort.wav"
+popSound.Volume   = 0.5
+popSound.Parent   = SoundService
 
 local gui = Instance.new("ScreenGui")
 gui.Name           = "CmdNotifyGui"
@@ -225,6 +233,14 @@ local function createCard(payload)
         cardsByRequest[payload.requestId] = card
         cardsByUser[payload.fromUserId] = cardsByUser[payload.fromUserId] or {}
         cardsByUser[payload.fromUserId][payload.requestId] = card
+
+        popSound:Play()
+
+        task.delay(AUTO_DISMISS, function()
+                if cardsByRequest[payload.requestId] == card then
+                        removeCard(payload.requestId)
+                end
+        end)
 end
 
 CommandRemotes.HelpRequest.OnClientEvent:Connect(function(payload)

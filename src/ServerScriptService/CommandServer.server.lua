@@ -378,7 +378,7 @@ HANDLERS["help"] = function(executor, args)
 
         local sentTo = 0
         for _, player in Players:GetPlayers() do
-                if player ~= executor and hasPermission(player, "Admin") and helpUIEnabled[player.UserId] ~= false then
+                if hasPermission(player, "Admin") and helpUIEnabled[player.UserId] ~= false then
                         CommandRemotes.HelpRequest:FireClient(player, payload)
                         sentTo += 1
                 end
