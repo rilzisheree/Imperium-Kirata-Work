@@ -56,8 +56,8 @@ local HOLD_DURATION    = 7      -- seconds bubble stays on screen
 local MAX_CHARS        = 200
 
 local MAX_BUBBLE_W = 360   -- max bubble pill width before text wraps
-local BILLBOARD_H  = 700   -- BillboardGui pixel height (350 above + 350 below head centre)
-local HEAD_GAP_PX  = 120   -- pixels above head CENTRE where bubble stack bottom sits
+local BILLBOARD_H  = 500   -- BillboardGui pixel height for the bubble stack area
+local STUD_ABOVE   = 2.5   -- world-space studs above Head centre; scales with zoom → always glued
 local PAD_H        = 14
 local PAD_V        = 9
 local CORNER       = 12
@@ -164,24 +164,24 @@ local function getOrMakeSpeaker(character)
 	if existing then pcall(function() existing.gui:Destroy() end) end
 
 	local gui = Instance.new("BillboardGui")
-	gui.Name             = "ChatBubbles"
-	gui.Size             = UDim2.fromOffset(MAX_BUBBLE_W, BILLBOARD_H)
-	gui.StudsOffset      = Vector3.new(0, 0, 0)  -- centre locked to Head centre by Roblox
-	gui.AlwaysOnTop      = false
-	gui.LightInfluence   = 0
-	gui.ClipsDescendants = false
-	gui.Enabled          = true
-	gui.Parent           = head
+	gui.Name                   = "ChatBubbles"
+	gui.Size                   = UDim2.fromOffset(MAX_BUBBLE_W, BILLBOARD_H)
+	-- StudsOffsetWorldSpace lifts the billboard centre STUD_ABOVE studs above the
+	-- Head in world space.  Because it is a world-space stud value it shrinks and
+	-- grows proportionally with zoom — the bubble stays exactly glued to the head.
+	gui.StudsOffsetWorldSpace  = Vector3.new(0, STUD_ABOVE, 0)
+	gui.AlwaysOnTop            = false
+	gui.LightInfluence         = 0
+	gui.ClipsDescendants       = false
+	gui.Enabled                = true
+	gui.Parent                 = head
 
-	-- Container: bottom-centre anchored at (MAX_BUBBLE_W/2, BILLBOARD_H/2 - HEAD_GAP_PX)
-	-- → bottom is HEAD_GAP_PX pixels above billboard centre = HEAD_GAP_PX above head centre.
-	local halfH      = BILLBOARD_H / 2              -- 300
-	local containerH = halfH - HEAD_GAP_PX          -- 190  (stack grows upward from here)
-
+	-- The billboard centre is already STUD_ABOVE studs above the head, so we place
+	-- the container bottom at the billboard centre and let it grow upward.
 	local container = Instance.new("Frame", gui)
 	container.AnchorPoint            = Vector2.new(0.5, 1)
-	container.Size                   = UDim2.fromOffset(MAX_BUBBLE_W, containerH)
-	container.Position               = UDim2.fromOffset(MAX_BUBBLE_W / 2, halfH - HEAD_GAP_PX)
+	container.Size                   = UDim2.fromOffset(MAX_BUBBLE_W, BILLBOARD_H / 2)
+	container.Position               = UDim2.fromOffset(MAX_BUBBLE_W / 2, BILLBOARD_H / 2)
 	container.BackgroundTransparency = 1
 	container.BorderSizePixel        = 0
 	container.Active                 = false
