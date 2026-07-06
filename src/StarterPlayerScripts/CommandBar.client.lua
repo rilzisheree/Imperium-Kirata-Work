@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService  = game:GetService("UserInputService")
 
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
+local LanguageData   = require(ReplicatedStorage:WaitForChild("LanguageData"))
 
 local LP   = Players.LocalPlayer
 local PGui = LP:WaitForChild("PlayerGui")
@@ -245,6 +246,17 @@ local function showDrop()
         end
 end
 
+local function getLanguageMatches(partial)
+        local out = {}
+        local p   = partial:lower()
+        for _, lang in ipairs(LanguageData.LANGUAGES) do
+                if p == "" or lang.name:lower():sub(1, #p) == p then
+                        table.insert(out, { name = lang.name, description = lang.tag })
+                end
+        end
+        return out
+end
+
 local function getPlayerMatches(partial)
         local out = {}
         local p   = partial:lower()
@@ -304,6 +316,13 @@ local function updateSuggestions()
         local argType = def and def.args[argSlot]
         if argType == "player" or argType == "player|all" then
                 suggestions = getPlayerMatches(partial)
+                selIdx      = 1
+                showDrop()
+                return
+        end
+
+        if argType == "language" then
+                suggestions = getLanguageMatches(partial)
                 selIdx      = 1
                 showDrop()
                 return
