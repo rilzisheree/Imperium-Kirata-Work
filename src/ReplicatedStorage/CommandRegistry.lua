@@ -36,6 +36,11 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all" },
                 permission  = "Admin",
         },
+        respawn = {
+                description = "Respawn a player's character at the world's default spawn location",
+                args        = { "player|all" },
+                permission  = "Admin",
+        },
 }
 
 return CommandRegistry

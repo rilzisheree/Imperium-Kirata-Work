@@ -6,6 +6,8 @@ local CommandRemotes  = require(ReplicatedStorage:WaitForChild("CommandRemotes")
 local CommandRegistry = require(ReplicatedStorage:WaitForChild("CommandRegistry") :: ModuleScript)
 local CorpseFactory   = require(script.Parent:WaitForChild("CorpseFactory")       :: ModuleScript)
 
+local Workspace = game:GetService("Workspace")
+
 local IS_STUDIO = RunService:IsStudio()
 
 local STAFF_IDS = {
@@ -234,6 +236,78 @@ local function refreshPlayer(target: Player): (boolean, string)
         end
 
         return true, target.DisplayName
+end
+
+-- finds the world's default spawn point (first enabled SpawnLocation in the workspace)
+local function findSpawnLocation(): BasePart?
+        for _, inst in Workspace:GetDescendants() do
+                if inst:IsA("SpawnLocation") and inst.Enabled then
+                        return inst
+                end
+        end
+        return nil
+end
+
+-- reloads a single player's character and places it at the default spawn location
+local function respawnPlayer(target: Player, spawn: BasePart?): (boolean, string)
+        target:LoadCharacter()
+
+        local newCharacter = target.Character
+        if not newCharacter then
+                return false, target.DisplayName .. "'s character failed to reload"
+        end
+
+        local newRoot = newCharacter:WaitForChild("HumanoidRootPart", 10) :: BasePart?
+        if not newRoot then
+                return false, target.DisplayName .. "'s character didn't finish loading in time"
+        end
+
+        if spawn then
+                newCharacter:PivotTo(spawn.CFrame + Vector3.new(0, 5, 0))
+        end
+
+        return true, target.DisplayName
+end
+
+HANDLERS["respawn"] = function(executor, args)
+        if #args < 1 then fail(executor, "Usage: respawn <player|all>") return end
+        local targets = resolveTargets(executor, args[1])
+        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+        local spawn = findSpawnLocation()
+
+        local respawned, failures = {}, {}
+        local remaining = #targets
+
+        for _, target in targets do
+                task.spawn(function()
+                        local success, result = respawnPlayer(target, spawn)
+                        if success then
+                                table.insert(respawned, result)
+                        else
+                                table.insert(failures, result)
+                        end
+                        remaining -= 1
+                end)
+        end
+
+        while remaining > 0 do
+                task.wait()
+        end
+
+        if #respawned == 0 then
+                fail(executor, "No players respawned: " .. table.concat(failures, "; ") .. ".")
+                return
+        end
+
+        local msg = "Respawned " .. table.concat(respawned, ", ") .. "."
+        if #failures > 0 then
+                msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
+        end
+        if not spawn then
+                msg = msg .. " (no SpawnLocation found; used default spawn behaviour)"
+        end
+        ok(executor, msg)
 end
 
 HANDLERS["re"] = function(executor, args)
