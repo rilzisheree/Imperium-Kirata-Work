@@ -71,6 +71,16 @@ CommandRegistry.COMMANDS = {
                 args        = {},
                 permission  = "Admin",
         },
+        language = {
+                description = "Open the language selection menu",
+                args        = {},
+                permission  = "Everyone",
+        },
+        accesslanguage = {
+                description = "Grant a player access to a language",
+                args        = { "player|all", "language" },
+                permission  = "Admin",
+        },
 }
 
 return CommandRegistry

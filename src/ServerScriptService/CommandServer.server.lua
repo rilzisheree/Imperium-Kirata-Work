@@ -6,6 +6,8 @@ local HttpService       = game:GetService("HttpService")
 local CommandRemotes  = require(ReplicatedStorage:WaitForChild("CommandRemotes")  :: ModuleScript)
 local CommandRegistry = require(ReplicatedStorage:WaitForChild("CommandRegistry") :: ModuleScript)
 local CorpseFactory   = require(script.Parent:WaitForChild("CorpseFactory")       :: ModuleScript)
+local LanguageManager = require(script.Parent:WaitForChild("LanguageManager")     :: ModuleScript)
+local LanguageData    = require(ReplicatedStorage:WaitForChild("LanguageData")    :: ModuleScript)
 
 local Workspace = game:GetService("Workspace")
 
@@ -463,6 +465,65 @@ HANDLERS["stopcountdown"] = function(executor, args)
                 CommandRemotes.CountdownStop:FireClient(player)
         end
         ok(executor, "Countdown stopped.")
+end
+
+HANDLERS["language"] = function(executor, args)
+        local grants = LanguageManager.getGrants(executor.UserId)
+        if #grants == 0 then
+                fail(executor, "You have not been granted any languages.")
+                return
+        end
+        CommandRemotes.LanguageOpen:FireClient(executor)
+        ok(executor, "Language menu opened.")
+end
+
+HANDLERS["accesslanguage"] = function(executor, args)
+        if #args < 2 then fail(executor, "Usage: accesslanguage <player|all> <language>") return end
+        local targets = resolveTargets(executor, args[1])
+        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+        local langName = joinArgs(args, 2)
+        if langName == "" then fail(executor, "Usage: accesslanguage <player|all> <language>") return end
+
+        -- Validate the language up front (same result for every target)
+        local lower = langName:lower()
+        if lower == "english" then
+                fail(executor, "English is available to all players by default.")
+                return
+        end
+        local langDef = LanguageData.BY_NAME[lower]
+        if not langDef then
+                fail(executor, 'Unknown language "' .. langName .. '".')
+                return
+        end
+
+        local granted, alreadyHad = {}, {}
+        for _, target in targets do
+                local success, msg = LanguageManager.grantLanguage(target.UserId, langDef.name)
+                if success then
+                        table.insert(granted, target.DisplayName)
+                        -- Push the updated grant list to the player immediately
+                        local grants = LanguageManager.getGrants(target.UserId)
+                        CommandRemotes.LanguageGrants:FireClient(target, grants)
+                else
+                        -- msg is "already_granted" here (language validation passed above)
+                        table.insert(alreadyHad, target.DisplayName)
+                end
+        end
+
+        if #granted == 0 then
+                if #alreadyHad == 1 then
+                        fail(executor, alreadyHad[1] .. " already has " .. langDef.name .. ".")
+                else
+                        fail(executor, "All targets already have " .. langDef.name .. ".")
+                end
+                return
+        end
+
+        local msg = "Granted " .. langDef.name .. " to " .. table.concat(granted, ", ") .. "."
+        if #alreadyHad > 0 then
+                msg = msg .. " (" .. table.concat(alreadyHad, ", ") .. " already had it)"
+        end
+        ok(executor, msg)
 end
 
 CommandRemotes.CommandExecuted.OnServerEvent:Connect(function(executor: Player, cmdName: string, args: { string })

@@ -1,0 +1,149 @@
+Before making any changes, thoroughly read and understand my existing custom chat system, chat bubbles, chat logs, UI structure, RemoteEvents, data system, and admin command framework. Reuse the current architecture and coding style. Do not rewrite the chat system—extend it with the functionality described below.
+
+Create two commands:
+
+language
+
+accesslanguage <player> <language>
+
+--------------------------------------------------
+LANGUAGE COMMAND
+--------------------------------------------------
+
+Description:
+- The `language` command opens a small, modern, draggable Language Selection menu.
+- The menu should only open for the player who executed the command.
+- Keep the UI compact, clean, and consistent with the rest of the admin system.
+
+Language Menu:
+- Display only the languages the player has been granted access to.
+- English is the default language for every player and should NOT appear in this menu.
+- Each language should have its own button.
+- The currently selected language should be highlighted.
+- Include a "None" option that disables speaking another language and returns the player to English.
+- Selecting a language immediately applies it.
+- The player's selection should persist while they are in-game.
+
+Language Indicator:
+- Display plain text in the top-right corner of the screen.
+- Use the exact same font and styling as the existing SMs and IMs.
+- Show:
+  Language: Korean
+  (or whichever language is currently selected.)
+- If no language is selected:
+  Language: English
+- Update immediately whenever the player changes languages.
+
+--------------------------------------------------
+CHAT TRANSLATION
+--------------------------------------------------
+
+English is the base language.
+Every player automatically understands English.
+
+Example:
+
+Player A selects Korean.
+
+Player A types:
+
+Hello everyone.
+
+Player A sees:
+
+[K] Hello everyone.
+
+Players that DO NOT know Korean see:
+
+안녕하세요 여러분.
+
+Players that HAVE Korean unlocked and currently selected also see:
+
+[K] Hello everyone.
+
+In other words:
+
+- Players always type naturally in their own language.
+- Messages are automatically translated into the sender's selected language before being sent.
+- Players who understand that language should instead see the translated-back version in their own language with the language prefix.
+- Players who do not understand that language simply see the translated foreign-language message.
+- Apply the exact same behavior to:
+  - Chat window
+  - Chat bubbles
+  - Chat logs
+
+Use a proper translation API/service.
+Cache translations where appropriate.
+If translation fails, gracefully fall back to the original message.
+
+--------------------------------------------------
+ACCESSLANGUAGE COMMAND
+--------------------------------------------------
+
+Description:
+Admin-only command.
+
+Usage:
+
+accesslanguage <player> <language>
+
+Example:
+
+accesslanguage Kirata Korean
+
+This permanently grants the specified player access to that language.
+
+Requirements:
+- Support all existing player selectors.
+- Grant access immediately without requiring the player to rejoin.
+- Save granted languages permanently using the project's existing data system.
+- Prevent duplicate language grants.
+- Validate that the requested language exists.
+- Do not allow granting English, since every player already has it.
+
+--------------------------------------------------
+PERMISSIONS
+--------------------------------------------------
+
+Players should ONLY be able to use languages they have been granted.
+
+If a player has not been granted any languages:
+- They only speak English.
+- They should NOT see the `language` command anywhere.
+- The command should not appear in command suggestions, command lists, or help menus.
+
+As soon as an admin grants them at least one language:
+- The `language` command immediately becomes available.
+- The language menu should display only the languages they have access to.
+- Players should never see languages they have not been granted.
+
+--------------------------------------------------
+SUPPORTED LANGUAGES
+--------------------------------------------------
+
+English is always available and should never need to be granted.
+
+Grantable languages include:
+- Arabic
+- Korean
+- Japanese
+- Chinese
+- French
+- German
+- Spanish
+- Russian
+- Turkish
+- Portuguese
+- Italian
+
+The language system should be modular so additional languages can easily be added later.
+
+--------------------------------------------------
+GENERAL REQUIREMENTS
+--------------------------------------------------
+
+- Preserve all existing chat functionality.
+- Do not break distance chat, chat bubbles, chat logs, notifications, or commands.
+- Reuse the existing architecture and RemoteEvents.
+- Follow the existing coding style and UI style.
+- Keep the implementation optimized, modular, and easy to maintain.

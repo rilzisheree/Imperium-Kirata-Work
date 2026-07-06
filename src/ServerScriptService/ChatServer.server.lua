@@ -13,7 +13,9 @@ pcall(function()
 	if bcc then bcc.Enabled = false end
 end)
 
-local ChatRemotes = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
+local ChatRemotes     = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
+local LanguageManager = require(script.Parent:WaitForChild("LanguageManager") :: ModuleScript)
+local LanguageData    = require(ReplicatedStorage:WaitForChild("LanguageData") :: ModuleScript)
 
 local MAX_MESSAGE_LENGTH = 200
 
@@ -50,15 +52,15 @@ local function broadcastProximity(sender: Player, rawText: string)
 		text = text:sub(1, MAX_MESSAGE_LENGTH) .. "…"
 	end
 
-	local filtered   = filterMessage(sender, text)
-	local nameColor  = getNameColor(sender)
-	local team       = sender.Team
-	local teamColor  = team and team.TeamColor.Color or Color3.new(0.8, 0.8, 0.8)
+	local filtered  = filterMessage(sender, text)
+	local nameColor = getNameColor(sender)
+	local team      = sender.Team
+	local teamColor = team and team.TeamColor.Color or Color3.new(0.8, 0.8, 0.8)
 
-	local payload = {
+	-- Base payload shared by all players (message field set per-player below)
+	local base = {
 		senderName  = sender.Name,
 		displayName = sender.DisplayName,
-		message     = filtered,
 		nameColorR  = nameColor.R,
 		nameColorG  = nameColor.G,
 		nameColorB  = nameColor.B,
@@ -68,8 +70,35 @@ local function broadcastProximity(sender: Player, rawText: string)
 		teamColorB  = teamColor.B,
 	}
 
-	-- broadcast to everyone — client handles show/hide based on distance in real time
+	-- Check if the sender is currently speaking a non-English language
+	local selectedLang = LanguageManager.getSelected(sender.UserId)
+	local langDef      = selectedLang and LanguageData.BY_NAME[selectedLang:lower()]
+
+	if not langDef then
+		-- Plain English — one payload for everyone
+		base.message = filtered
+		for _, player in Players:GetPlayers() do
+			ChatRemotes.MessageReceived:FireClient(player, base)
+		end
+		return
+	end
+
+	-- Translate the filtered message into the sender's chosen language.
+	-- LanguageManager.translate yields (HTTP request) but caches results,
+	-- so repeated identical messages are instant after the first call.
+	local translated     = LanguageManager.translate(filtered, langDef.isoCode)
+	local originalTagged = "[" .. langDef.tag .. "] " .. filtered
+
+	-- Broadcast to everyone — client handles distance show/hide in real time
 	for _, player in Players:GetPlayers() do
+		-- A player "understands" the language if their currently selected language
+		-- matches the sender's.  Only granted languages can be selected, so no
+		-- separate grant check is needed here.
+		local pSel       = LanguageManager.getSelected(player.UserId)
+		local understands = pSel ~= nil and pSel:lower() == selectedLang:lower()
+
+		local payload   = table.clone(base)
+		payload.message = understands and originalTagged or translated
 		ChatRemotes.MessageReceived:FireClient(player, payload)
 	end
 end

@@ -38,6 +38,9 @@ if RunService:IsServer() then
         CommandRemotes.WeatherClientEffect  = getOrCreate("CmdWeatherClientEffect")
         CommandRemotes.CountdownStart       = getOrCreate("CmdCountdownStart")
         CommandRemotes.CountdownStop        = getOrCreate("CmdCountdownStop")
+        CommandRemotes.LanguageOpen         = getOrCreate("CmdLanguageOpen")
+        CommandRemotes.LanguageGrants       = getOrCreate("CmdLanguageGrants")
+        CommandRemotes.LanguageSelect       = getOrCreate("CmdLanguageSelect")
 else
         CommandRemotes.CommandExecuted = waitFor("CmdExecuted")
         CommandRemotes.CommandFeedback = waitFor("CmdFeedback")
@@ -58,6 +61,9 @@ else
         CommandRemotes.WeatherClientEffect  = waitFor("CmdWeatherClientEffect")
         CommandRemotes.CountdownStart       = waitFor("CmdCountdownStart")
         CommandRemotes.CountdownStop        = waitFor("CmdCountdownStop")
+        CommandRemotes.LanguageOpen         = waitFor("CmdLanguageOpen")
+        CommandRemotes.LanguageGrants       = waitFor("CmdLanguageGrants")
+        CommandRemotes.LanguageSelect       = waitFor("CmdLanguageSelect")
 end
 
 return CommandRemotes

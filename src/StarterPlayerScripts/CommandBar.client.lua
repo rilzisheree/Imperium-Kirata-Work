@@ -4,9 +4,11 @@
 -- Tab      → accept suggestion
 -- Up/Down  → move through suggestions
 
-local Players          = game:GetService("Players")
-local ReplicatedStorage= game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
+local Players           = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService  = game:GetService("UserInputService")
+
+local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 
 local LP   = Players.LocalPlayer
 local PGui = LP:WaitForChild("PlayerGui")
@@ -26,8 +28,23 @@ local COMMANDS = {
         notif    = { args = { "player|all", "message" },       description = "Send a custom notification to a player" },
         weather    = { args = {},                                description = "Open the Weather Control panel" },
         countdown     = { args = { "seconds" },                description = "Visible countdown for all players" },
-        stopcountdown = { args = {},                           description = "Stop the current countdown" },
+        stopcountdown  = { args = {},                                description = "Stop the current countdown" },
+        accesslanguage = { args = { "player|all", "language" },      description = "Grant a player access to a language" },
+        -- NOTE: "language" is NOT listed here initially.
+        -- It is added/removed dynamically below based on the player's grants,
+        -- so players without any granted languages never see it in autocomplete.
 }
+
+-- Dynamically show or hide the `language` command in autocomplete based on
+-- whether this player has been granted at least one language by an admin.
+CommandRemotes.LanguageGrants.OnClientEvent:Connect(function(grants: { string })
+	if typeof(grants) ~= "table" then return end
+	if #grants > 0 then
+		COMMANDS["language"] = { args = {}, description = "Open language selection menu" }
+	else
+		COMMANDS["language"] = nil
+	end
+end)
 
 -- BindableEvent that ChatLogs.client.lua listens to (we create it here so it exists when ChatLogs loads)
 local toggleChatLogs = Instance.new("BindableEvent")
