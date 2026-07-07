@@ -69,12 +69,32 @@ local function filterMessage(sender: Player, text: string): string
 	return text
 end
 
+-- ── Message formatting ────────────────────────────────────────────────────────
+-- Applied to every outgoing message before filtering.
+-- • Capitalises the first character.
+-- • Appends a period if the message doesn't already end in sentence-closing
+--   punctuation (. ! ? or the UTF-8 ellipsis …).
+
+local function formatText(text: string): string
+	if text == "" then return text end
+	-- Capitalise first character (ASCII-safe; first char of any user message is ASCII)
+	text = text:sub(1, 1):upper() .. text:sub(2)
+	-- Append period when no sentence-closer is present.
+	-- "…" is 3 bytes in UTF-8 (E2 80 A6); check sub(-3) to catch it.
+	local last = text:sub(-1)
+	if last ~= "." and last ~= "!" and last ~= "?" and text:sub(-3) ~= "…" then
+		text = text .. "."
+	end
+	return text
+end
+
 local function broadcastProximity(sender: Player, rawText: string)
 	local text = rawText:match("^%s*(.-)%s*$")
 	if text == "" then return end
 	if #text > MAX_MESSAGE_LENGTH then
 		text = text:sub(1, MAX_MESSAGE_LENGTH) .. "…"
 	end
+	text = formatText(text)
 
 	local filtered  = filterMessage(sender, text)
 	local nameColor = getNameColor(sender)
@@ -140,6 +160,7 @@ local function broadcastThought(sender: Player, rawText: string)
 	if #text > MAX_MESSAGE_LENGTH then
 		text = text:sub(1, MAX_MESSAGE_LENGTH) .. "…"
 	end
+	text = formatText(text)
 
 	local filtered  = filterMessage(sender, text)
 	local nameColor = getNameColor(sender)
@@ -206,6 +227,7 @@ local function broadcastWhisper(sender: Player, rawText: string)
 	if #text > MAX_MESSAGE_LENGTH then
 		text = text:sub(1, MAX_MESSAGE_LENGTH) .. "…"
 	end
+	text = formatText(text)
 
 	local filtered  = filterMessage(sender, text)
 	local nameColor = getNameColor(sender)
