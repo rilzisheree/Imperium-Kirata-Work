@@ -351,22 +351,26 @@ end)
 -- receive messages from server
 ChatRemotes.MessageReceived.OnClientEvent:Connect(function(payload)
 	if not payload or not payload.senderName then return end
-	-- Thoughts are private text — no speech bubble (bubble floats above the
-	-- character and would be readable by any nearby player, breaking privacy).
-	if payload.isThought then return end
 	local sender = Players:FindFirstChild(payload.senderName)
 	if not sender then return end
 
+	-- Thoughts are already delivered only to the sender and admins by the
+	-- server, so the bubble is safe to show here.  Prepend [THOUGHTS] so
+	-- the label is visible in both the bubble and the chat feed.
+	local message = payload.isThought
+		and ("[THOUGHTS] " .. (payload.message or ""))
+		or payload.message
+
 	local character = sender.Character
 	if character then
-		createBubble(character, payload.message)
+		createBubble(character, message)
 	else
 		task.spawn(function()
 			local done, conn = false, nil
 			conn = sender.CharacterAdded:Connect(function(char)
 				conn:Disconnect()
 				done = true
-				createBubble(char, payload.message)
+				createBubble(char, message)
 			end)
 			task.wait(3)
 			if not done then pcall(function() conn:Disconnect() end) end
