@@ -211,19 +211,20 @@ queueCountLbl.TextXAlignment     = Enum.TextXAlignment.Right
 queueCountLbl.Text               = "Queue: 0"
 queueCountLbl.ZIndex             = 12
 
--- Code TextBox — selectable, read-only; visible only when a server is active
--- Admins can click it, Ctrl+A, Ctrl+C to copy manually even if the button fails
+-- Place ID TextBox — editable so the admin can click, select-all, and Ctrl+C;
+-- FocusLost reverts any accidental edits back to the real Place ID
+local PLACE_ID_STR = tostring(game.PlaceId)
 local codeBox = Instance.new("TextBox", statusBar)
 codeBox.Size             = UDim2.new(0, 210, 0, 22)
 codeBox.Position         = UDim2.new(0, 106, 0.5, -11)
 codeBox.BackgroundColor3 = C_BTN
 codeBox.BorderSizePixel  = 0
-codeBox.Font             = Enum.Font.Code
-codeBox.TextSize         = 10
+codeBox.Font             = Enum.Font.GothamBold
+codeBox.TextSize         = 11
 codeBox.TextColor3       = C_TXT
 codeBox.TextXAlignment   = Enum.TextXAlignment.Left
 codeBox.Text             = ""
-codeBox.TextEditable     = false
+codeBox.TextEditable     = true
 codeBox.ClearTextOnFocus = false
 codeBox.Visible          = false
 codeBox.ZIndex           = 13
@@ -231,6 +232,10 @@ Instance.new("UICorner", codeBox).CornerRadius = UDim.new(0, 5)
 local cbPad = Instance.new("UIPadding", codeBox)
 cbPad.PaddingLeft = UDim.new(0, 6)
 makeStroke(codeBox, C_BOR, 1, 0.5)
+
+codeBox.FocusLost:Connect(function()
+	codeBox.Text = PLACE_ID_STR
+end)
 
 -- Copy button — fires GuiService:SetClipboard with a pcall so UI never breaks
 -- if the API is unavailable; the codeBox above is always the manual fallback
@@ -242,7 +247,7 @@ copyCodeBtn.BorderSizePixel  = 0
 copyCodeBtn.Font             = Enum.Font.Gotham
 copyCodeBtn.TextSize         = 11
 copyCodeBtn.TextColor3       = C_ACC
-copyCodeBtn.Text             = "Copy"
+copyCodeBtn.Text             = "Copy ID"
 copyCodeBtn.AutoButtonColor  = false
 copyCodeBtn.Visible          = false
 copyCodeBtn.ZIndex           = 13
@@ -251,19 +256,21 @@ makeStroke(copyCodeBtn, C_BOR, 1, 0.5)
 
 local copyFeedbackThread: thread? = nil
 copyCodeBtn.MouseButton1Click:Connect(function()
-	if not serverCode then return end
-	local ok_ = pcall(function() GuiService:SetClipboard(serverCode) end)
 	-- Cancel any in-flight revert before starting a new one
 	if copyFeedbackThread then task.cancel(copyFeedbackThread) copyFeedbackThread = nil end
+	local ok_ = pcall(function() GuiService:SetClipboard(PLACE_ID_STR) end)
+	-- Always focus the box so the admin can Ctrl+A → Ctrl+C as a fallback
+	codeBox.Text = PLACE_ID_STR
+	codeBox:CaptureFocus()
 	if ok_ then
 		copyCodeBtn.Text       = "✓ Copied!"
 		copyCodeBtn.TextColor3 = C_OK
 	else
-		copyCodeBtn.Text       = "Select above"
+		copyCodeBtn.Text       = "✓ Select & copy"
 		copyCodeBtn.TextColor3 = C_WARN
 	end
 	copyFeedbackThread = task.delay(1.5, function()
-		copyCodeBtn.Text       = "Copy"
+		copyCodeBtn.Text       = "Copy ID"
 		copyCodeBtn.TextColor3 = C_ACC
 		copyFeedbackThread = nil
 	end)
@@ -389,7 +396,7 @@ local function syncStatus()
 	-- helpers to show/hide the code row and restore normal layout
 	local function showCodeRow()
 		statusLbl.Size         = UDim2.new(0, 90, 1, 0)        -- shrink to "✓ Active" only
-		codeBox.Text           = serverCode or ""
+		codeBox.Text           = PLACE_ID_STR
 		codeBox.Visible        = true
 		copyCodeBtn.Visible    = true
 		queueCountLbl.Position = UDim2.new(0, 396, 0, 0)
