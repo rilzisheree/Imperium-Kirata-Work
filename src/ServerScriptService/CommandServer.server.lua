@@ -15,7 +15,9 @@ local MessagingService   = game:GetService("MessagingService")
 
 local IS_STUDIO = RunService:IsStudio()
 
-local SERVERBRING_TOPIC = "ImperiumServerbring_" .. game.PlaceId
+local SERVERBRING_TOPIC      = "ImperiumServerbring_" .. game.PlaceId
+local SERVERJOIN_QUERY_TOPIC = "ImperiumServerjoinQ_" .. game.PlaceId
+local SERVERJOIN_REPLY_TOPIC = "ImperiumServerjoinR_" .. game.PlaceId
 
 local STAFF_IDS = {
         [1872507151] = "Owner",
@@ -74,6 +76,15 @@ local privateServerState = {}
 -- serverbring cooldown: [adminUserId] = DistributedGameTime of last publish (5 s limit)
 local serverbringCooldowns = {}
 
+-- serverjoin cooldown: [adminUserId] = DistributedGameTime of last request (5 s limit)
+local serverjoinCooldowns = {}
+
+-- serverjoin in-flight guard: [adminUserId] = requestId string while a query is pending
+local serverjoinPending = {}
+
+-- serverjoin reply callbacks: [requestId] = function(jobId, psCode?) called by the reply subscriber
+local serverjoinCallbacks = {}
+
 -- if this server instance is a reserved private server, stores the access code so
 -- serverbring can broadcast it and receiving servers can use TeleportToPrivateServer
 local activePrivateServerCode: string? = nil
@@ -117,9 +128,16 @@ Players.PlayerRemoving:Connect(function(player)
         for _, adminEsp in espActive do
                 adminEsp[player.UserId] = nil
         end
-        -- clear private server reservation and serverbring cooldown
+        -- clear private server reservation, serverbring cooldown, and serverjoin state
         privateServerState[player.UserId]    = nil
         serverbringCooldowns[player.UserId]  = nil
+        serverjoinCooldowns[player.UserId]   = nil
+        -- cancel any in-flight serverjoin so the callback never fires for a gone admin
+        local pendingId = serverjoinPending[player.UserId]
+        if pendingId then
+                serverjoinCallbacks[pendingId]  = nil
+                serverjoinPending[player.UserId] = nil
+        end
 end)
 
 -- push the player's permission tier to their client on join so CommandBar
@@ -278,6 +296,84 @@ if not IS_STUDIO then
 		end)
 		if not subOk then
 			warn("[CommandServer] MessagingService subscribe failed: " .. tostring(subErr))
+		end
+	end)
+end
+
+-- Subscribe to serverjoin query messages from admins in other servers.
+-- When a query arrives asking "who has player X?", check locally and reply
+-- with this server's JobId (and private-server code if applicable).
+if not IS_STUDIO then
+	task.spawn(function()
+		local subOk, subErr = pcall(function()
+			MessagingService:SubscribeAsync(SERVERJOIN_QUERY_TOPIC, function(message)
+				local data = message.Data
+				if typeof(data) ~= "table" then return end
+				local target    = data.target
+				local requestId = data.requestId
+				local replyTo   = data.replyTo
+				if typeof(target) ~= "string"
+					or typeof(requestId) ~= "string"
+					or typeof(replyTo) ~= "string" then return end
+				-- Ignore queries that originated from this server
+				if replyTo == game.JobId then return end
+
+				-- Find the player locally (exact match first, then name-prefix fallback,
+				-- mirroring resolvePlayer for consistency across the codebase)
+				local found: Player? = nil
+				for _, p in Players:GetPlayers() do
+					if p.Name:lower() == target or p.DisplayName:lower() == target then
+						found = p; break
+					end
+				end
+				if not found then
+					for _, p in Players:GetPlayers() do
+						if p.Name:lower():sub(1, #target) == target then
+							found = p; break
+						end
+					end
+				end
+				if not found then return end
+
+				-- Player is here; publish a reply back to all servers.
+				-- Only the server whose requestId matches an entry in serverjoinCallbacks
+				-- will act on it; all others discard it immediately.
+				pcall(function()
+					MessagingService:PublishAsync(SERVERJOIN_REPLY_TOPIC, {
+						requestId = requestId,
+						jobId     = game.JobId,
+						psCode    = activePrivateServerCode,
+					})
+				end)
+			end)
+		end)
+		if not subOk then
+			warn("[CommandServer] serverjoin query subscribe failed: " .. tostring(subErr))
+		end
+	end)
+end
+
+-- Subscribe to serverjoin reply messages.
+-- Replies are broadcast to all servers; only the server holding the matching
+-- pending callback (keyed by requestId) will act on it.
+if not IS_STUDIO then
+	task.spawn(function()
+		local subOk, subErr = pcall(function()
+			MessagingService:SubscribeAsync(SERVERJOIN_REPLY_TOPIC, function(message)
+				local data = message.Data
+				if typeof(data) ~= "table" then return end
+				local requestId = data.requestId
+				local jobId     = data.jobId
+				if typeof(requestId) ~= "string" or typeof(jobId) ~= "string" then return end
+				local cb = serverjoinCallbacks[requestId]
+				if cb then
+					serverjoinCallbacks[requestId] = nil
+					cb(jobId, typeof(data.psCode) == "string" and data.psCode or nil)
+				end
+			end)
+		end)
+		if not subOk then
+			warn("[CommandServer] serverjoin reply subscribe failed: " .. tostring(subErr))
 		end
 	end)
 end
@@ -1448,6 +1544,134 @@ HANDLERS["serverbring"] = function(executor, args)
 	serverbringCooldowns[executor.UserId] = now
 	local desc = rawTarget == "all" and "all players" or '"' .. args[1] .. '"'
 	ok(executor, "Serverbring request sent for " .. desc .. ". Matching players will be teleported shortly.")
+end
+
+HANDLERS["serverjoin"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: serverjoin <player>") return end
+	local rawTarget = args[1]:lower()
+
+	if rawTarget == "me" then
+		fail(executor, "You are already in this server.")
+		return
+	end
+
+	-- Reject if the target is already in this server (exact match then prefix fallback,
+	-- mirroring resolvePlayer for consistency)
+	local foundHere: Player? = nil
+	for _, p in Players:GetPlayers() do
+		if p.Name:lower() == rawTarget or p.DisplayName:lower() == rawTarget then
+			foundHere = p; break
+		end
+	end
+	if not foundHere then
+		for _, p in Players:GetPlayers() do
+			if p.Name:lower():sub(1, #rawTarget) == rawTarget then
+				foundHere = p; break
+			end
+		end
+	end
+	if foundHere then
+		fail(executor, foundHere.DisplayName .. " is already in this server.")
+		return
+	end
+
+	if IS_STUDIO then
+		fail(executor, "serverjoin requires a live server — MessagingService is unavailable in Studio.")
+		return
+	end
+
+	-- Prevent duplicate in-flight requests from the same admin
+	if serverjoinPending[executor.UserId] then
+		fail(executor, "A serverjoin request is already in progress. Please wait.")
+		return
+	end
+
+	-- Rate-limit: 5-second cooldown per admin to prevent broadcast flooding
+	local now      = Workspace.DistributedGameTime
+	local lastSent = serverjoinCooldowns[executor.UserId] or 0
+	if now - lastSent < 5 then
+		fail(executor, ("serverjoin is on cooldown — wait %.0f more second(s)."):format(
+			5 - (now - lastSent)))
+		return
+	end
+
+	local requestId = HttpService:GenerateGUID(false)
+	serverjoinPending[executor.UserId]   = requestId
+	serverjoinCooldowns[executor.UserId] = now
+
+	-- Register the callback BEFORE publishing so a fast reply from a remote server
+	-- cannot arrive and be dropped between PublishAsync and the assignment below.
+	local replied    = false
+	local destJobId  = nil
+	local destPsCode = nil
+
+	serverjoinCallbacks[requestId] = function(jobId, psCode)
+		replied     = true
+		destJobId   = jobId
+		destPsCode  = psCode
+	end
+
+	-- Notify the admin before the async wait so they see immediate feedback
+	ok(executor, 'Locating "' .. args[1] .. '" across servers…')
+
+	local broadcastOk, broadcastErr = pcall(function()
+		MessagingService:PublishAsync(SERVERJOIN_QUERY_TOPIC, {
+			target    = rawTarget,
+			requestId = requestId,
+			replyTo   = game.JobId,
+		})
+	end)
+
+	if not broadcastOk then
+		serverjoinCallbacks[requestId]       = nil
+		serverjoinPending[executor.UserId]   = nil
+		if executor.Parent then
+			fail(executor, "Broadcast failed: " .. tostring(broadcastErr))
+		end
+		return
+	end
+
+	-- Yield for up to 8 seconds waiting for any server to reply
+	local waited = 0
+	while not replied and waited < 8 do
+		task.wait(0.25)
+		waited += 0.25
+	end
+
+	-- Clean up pending state regardless of outcome
+	serverjoinCallbacks[requestId]       = nil
+	serverjoinPending[executor.UserId]   = nil
+
+	-- Guard all feedback paths: admin may have left or been kicked while waiting
+	if not executor.Parent then return end
+
+	if not replied then
+		fail(executor, '"' .. args[1] .. '" could not be found in any server. They may be offline or in a different experience.')
+		return
+	end
+
+	ok(executor, 'Found "' .. args[1] .. '". Teleporting you now…')
+
+	task.spawn(function()
+		local teleOk, teleErr = pcall(function()
+			if destPsCode then
+				-- Target is in a reserved private server; TeleportAsync cannot reach
+				-- private servers by ServerInstanceId, so use TeleportToPrivateServer
+				TeleportService:TeleportToPrivateServer(game.PlaceId, destPsCode, { executor })
+			else
+				local options = Instance.new("TeleportOptions")
+				options.ServerInstanceId = destJobId
+				TeleportService:TeleportAsync(game.PlaceId, { executor }, options)
+			end
+		end)
+		if not teleOk then
+			warn("[CommandServer] serverjoin teleport failed for "
+				.. executor.Name .. ": " .. tostring(teleErr))
+			if executor.Parent then
+				fail(executor, "Teleport failed: " .. tostring(teleErr))
+			end
+		end
+	end)
 end
 
 HANDLERS["heal"] = function(executor, args)

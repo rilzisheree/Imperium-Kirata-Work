@@ -186,6 +186,11 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all" },
                 permission  = "Admin",
         },
+        serverjoin = {
+                description = "Teleport yourself to the server that the specified player is currently in",
+                args        = { "player" },
+                permission  = "Admin",
+        },
 }
 
 return CommandRegistry
