@@ -58,6 +58,11 @@ if RunService:IsServer() then
         CommandRemotes.MusicSeek            = getOrCreate("CmdMusicSeek")
         CommandRemotes.MusicCycleState      = getOrCreate("CmdMusicCycleState")
         CommandRemotes.EspToggle            = getOrCreate("CmdEspToggle")
+        CommandRemotes.PrivateServerOpen    = getOrCreate("CmdPSOpen")
+        CommandRemotes.PrivateServerReserve = getOrCreate("CmdPSReserve")
+        CommandRemotes.PrivateServerStatus  = getOrCreate("CmdPSStatus")
+        CommandRemotes.PrivateServerSend    = getOrCreate("CmdPSSend")
+        CommandRemotes.PrivateServerCancel  = getOrCreate("CmdPSCancel")
 else
         CommandRemotes.CommandExecuted = waitFor("CmdExecuted")
         CommandRemotes.CommandFeedback = waitFor("CmdFeedback")
@@ -98,6 +103,11 @@ else
         CommandRemotes.MusicSeek            = waitFor("CmdMusicSeek")
         CommandRemotes.MusicCycleState      = waitFor("CmdMusicCycleState")
         CommandRemotes.EspToggle            = waitFor("CmdEspToggle")
+        CommandRemotes.PrivateServerOpen    = waitFor("CmdPSOpen")
+        CommandRemotes.PrivateServerReserve = waitFor("CmdPSReserve")
+        CommandRemotes.PrivateServerStatus  = waitFor("CmdPSStatus")
+        CommandRemotes.PrivateServerSend    = waitFor("CmdPSSend")
+        CommandRemotes.PrivateServerCancel  = waitFor("CmdPSCancel")
 end
 
 return CommandRemotes

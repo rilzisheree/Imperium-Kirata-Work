@@ -171,6 +171,21 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all" },
                 permission  = "Admin",
         },
+        place = {
+                description = "Teleport a player or all players to a Roblox Place ID",
+                args        = { "player|all", "placeId" },
+                permission  = "Admin",
+        },
+        privateserver = {
+                description = "Open the Private Server management menu to reserve and populate a server",
+                args        = {},
+                permission  = "Admin",
+        },
+        serverbring = {
+                description = "Bring a player from another server of this experience into this server",
+                args        = { "player|all" },
+                permission  = "Admin",
+        },
 }
 
 return CommandRegistry

@@ -1,0 +1,108 @@
+Before making any changes, thoroughly read and understand my existing admin command system, player handling, TeleportService integration, RemoteEvents, UI, and coding style. Reuse the current architecture and only add the functionality described below.
+
+Create three new admin commands:
+
+place <target> <placeId>
+
+privateserver
+
+serverbring <target>
+
+--------------------------------------------------
+PLACE
+--------------------------------------------------
+
+Description:
+- Teleports the specified player(s) to a Roblox Place ID.
+
+Usage:
+place <target> <placeId>
+
+Examples:
+place Kirata 123456789
+place all 987654321
+
+Requirements:
+- Follow the existing admin command framework and coding style.
+- Support all existing target selectors (username, me, all, team selectors, etc.).
+- Teleport the targeted player(s) to the specified Roblox Place ID using TeleportService.
+- Validate that the Place ID is valid before teleporting.
+- Support teleporting multiple players simultaneously.
+- Gracefully handle teleport failures and notify the admin if a teleport could not be completed.
+- Display a confirmation notification to the admin when the teleport request is successfully sent.
+
+--------------------------------------------------
+PRIVATESERVER
+--------------------------------------------------
+
+Description:
+- Creates a new private server instance reserved for this game.
+
+Requirements:
+- Use TeleportService:ReserveServer().
+- Create a brand-new reserved server for the current experience.
+- Do NOT immediately teleport anyone.
+- Instead, open a modern, draggable "Private Server" management menu.
+
+Private Server Menu:
+- Match the styling of the existing admin UI.
+- Display:
+  - Reserved Server Status
+  - Reserved Server Code (internally only; do not expose it in the UI)
+  - Number of queued players
+- Display every player currently in the server.
+- Each player should have:
+  - Username
+  - Team
+  - A "Move" button.
+
+Dragging Players:
+- Allow admins to drag player cards into the Reserved Server list.
+- Players placed into the Reserved Server list become queued for transfer.
+- Players can also be dragged back into the Current Server list to remove them from the queue.
+- Multiple players can be queued.
+
+Menu Buttons:
+- Create Reserved Server
+- Send Selected Players
+- Cancel Reserved Server
+- Close
+
+When "Send Selected Players" is pressed:
+- Teleport every queued player into the reserved server instance.
+- Leave everyone else in the current server.
+- Clear the queue afterwards.
+
+If "Cancel Reserved Server" is pressed:
+- Destroy the reserved server session.
+- Clear every queued player.
+- Close the menu.
+
+--------------------------------------------------
+SERVERBRING
+--------------------------------------------------
+
+Description:
+- Brings player(s) from another active server of this experience into the admin's current server.
+
+Usage:
+serverbring <target>
+
+Requirements:
+- Use Roblox TeleportService functionality where supported.
+- Support all existing player selectors.
+- The player should be teleported into the admin's current server instance.
+- Gracefully handle teleport failures.
+- Display a confirmation notification when successful.
+- Prevent duplicate teleport requests.
+- Handle players already in the same server without errors.
+
+--------------------------------------------------
+GENERAL REQUIREMENTS
+--------------------------------------------------
+
+- Integrate seamlessly into the existing admin system without breaking any existing commands.
+- Follow the existing coding style and project architecture.
+- Prevent duplicate RemoteEvents, connections, or server reservations.
+- Keep the implementation modular, optimized, and easy to extend in the future.
+- Ensure all UI matches the existing admin panel style.

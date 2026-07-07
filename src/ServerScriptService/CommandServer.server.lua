@@ -9,9 +9,13 @@ local CorpseFactory   = require(script.Parent:WaitForChild("CorpseFactory")     
 local LanguageManager = require(script.Parent:WaitForChild("LanguageManager")     :: ModuleScript)
 local LanguageData    = require(ReplicatedStorage:WaitForChild("LanguageData")    :: ModuleScript)
 
-local Workspace = game:GetService("Workspace")
+local Workspace          = game:GetService("Workspace")
+local TeleportService    = game:GetService("TeleportService")
+local MessagingService   = game:GetService("MessagingService")
 
 local IS_STUDIO = RunService:IsStudio()
+
+local SERVERBRING_TOPIC = "ImperiumServerbring_" .. game.PlaceId
 
 local STAFF_IDS = {
         [1872507151] = "Owner",
@@ -64,6 +68,12 @@ local shutdownInProgress = false
 -- esp state: [adminUserId][targetUserId] = true when ESP is active
 local espActive = {}
 
+-- private server state: [adminUserId] = { code = string?, reserving = boolean }
+local privateServerState = {}
+
+-- serverbring cooldown: [adminUserId] = DistributedGameTime of last publish (5 s limit)
+local serverbringCooldowns = {}
+
 -- music state: the currently playing audio ID (or nil) and volume (0–1)
 local currentMusicId     = nil
 local currentMusicVolume = 1
@@ -103,6 +113,9 @@ Players.PlayerRemoving:Connect(function(player)
         for _, adminEsp in espActive do
                 adminEsp[player.UserId] = nil
         end
+        -- clear private server reservation and serverbring cooldown
+        privateServerState[player.UserId]    = nil
+        serverbringCooldowns[player.UserId]  = nil
 end)
 
 -- push the player's permission tier to their client on join so CommandBar
@@ -178,6 +191,70 @@ for _, player in Players:GetPlayers() do
                         end
                 end
         end)
+end
+
+-- Subscribe to serverbring requests from admins in other server instances.
+-- When a bring request arrives, find the matching player(s) and teleport them
+-- to the requesting admin's server instance. Skipped entirely in Studio because
+-- MessagingService is unavailable there.
+if not IS_STUDIO then
+	task.spawn(function()
+		local subOk, subErr = pcall(function()
+			MessagingService:SubscribeAsync(SERVERBRING_TOPIC, function(message)
+				local data = message.Data
+				if typeof(data) ~= "table" then return end
+				local target    = data.target
+				local destJobId = data.jobId
+				if typeof(target) ~= "string" or typeof(destJobId) ~= "string" then return end
+				-- Ignore our own broadcasts
+				if destJobId == game.JobId then return end
+
+				local options = Instance.new("TeleportOptions")
+				options.ServerInstanceId = destJobId
+
+				local function tryBring(player: Player)
+					task.spawn(function()
+						local ok_, err_ = pcall(function()
+							TeleportService:TeleportAsync(game.PlaceId, { player }, options)
+						end)
+						if not ok_ then
+							warn("[CommandServer] serverbring teleport failed for "
+								.. player.Name .. ": " .. tostring(err_))
+						end
+					end)
+				end
+
+				if target == "all" then
+					for _, player in Players:GetPlayers() do
+						tryBring(player)
+					end
+				else
+					-- Mirrors resolvePlayer: exact match first, then name-prefix fallback
+					local found: Player? = nil
+					for _, player in Players:GetPlayers() do
+						if player.Name:lower() == target
+							or player.DisplayName:lower() == target
+						then
+							found = player
+							break
+						end
+					end
+					if not found then
+						for _, player in Players:GetPlayers() do
+							if player.Name:lower():sub(1, #target) == target then
+								found = player
+								break
+							end
+						end
+					end
+					if found then tryBring(found) end
+				end
+			end)
+		end)
+		if not subOk then
+			warn("[CommandServer] MessagingService subscribe failed: " .. tostring(subErr))
+		end
+	end)
 end
 
 -- if the last word of a message is a colour name, strip it and return it separately
@@ -1226,6 +1303,112 @@ HANDLERS["esp"] = function(executor, args)
 	ok(executor, table.concat(parts, " | ") .. ".")
 end
 
+HANDLERS["place"] = function(executor, args)
+	if #args < 2 then fail(executor, "Usage: place <player|all> <placeId>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	local placeId = tonumber(args[2])
+	if not placeId or placeId ~= math.floor(placeId) or placeId < 1 then
+		fail(executor, "Invalid Place ID — must be a positive whole number.")
+		return
+	end
+	placeId = math.floor(placeId)
+
+	local sent, failures = {}, {}
+	local remaining = #targets
+	for _, target in targets do
+		task.spawn(function()
+			local teleOk, teleErr = pcall(function()
+				TeleportService:TeleportAsync(placeId, { target })
+			end)
+			if teleOk then
+				table.insert(sent, target.DisplayName)
+			else
+				table.insert(failures, target.DisplayName)
+				warn("[CommandServer] place: teleport failed for "
+					.. target.Name .. ": " .. tostring(teleErr))
+			end
+			remaining -= 1
+		end)
+	end
+	while remaining > 0 do task.wait() end
+
+	if #sent == 0 then
+		fail(executor, "Teleport failed for all targets. Verify the Place ID and that the place is public.")
+		return
+	end
+	local msg = "Teleporting " .. table.concat(sent, ", ") .. " to place " .. placeId .. "."
+	if #failures > 0 then msg ..= " (" .. #failures .. " failed)" end
+	ok(executor, msg)
+end
+
+HANDLERS["privateserver"] = function(executor, args)
+	CommandRemotes.PrivateServerOpen:FireClient(executor)
+	ok(executor, "Private Server menu opened.")
+end
+
+HANDLERS["serverbring"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: serverbring <player|all>") return end
+	local rawTarget = args[1]:lower()
+
+	if rawTarget == "me" then
+		fail(executor, "You are already in this server.")
+		return
+	end
+
+	-- Rate-limit: 5-second cooldown per admin to prevent broadcast flooding
+	local now      = Workspace.DistributedGameTime
+	local lastSent = serverbringCooldowns[executor.UserId] or 0
+	if now - lastSent < 5 then
+		fail(executor, ("serverbring is on cooldown — wait %.0f more second(s)."):format(
+			5 - (now - lastSent)))
+		return
+	end
+
+	-- Reject if the target is already here (mirrors resolvePlayer: exact then prefix)
+	if rawTarget ~= "all" then
+		local foundHere: Player? = nil
+		for _, p in Players:GetPlayers() do
+			if p.Name:lower() == rawTarget or p.DisplayName:lower() == rawTarget then
+				foundHere = p; break
+			end
+		end
+		if not foundHere then
+			for _, p in Players:GetPlayers() do
+				if p.Name:lower():sub(1, #rawTarget) == rawTarget then
+					foundHere = p; break
+				end
+			end
+		end
+		if foundHere then
+			fail(executor, foundHere.DisplayName .. " is already in this server.")
+			return
+		end
+	end
+
+	if IS_STUDIO then
+		fail(executor, "serverbring requires a live server — MessagingService is unavailable in Studio.")
+		return
+	end
+
+	local broadcastOk, broadcastErr = pcall(function()
+		MessagingService:PublishAsync(SERVERBRING_TOPIC, {
+			target = rawTarget,
+			jobId  = game.JobId,
+		})
+	end)
+
+	if not broadcastOk then
+		fail(executor, "Broadcast failed: " .. tostring(broadcastErr))
+		return
+	end
+
+	serverbringCooldowns[executor.UserId] = now
+	local desc = rawTarget == "all" and "all players" or '"' .. args[1] .. '"'
+	ok(executor, "Serverbring request sent for " .. desc .. ". Matching players will be teleported shortly.")
+end
+
 HANDLERS["heal"] = function(executor, args)
 	if #args < 1 then fail(executor, "Usage: heal <player|all> [amount]") return end
 	local targets = resolveTargets(executor, args[1])
@@ -1348,6 +1531,82 @@ HANDLERS["kick"] = function(executor, args)
 	end
 	ok(executor, msg)
 end
+
+-- PrivateServerReserve: admin requests a new reserved server slot
+CommandRemotes.PrivateServerReserve.OnServerEvent:Connect(function(player: Player)
+	if not hasPermission(player, "Admin") then return end
+	local uid = player.UserId
+
+	-- Block while a reservation is in-flight, or if one is already active
+	if privateServerState[uid] then
+		if privateServerState[uid].reserving then return end
+		if privateServerState[uid].code then
+			fail(player, "A private server is already active. Cancel it before creating a new one.")
+			return
+		end
+	end
+	privateServerState[uid] = { code = nil, reserving = true }
+
+	CommandRemotes.PrivateServerStatus:FireClient(player, "reserving")
+
+	task.spawn(function()
+		local resOk, result = pcall(function()
+			return TeleportService:ReserveServer(game.PlaceId)
+		end)
+		if resOk and result then
+			privateServerState[uid] = { code = result, reserving = false }
+			CommandRemotes.PrivateServerStatus:FireClient(player, "active")
+		else
+			privateServerState[uid] = nil
+			CommandRemotes.PrivateServerStatus:FireClient(player, "failed")
+			warn("[CommandServer] ReserveServer failed: " .. tostring(result))
+		end
+	end)
+end)
+
+-- PrivateServerSend: admin sends queued players to the reserved server
+CommandRemotes.PrivateServerSend.OnServerEvent:Connect(function(player: Player, userIds: { number })
+	if not hasPermission(player, "Admin") then return end
+	if typeof(userIds) ~= "table" then return end
+
+	local state = privateServerState[player.UserId]
+	if not state or not state.code then
+		fail(player, "No active private server — create one first.")
+		return
+	end
+
+	local targets = {}
+	for _, uid in userIds do
+		if typeof(uid) == "number" then
+			local target = Players:GetPlayerByUserId(uid)
+			if target then table.insert(targets, target) end
+		end
+	end
+
+	if #targets == 0 then
+		fail(player, "No valid players in the queue.")
+		return
+	end
+
+	local code = state.code
+	task.spawn(function()
+		local sendOk, sendErr = pcall(function()
+			TeleportService:TeleportToPrivateServer(game.PlaceId, code, targets)
+		end)
+		if sendOk then
+			ok(player, "Sent " .. #targets .. " player(s) to the private server.")
+		else
+			fail(player, "Teleport failed: " .. tostring(sendErr))
+		end
+	end)
+end)
+
+-- PrivateServerCancel: admin cancels their reserved server
+CommandRemotes.PrivateServerCancel.OnServerEvent:Connect(function(player: Player)
+	if not hasPermission(player, "Admin") then return end
+	privateServerState[player.UserId] = nil
+	CommandRemotes.PrivateServerStatus:FireClient(player, "cancelled")
+end)
 
 CommandRemotes.CommandExecuted.OnServerEvent:Connect(function(executor: Player, cmdName: string, args: { string })
         if typeof(cmdName) ~= "string" then return end
