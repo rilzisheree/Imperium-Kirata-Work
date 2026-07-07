@@ -81,6 +81,11 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all", "language" },
                 permission  = "Admin",
         },
+        bring = {
+                description = "Teleport a player or players to your current position",
+                args        = { "player|all" },
+                permission  = "Admin",
+        },
         setwaypoint = {
                 description = "Place a waypoint at your position for a player or all players",
                 args        = { "player|all", "[title]" },

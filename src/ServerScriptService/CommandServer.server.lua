@@ -495,6 +495,116 @@ HANDLERS["language"] = function(executor, args)
         ok(executor, "Language menu opened.")
 end
 
+-- brings a single target to a pre-calculated destination CFrame
+local function bringPlayer(target: Player, destCFrame: CFrame): (boolean, string)
+	local character = target.Character
+
+	-- wait briefly for a character that is mid-spawn
+	if not character then
+		local elapsed = 0
+		repeat
+			task.wait(0.1)
+			elapsed += 0.1
+			character = target.Character
+		until character or elapsed >= 5
+	end
+	if not character then
+		return false, target.DisplayName .. " has no character"
+	end
+
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		root = character:WaitForChild("HumanoidRootPart", 5) :: BasePart?
+	end
+	if not root then
+		return false, target.DisplayName .. "'s character didn't finish loading in time"
+	end
+
+	character:PivotTo(destCFrame)
+	return true, target.DisplayName
+end
+
+HANDLERS["bring"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: bring <player|all>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	-- executor cannot bring themselves
+	local actualTargets = {}
+	for _, t in targets do
+		if t ~= executor then table.insert(actualTargets, t) end
+	end
+	if #actualTargets == 0 then
+		fail(executor, "You cannot bring yourself.")
+		return
+	end
+
+	local adminChar = executor.Character
+	local adminRoot = adminChar and adminChar:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not adminRoot then
+		fail(executor, "Your character is not available.")
+		return
+	end
+
+	local adminCFrame = adminRoot.CFrame
+	local forward     = adminCFrame.LookVector
+	local right       = adminCFrame.RightVector
+	local adminPos    = adminCFrame.Position
+
+	local FORWARD_DIST = 4    -- studs ahead of the admin
+	local LATERAL_STEP = 3    -- studs between players when multiple are brought
+
+	-- pre-calculate one destination CFrame per target so all spawned tasks
+	-- reference a snapshot of the admin's position taken at call time
+	local rayParams = RaycastParams.new()
+	rayParams.FilterDescendantsInstances = { adminChar }
+	rayParams.FilterType                 = Enum.RaycastFilterType.Exclude
+
+	local destCFrames = {}
+	for i, target in actualTargets do
+		-- spread players laterally so they don't overlap
+		local lateralOffset = (i - (#actualTargets + 1) / 2) * LATERAL_STEP
+		local flatPos       = adminPos + forward * FORWARD_DIST + right * lateralOffset
+
+		-- raycast downward from 20 studs above to find the floor
+		local rayOrigin = flatPos + Vector3.new(0, 20, 0)
+		local result    = Workspace:Raycast(rayOrigin, Vector3.new(0, -40, 0), rayParams)
+		local groundY   = result and (result.Position.Y + 3) or (adminPos.Y)
+
+		local dest = Vector3.new(flatPos.X, groundY, flatPos.Z)
+		-- face the player toward the admin
+		destCFrames[i] = CFrame.lookAt(dest, Vector3.new(adminPos.X, groundY, adminPos.Z))
+	end
+
+	local brought, failures = {}, {}
+	local remaining = #actualTargets
+
+	for i, target in actualTargets do
+		task.spawn(function()
+			local success, result = bringPlayer(target, destCFrames[i])
+			if success then
+				table.insert(brought, result)
+			else
+				table.insert(failures, result)
+			end
+			remaining -= 1
+		end)
+	end
+
+	while remaining > 0 do task.wait() end
+
+	if #brought == 0 then
+		fail(executor, "No players brought: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
+
+	local msg = "Brought " .. table.concat(brought, ", ") .. "."
+	if #failures > 0 then
+		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
+	end
+	ok(executor, msg)
+end
+
 HANDLERS["setwaypoint"] = function(executor, args)
 	if #args < 1 then fail(executor, "Usage: setwaypoint <player|all> [title]") return end
 	local targets = resolveTargets(executor, args[1])
