@@ -85,6 +85,13 @@ local serverjoinPending = {}
 -- serverjoin reply callbacks: [requestId] = function(jobId, psCode?) called by the reply subscriber
 local serverjoinCallbacks = {}
 
+-- ragdoll state: [userId] = { character, motors, instances, connections, timerThread }
+-- motors    — Motor6Ds that were disabled; re-enabled on recovery
+-- instances — Attachments + BallSocketConstraints to destroy on recovery
+-- connections — RBXScriptConnections to disconnect on cleanup
+-- timerThread — task.delay thread for optional auto-recovery (nil if indefinite)
+local ragdollData = {}
+
 -- if this server instance is a reserved private server, stores the access code so
 -- serverbring can broadcast it and receiving servers can use TeleportToPrivateServer
 local activePrivateServerCode: string? = nil
@@ -137,6 +144,14 @@ Players.PlayerRemoving:Connect(function(player)
         if pendingId then
                 serverjoinCallbacks[pendingId]  = nil
                 serverjoinPending[player.UserId] = nil
+        end
+        -- cancel any active ragdoll timer and clear tracking state; Roblox will
+        -- destroy the character (and everything parented to it) when the player departs
+        local rData = ragdollData[player.UserId]
+        if rData then
+                if rData.timerThread then task.cancel(rData.timerThread) end
+                for _, conn in rData.connections do conn:Disconnect() end
+                ragdollData[player.UserId] = nil
         end
 end)
 
@@ -1039,6 +1054,161 @@ local function removeInvis(target: Player): (boolean, string)
 	return true, target.DisplayName
 end
 
+-- swaps every Motor6D in the character for a loose BallSocketConstraint so the
+-- body collapses naturally under physics, then prevents the Humanoid from fighting it.
+-- Mirrors the CorpseFactory.ragdollize settings exactly for visual consistency.
+-- Returns (true, displayName) on success or (false, reason) on failure.
+local function applyRagdoll(target: Player): (boolean, string)
+	if ragdollData[target.UserId] then
+		return false, target.DisplayName .. " is already ragdolled"
+	end
+
+	local character = target.Character
+	if not character then
+		return false, target.DisplayName .. " has no character"
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		return false, target.DisplayName .. " has no active humanoid"
+	end
+
+	-- Disable every Motor6D so animation stops driving the limbs; collect them
+	-- so we can re-enable them exactly when the ragdoll is removed.
+	local motors = {}
+	for _, desc in character:GetDescendants() do
+		if desc:IsA("Motor6D") and desc.Part0 and desc.Part1 then
+			desc.Enabled = false
+			table.insert(motors, desc)
+		end
+	end
+
+	-- Replace each joint with a BallSocketConstraint so limbs stay connected
+	-- but can flop freely under gravity. Attachments are on the actual parts;
+	-- we keep a flat list of every created instance for precise cleanup.
+	local instances = {}
+	for _, motor in motors do
+		local a0 = Instance.new("Attachment")
+		a0.CFrame  = motor.C0
+		a0.Parent  = motor.Part0
+		table.insert(instances, a0)
+
+		local a1 = Instance.new("Attachment")
+		a1.CFrame  = motor.C1
+		a1.Parent  = motor.Part1
+		table.insert(instances, a1)
+
+		local socket = Instance.new("BallSocketConstraint")
+		socket.Attachment0        = a0
+		socket.Attachment1        = a1
+		socket.LimitsEnabled      = true
+		socket.TwistLimitsEnabled = true
+		socket.UpperAngle         = 60
+		socket.TwistUpperAngle    = 30
+		socket.TwistLowerAngle    = -30
+		socket.Parent             = motor.Part0
+		table.insert(instances, socket)
+	end
+
+	-- Stop the humanoid from fighting the physics simulation
+	humanoid.PlatformStand = true
+	humanoid.AutoRotate    = false
+
+	-- Detect character removal (death / respawn / re command) and auto-clean state.
+	-- AncestryChanged fires before CharacterAdded so the new character arrives clean.
+	local connections = {}
+	local charRemoving
+	charRemoving = character.AncestryChanged:Connect(function(_, newParent)
+		if newParent ~= nil then return end
+		charRemoving:Disconnect()
+		local data = ragdollData[target.UserId]
+		if data and data.character == character then
+			if data.timerThread then task.cancel(data.timerThread) end
+			ragdollData[target.UserId] = nil
+			-- Instances on the departing character are destroyed by Roblox automatically;
+			-- no manual cleanup of physics objects is required here.
+		end
+	end)
+	table.insert(connections, charRemoving)
+
+	ragdollData[target.UserId] = {
+		character   = character,
+		motors      = motors,
+		instances   = instances,
+		connections = connections,
+		timerThread = nil,
+	}
+
+	return true, target.DisplayName
+end
+
+-- restores a ragdolled player to their normal standing state: re-enables joints,
+-- removes constraints, and resets the root to an upright orientation.
+local function removeRagdoll(target: Player): (boolean, string)
+	local data = ragdollData[target.UserId]
+	if not data then
+		return false, target.DisplayName .. " is not ragdolled"
+	end
+
+	-- Cancel the auto-recovery timer if it hasn't fired yet
+	if data.timerThread then
+		task.cancel(data.timerThread)
+		data.timerThread = nil
+	end
+
+	-- Disconnect all tracked signal connections
+	for _, conn in data.connections do
+		conn:Disconnect()
+	end
+
+	ragdollData[target.UserId] = nil
+
+	local character = data.character
+	if not character or not character.Parent then
+		-- Character was removed while ragdolled (death / re / respawn);
+		-- Roblox already destroyed all physics instances with it.
+		return true, target.DisplayName
+	end
+
+	-- Destroy every Attachment and BallSocketConstraint we created
+	for _, inst in data.instances do
+		if inst and inst.Parent then
+			inst:Destroy()
+		end
+	end
+
+	-- Re-enable all Motor6Ds so animation can resume immediately
+	for _, motor in data.motors do
+		if motor and motor.Parent then
+			motor.Enabled = true
+		end
+	end
+
+	-- Restore humanoid movement control
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.PlatformStand = false
+		humanoid.AutoRotate    = true
+	end
+
+	-- Snap the root to an upright orientation so the character stands up cleanly
+	-- rather than resuming animation from a lying-flat position. The horizontal
+	-- facing direction is preserved; only the tilt is corrected.
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if root then
+		local pos  = root.Position
+		local look = root.CFrame.LookVector
+		local flat = Vector3.new(look.X, 0, look.Z)
+		if flat.Magnitude > 0.01 then
+			root.CFrame = CFrame.lookAt(pos, pos + flat)
+		else
+			root.CFrame = CFrame.new(pos)
+		end
+	end
+
+	return true, target.DisplayName
+end
+
 HANDLERS["invis"] = function(executor, args)
 	if #args < 1 then fail(executor, "Usage: invis <player|all>") return end
 	local targets = resolveTargets(executor, args[1])
@@ -1089,6 +1259,88 @@ HANDLERS["uninvis"] = function(executor, args)
 	local msg = "Restored visibility: " .. table.concat(restored, ", ") .. "."
 	if #failures > 0 then
 		msg = msg .. " (" .. table.concat(failures, "; ") .. ")"
+	end
+	ok(executor, msg)
+end
+
+HANDLERS["ragdoll"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: ragdoll <player|all> [duration]") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	local duration = nil
+	if args[2] then
+		local n = tonumber(args[2])
+		if not n or n < 1 or n > 300 then
+			fail(executor, "Duration must be 1–300 seconds.")
+			return
+		end
+		duration = math.floor(n)
+	end
+
+	local ragdolled, failures = {}, {}
+	for _, target in targets do
+		local success, result = applyRagdoll(target)
+		if success then
+			table.insert(ragdolled, result)
+			-- Schedule auto-recovery if a duration was requested.
+			-- Capture the character reference so the timer is bound to this exact
+			-- ragdoll session; if the player respawns and is re-ragdolled before the
+			-- timer fires, the stale closure will see a mismatched character and no-op.
+			if duration then
+				local data = ragdollData[target.UserId]
+				if data then
+					local sessionChar = data.character
+					data.timerThread = task.delay(duration, function()
+						local current = ragdollData[target.UserId]
+						if current and current.character == sessionChar then
+							removeRagdoll(target)
+						end
+					end)
+				end
+			end
+		else
+			table.insert(failures, result)
+		end
+	end
+
+	if #ragdolled == 0 then
+		fail(executor, "No players ragdolled: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
+
+	local recipient    = #ragdolled == 1 and ragdolled[1] or (#ragdolled .. " players")
+	local durationNote = duration and (" for " .. duration .. "s") or ""
+	local msg = "Ragdolled " .. recipient .. durationNote .. "."
+	if #failures > 0 then
+		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
+	end
+	ok(executor, msg)
+end
+
+HANDLERS["unragdoll"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: unragdoll <player|all>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	local restored, failures = {}, {}
+	for _, target in targets do
+		local success, result = removeRagdoll(target)
+		if success then
+			table.insert(restored, result)
+		else
+			table.insert(failures, result)
+		end
+	end
+
+	if #restored == 0 then
+		fail(executor, "No players unragdolled: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
+
+	local msg = "Unragdolled " .. table.concat(restored, ", ") .. "."
+	if #failures > 0 then
+		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
 	end
 	ok(executor, msg)
 end

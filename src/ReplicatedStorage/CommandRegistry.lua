@@ -181,6 +181,16 @@ CommandRegistry.COMMANDS = {
                 args        = {},
                 permission  = "Admin",
         },
+        ragdoll = {
+                description = "Force a player into a ragdoll state (optional auto-recovery duration in seconds)",
+                args        = { "player|all", "[duration]" },
+                permission  = "Admin",
+        },
+        unragdoll = {
+                description = "Restore a ragdolled player to their normal standing state",
+                args        = { "player|all" },
+                permission  = "Admin",
+        },
         serverbring = {
                 description = "Bring a player from another server of this experience into this server",
                 args        = { "player|all" },
