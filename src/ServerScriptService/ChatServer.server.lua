@@ -192,28 +192,103 @@ local function broadcastThought(sender: Player, rawText: string)
 	end
 end
 
+-- ── Whisper broadcast ─────────────────────────────────────────────────────────
+-- Sends a whisper message to the sender and any player whose HumanoidRootPart
+-- is within WHISPER_DISTANCE studs of the sender at the moment of sending.
+-- Recipients are calculated once on the server; no client-side distance check
+-- is needed because non-recipients simply never receive the payload.
+
+local WHISPER_DISTANCE = 6
+
+local function broadcastWhisper(sender: Player, rawText: string)
+	local text = rawText:match("^%s*(.-)%s*$")
+	if text == "" then return end
+	if #text > MAX_MESSAGE_LENGTH then
+		text = text:sub(1, MAX_MESSAGE_LENGTH) .. "…"
+	end
+
+	local filtered  = filterMessage(sender, text)
+	local nameColor = getNameColor(sender)
+	local team      = sender.Team
+	local teamColor = team and team.TeamColor.Color or Color3.new(0.8, 0.8, 0.8)
+
+	local base = {
+		senderName  = sender.Name,
+		displayName = sender.DisplayName,
+		nameColorR  = nameColor.R,
+		nameColorG  = nameColor.G,
+		nameColorB  = nameColor.B,
+		teamName    = team and team.Name or "No Team",
+		teamColorR  = teamColor.R,
+		teamColorG  = teamColor.G,
+		teamColorB  = teamColor.B,
+		isWhisper   = true,
+	}
+
+	-- Apply language system exactly as in broadcastProximity / broadcastThought.
+	local selectedLang = LanguageManager.getSelected(sender.UserId)
+	local langDef      = selectedLang and LanguageData.BY_NAME[selectedLang:lower()]
+
+	local fictionalised: string?
+	local originalTagged: string?
+	if langDef then
+		fictionalised  = LanguageManager.fictionalise(filtered, langDef.name)
+		originalTagged = "[" .. langDef.tag .. "] " .. filtered
+	end
+
+	-- Snapshot the sender's root position once; avoids repeated lookups inside
+	-- the loop and ensures a consistent reference point for all distance checks.
+	local senderChar = sender.Character
+	local senderRoot = senderChar and senderChar:FindFirstChild("HumanoidRootPart") :: BasePart?
+
+	for _, player in Players:GetPlayers() do
+		-- Always deliver to sender; others must be within WHISPER_DISTANCE.
+		if player ~= sender then
+			if not senderRoot then continue end
+			local pChar = player.Character
+			local pRoot = pChar and pChar:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if not pRoot then continue end
+			if (senderRoot.Position - pRoot.Position).Magnitude > WHISPER_DISTANCE then continue end
+		end
+
+		local payload = table.clone(base)
+
+		if not langDef then
+			payload.message = filtered
+		else
+			local pSel        = LanguageManager.getSelected(player.UserId)
+			local understands = pSel ~= nil and pSel:lower() == selectedLang:lower()
+			payload.message   = understands and originalTagged or fictionalised
+		end
+
+		ChatRemotes.MessageReceived:FireClient(player, payload)
+	end
+end
+
 -- ── Incoming message router ───────────────────────────────────────────────────
 -- Single entry point for all incoming chat text, regardless of source.
 -- Keeps /t routing consistent whether the message arrives via the custom
 -- RemoteEvent or the legacy player.Chatted fallback.
 
 local function routeMessage(sender: Player, rawText: string)
+	-- Each command branch is terminal: a recognised prefix never falls through
+	-- to broadcastProximity, even when the body is empty.  This prevents a
+	-- failed /t or /w attempt from leaking as public proximity chat.
+
 	-- /t <message> — Thoughts: private to sender + admins only.
-	--
-	-- Detect any /t invocation first (bare "/t" OR "/t" followed by a space).
-	-- Once matched, the route is ALWAYS terminal — we never fall through to
-	-- broadcastProximity, so a whitespace-only body like "/t   " can never
-	-- be emitted as public proximity chat.
-	-- "/table", "/test", etc. don't match because they have a non-space
-	-- character immediately after the "t".
 	if rawText:match("^%s*/t$") or rawText:match("^%s*/t%s") then
-		local thoughtBody = rawText:match("^%s*/t%s+(.-)%s*$") or ""
-		if thoughtBody ~= "" then
-			broadcastThought(sender, thoughtBody)
-		end
-		-- Empty body: silently discard — never proximate-broadcast.
+		local body = rawText:match("^%s*/t%s+(.-)%s*$") or ""
+		if body ~= "" then broadcastThought(sender, body) end
 		return
 	end
+
+	-- /w <message> — Whisper: sender + players within WHISPER_DISTANCE studs.
+	if rawText:match("^%s*/w$") or rawText:match("^%s*/w%s") then
+		local body = rawText:match("^%s*/w%s+(.-)%s*$") or ""
+		if body ~= "" then broadcastWhisper(sender, body) end
+		return
+	end
+
 	broadcastProximity(sender, rawText)
 end
 

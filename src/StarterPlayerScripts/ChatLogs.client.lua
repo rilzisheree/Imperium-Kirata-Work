@@ -41,7 +41,9 @@ local C_SRCH    = Color3.fromRGB(20,  20,  32)
 local C_ROW     = Color3.fromRGB(16,  16,  24)
 local C_SEP     = Color3.fromRGB(45,  45,  65)
 -- Thoughts messages are rendered in this purple so they stand out immediately.
-local C_THOUGHT = "#a064ff"
+local C_THOUGHT  = "#a064ff"
+-- Whisper messages are rendered in light gray to distinguish them from normal chat.
+local C_WHISPER  = "#b8b8c8"
 
 -- ── State ─────────────────────────────────────────────────────────────────────
 -- Each entry:  { teamName, teamColor, senderName, message, row }
@@ -185,12 +187,21 @@ end
 
 -- Build the RichText string for one log entry.
 -- Normal format:  {TeamName} [Username]: "Message"
--- Thought format: [THOUGHTS] [Username]: "Message"   (whole line in purple)
+-- Thought format: [THOUGHTS] [Username]: "Message"  (whole line in purple)
+-- Whisper format: [WHISPER]  [Username]: "Message"  (whole line in light gray)
 local function buildText(entry)
 	if entry.isThought then
 		return string.format(
 			'<font color="%s">[THOUGHTS] [%s]: "%s"</font>',
 			C_THOUGHT,
+			escXml(entry.senderName),
+			MarkdownParser.toRichText(entry.message)
+		)
+	end
+	if entry.isWhisper then
+		return string.format(
+			'<font color="%s">[WHISPER] [%s]: "%s"</font>',
+			C_WHISPER,
 			escXml(entry.senderName),
 			MarkdownParser.toRichText(entry.message)
 		)
@@ -358,6 +369,7 @@ ChatRemotes.MessageReceived.OnClientEvent:Connect(function(payload)
 		senderName = payload.senderName,
 		message    = payload.message    or "",
 		isThought  = payload.isThought == true,
+		isWhisper  = payload.isWhisper  == true,
 		row        = nil,
 	}
 

@@ -354,12 +354,16 @@ ChatRemotes.MessageReceived.OnClientEvent:Connect(function(payload)
 	local sender = Players:FindFirstChild(payload.senderName)
 	if not sender then return end
 
-	-- Thoughts are already delivered only to the sender and admins by the
-	-- server, so the bubble is safe to show here.  Prepend [THOUGHTS] so
-	-- the label is visible in both the bubble and the chat feed.
-	local message = payload.isThought
-		and ("[THOUGHTS] " .. (payload.message or ""))
-		or payload.message
+	-- The server already restricts delivery by role (thoughts) or distance
+	-- (whispers), so every payload received here is safe to display.
+	-- Prepend the appropriate label so it's visible in the bubble and feed.
+	local msg = payload.message or ""
+	if payload.isThought then
+		msg = "[THOUGHTS] " .. msg
+	elseif payload.isWhisper then
+		msg = "[WHISPER] " .. msg
+	end
+	local message = msg
 
 	local character = sender.Character
 	if character then
