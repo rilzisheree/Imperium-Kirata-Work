@@ -1110,9 +1110,16 @@ local function applyRagdoll(target: Player): (boolean, string)
 		table.insert(instances, socket)
 	end
 
-	-- Stop the humanoid from fighting the physics simulation
+	-- Stop the server-side humanoid from fighting the physics simulation.
+	-- PlatformStand also ensures other players see the ragdoll correctly via replication.
 	humanoid.PlatformStand = true
 	humanoid.AutoRotate    = false
+
+	-- Signal the target's client to surrender physics ownership to the engine.
+	-- This is what actually causes the body to fall: the client calls
+	-- humanoid:ChangeState(Physics) which stops sending positional corrections
+	-- that would otherwise override the server-side joint and constraint changes.
+	CommandRemotes.RagdollApply:FireClient(target)
 
 	-- Detect character removal (death / respawn / re command) and auto-clean state.
 	-- AncestryChanged fires before CharacterAdded so the new character arrives clean.
@@ -1184,11 +1191,17 @@ local function removeRagdoll(target: Player): (boolean, string)
 		end
 	end
 
-	-- Restore humanoid movement control
+	-- Restore humanoid movement control on the server
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid.PlatformStand = false
 		humanoid.AutoRotate    = true
+	end
+
+	-- Signal the client to resume normal humanoid state so it stops sending
+	-- physics-override packets and the character can stand and move again
+	if target.Parent then
+		CommandRemotes.RagdollRemove:FireClient(target)
 	end
 
 	-- Snap the root to an upright orientation so the character stands up cleanly
