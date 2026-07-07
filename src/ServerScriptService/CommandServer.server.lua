@@ -74,6 +74,10 @@ local privateServerState = {}
 -- serverbring cooldown: [adminUserId] = DistributedGameTime of last publish (5 s limit)
 local serverbringCooldowns = {}
 
+-- if this server instance is a reserved private server, stores the access code so
+-- serverbring can broadcast it and receiving servers can use TeleportToPrivateServer
+local activePrivateServerCode: string? = nil
+
 -- music state: the currently playing audio ID (or nil) and volume (0–1)
 local currentMusicId     = nil
 local currentMusicVolume = 1
@@ -127,6 +131,18 @@ end
 
 Players.PlayerAdded:Connect(function(player)
         pushPermissions(player)
+
+        -- detect whether this server instance is a reserved private server by reading
+        -- the teleport data stamped by PrivateServerSend; only needs to happen once
+        if not activePrivateServerCode then
+                local ok_, joinData = pcall(function() return player:GetJoinData() end)
+                if ok_ and joinData then
+                        local td = joinData.TeleportData
+                        if typeof(td) == "table" and typeof(td.psCode) == "string" then
+                                activePrivateServerCode = td.psCode
+                        end
+                end
+        end
 
         -- sync an active countdown to players who join mid-countdown
         if countdownEndTime ~= nil then
@@ -209,13 +225,22 @@ if not IS_STUDIO then
 				-- Ignore our own broadcasts
 				if destJobId == game.JobId then return end
 
-				local options = Instance.new("TeleportOptions")
-				options.ServerInstanceId = destJobId
+				-- If the broadcasting server is a reserved private server it includes
+				-- its access code; use TeleportToPrivateServer in that case so we are
+				-- not blocked by the "restricted place" error that TeleportAsync gives
+				-- when targeting a private server instance via ServerInstanceId
+				local destPsCode = typeof(data.psCode) == "string" and data.psCode or nil
 
 				local function tryBring(player: Player)
 					task.spawn(function()
 						local ok_, err_ = pcall(function()
-							TeleportService:TeleportAsync(game.PlaceId, { player }, options)
+							if destPsCode then
+								TeleportService:TeleportToPrivateServer(game.PlaceId, destPsCode, { player })
+							else
+								local options = Instance.new("TeleportOptions")
+								options.ServerInstanceId = destJobId
+								TeleportService:TeleportAsync(game.PlaceId, { player }, options)
+							end
 						end)
 						if not ok_ then
 							warn("[CommandServer] serverbring teleport failed for "
@@ -1394,8 +1419,12 @@ HANDLERS["serverbring"] = function(executor, args)
 
 	local broadcastOk, broadcastErr = pcall(function()
 		MessagingService:PublishAsync(SERVERBRING_TOPIC, {
-			target = rawTarget,
-			jobId  = game.JobId,
+			target  = rawTarget,
+			jobId   = game.JobId,
+			-- include the private-server access code when serverbring is called from
+			-- within a reserved server; receivers use TeleportToPrivateServer instead
+			-- of TeleportAsync so they aren't blocked by the "restricted place" error
+			psCode  = activePrivateServerCode,
 		})
 	end)
 
@@ -1591,7 +1620,9 @@ CommandRemotes.PrivateServerSend.OnServerEvent:Connect(function(player: Player, 
 	local code = state.code
 	task.spawn(function()
 		local sendOk, sendErr = pcall(function()
-			TeleportService:TeleportToPrivateServer(game.PlaceId, code, targets)
+			-- Stamp the access code into teleport data so the private server instance
+			-- can read it on PlayerAdded and enable serverbring from within that server
+			TeleportService:TeleportToPrivateServer(game.PlaceId, code, targets, nil, { psCode = code })
 		end)
 		if sendOk then
 			ok(player, "Sent " .. #targets .. " player(s) to the private server.")
