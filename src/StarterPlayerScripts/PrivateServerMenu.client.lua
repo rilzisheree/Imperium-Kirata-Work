@@ -20,6 +20,7 @@ local Players           = game:GetService("Players")
 local UserInputService  = game:GetService("UserInputService")
 local RunService        = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GuiService        = game:GetService("GuiService")
 
 local LP   = Players.LocalPlayer
 local PGui = LP:WaitForChild("PlayerGui")
@@ -60,6 +61,7 @@ local CARD_GAP = 4
 local queuedIds    : { [number]: boolean } = {}  -- [userId] = true
 local serverStatus : string                = "none"
 -- "none" | "reserving" | "active" | "failed" | "cancelled"
+local serverCode   : string?               = nil  -- access code returned by ReserveServer
 
 local dragState: {
 	userId  : number,
@@ -209,6 +211,64 @@ queueCountLbl.TextXAlignment     = Enum.TextXAlignment.Right
 queueCountLbl.Text               = "Queue: 0"
 queueCountLbl.ZIndex             = 12
 
+-- Code TextBox — selectable, read-only; visible only when a server is active
+-- Admins can click it, Ctrl+A, Ctrl+C to copy manually even if the button fails
+local codeBox = Instance.new("TextBox", statusBar)
+codeBox.Size             = UDim2.new(0, 210, 0, 22)
+codeBox.Position         = UDim2.new(0, 106, 0.5, -11)
+codeBox.BackgroundColor3 = C_BTN
+codeBox.BorderSizePixel  = 0
+codeBox.Font             = Enum.Font.Code
+codeBox.TextSize         = 10
+codeBox.TextColor3       = C_TXT
+codeBox.TextXAlignment   = Enum.TextXAlignment.Left
+codeBox.Text             = ""
+codeBox.TextEditable     = false
+codeBox.ClearTextOnFocus = false
+codeBox.Visible          = false
+codeBox.ZIndex           = 13
+Instance.new("UICorner", codeBox).CornerRadius = UDim.new(0, 5)
+local cbPad = Instance.new("UIPadding", codeBox)
+cbPad.PaddingLeft = UDim.new(0, 6)
+makeStroke(codeBox, C_BOR, 1, 0.5)
+
+-- Copy button — fires GuiService:SetClipboard with a pcall so UI never breaks
+-- if the API is unavailable; the codeBox above is always the manual fallback
+local copyCodeBtn = Instance.new("TextButton", statusBar)
+copyCodeBtn.Size             = UDim2.new(0, 72, 0, 22)
+copyCodeBtn.Position         = UDim2.new(0, 320, 0.5, -11)
+copyCodeBtn.BackgroundColor3 = C_BTN
+copyCodeBtn.BorderSizePixel  = 0
+copyCodeBtn.Font             = Enum.Font.Gotham
+copyCodeBtn.TextSize         = 11
+copyCodeBtn.TextColor3       = C_ACC
+copyCodeBtn.Text             = "Copy"
+copyCodeBtn.AutoButtonColor  = false
+copyCodeBtn.Visible          = false
+copyCodeBtn.ZIndex           = 13
+Instance.new("UICorner", copyCodeBtn).CornerRadius = UDim.new(0, 5)
+makeStroke(copyCodeBtn, C_BOR, 1, 0.5)
+
+local copyFeedbackThread: thread? = nil
+copyCodeBtn.MouseButton1Click:Connect(function()
+	if not serverCode then return end
+	local ok_ = pcall(function() GuiService:SetClipboard(serverCode) end)
+	-- Cancel any in-flight revert before starting a new one
+	if copyFeedbackThread then task.cancel(copyFeedbackThread) copyFeedbackThread = nil end
+	if ok_ then
+		copyCodeBtn.Text       = "✓ Copied!"
+		copyCodeBtn.TextColor3 = C_OK
+	else
+		copyCodeBtn.Text       = "Select above"
+		copyCodeBtn.TextColor3 = C_WARN
+	end
+	copyFeedbackThread = task.delay(1.5, function()
+		copyCodeBtn.Text       = "Copy"
+		copyCodeBtn.TextColor3 = C_ACC
+		copyFeedbackThread = nil
+	end)
+end)
+
 makeDivider(statusBarY + STATUS_H)
 
 -- ── Column headers ─────────────────────────────────────────────────────────────
@@ -326,30 +386,51 @@ local function syncStatus()
 	for _ in queuedIds do n += 1 end
 	queueCountLbl.Text = "Queue: " .. n
 
+	-- helpers to show/hide the code row and restore normal layout
+	local function showCodeRow()
+		statusLbl.Size         = UDim2.new(0, 90, 1, 0)        -- shrink to "✓ Active" only
+		codeBox.Text           = serverCode or ""
+		codeBox.Visible        = true
+		copyCodeBtn.Visible    = true
+		queueCountLbl.Position = UDim2.new(0, 396, 0, 0)
+		queueCountLbl.Size     = UDim2.new(0, 72, 1, 0)
+	end
+	local function hideCodeRow()
+		statusLbl.Size         = UDim2.new(0.6, -8, 1, 0)      -- restore original width
+		codeBox.Visible        = false
+		copyCodeBtn.Visible    = false
+		queueCountLbl.Position = UDim2.new(0.6, 0, 0, 0)
+		queueCountLbl.Size     = UDim2.new(0.4, -12, 1, 0)
+	end
+
 	if serverStatus == "none" or serverStatus == "cancelled" then
 		statusLbl.Text       = "Status: Not created"
 		statusLbl.TextColor3 = C_DIM
 		createBtn.Text       = "Create Server"
 		createBtn.TextColor3 = C_TXT
 		createBtn.BackgroundTransparency = 0
+		hideCodeRow()
 	elseif serverStatus == "reserving" then
 		statusLbl.Text       = "Status: Reserving…"
 		statusLbl.TextColor3 = C_WARN
 		createBtn.Text       = "Reserving…"
 		createBtn.TextColor3 = C_DIM
 		createBtn.BackgroundTransparency = 0.3
+		hideCodeRow()
 	elseif serverStatus == "active" then
-		statusLbl.Text       = "Status: ✓ Active"
+		statusLbl.Text       = "✓ Active"
 		statusLbl.TextColor3 = C_OK
 		createBtn.Text       = "✓ Active"
 		createBtn.TextColor3 = C_OK
 		createBtn.BackgroundTransparency = 0
+		showCodeRow()
 	elseif serverStatus == "failed" then
 		statusLbl.Text       = "Status: Failed — retry?"
 		statusLbl.TextColor3 = C_ERR
 		createBtn.Text       = "Retry"
 		createBtn.TextColor3 = C_TXT
 		createBtn.BackgroundTransparency = 0
+		hideCodeRow()
 	end
 
 	sendBtn.TextColor3 = (serverStatus == "active" and n > 0) and C_TXT or C_DIM
@@ -583,14 +664,20 @@ end)
 CommandRemotes.PrivateServerOpen.OnClientEvent:Connect(function()
 	-- Reset to a clean, centred state each time the command fires
 	serverStatus = "none"
+	serverCode   = nil
 	queuedIds    = {}
 	frame.Position = UDim2.new(0.5, 0, 0.5, 0)
 	rebuildLists()
 	sg.Enabled = true
 end)
 
-CommandRemotes.PrivateServerStatus.OnClientEvent:Connect(function(status: string)
+CommandRemotes.PrivateServerStatus.OnClientEvent:Connect(function(status: string, code: string?)
 	if typeof(status) ~= "string" then return end
 	serverStatus = status
+	if status == "active" and typeof(code) == "string" then
+		serverCode = code
+	elseif status ~= "active" then
+		serverCode = nil
+	end
 	syncStatus()
 end)

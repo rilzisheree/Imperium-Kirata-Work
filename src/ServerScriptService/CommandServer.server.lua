@@ -1555,7 +1555,7 @@ CommandRemotes.PrivateServerReserve.OnServerEvent:Connect(function(player: Playe
 		end)
 		if resOk and result then
 			privateServerState[uid] = { code = result, reserving = false }
-			CommandRemotes.PrivateServerStatus:FireClient(player, "active")
+			CommandRemotes.PrivateServerStatus:FireClient(player, "active", result)
 		else
 			privateServerState[uid] = nil
 			CommandRemotes.PrivateServerStatus:FireClient(player, "failed")
