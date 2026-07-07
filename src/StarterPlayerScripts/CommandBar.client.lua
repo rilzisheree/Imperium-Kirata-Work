@@ -425,7 +425,11 @@ local function open()
         isOpen = true
         frame.Visible = true
         hideDrop()
-        box:CaptureFocus()
+        -- Defer focus so the ; keystroke that triggered open() finishes
+        -- processing before the TextBox captures input — otherwise ; types itself in.
+        task.defer(function()
+                box:CaptureFocus()
+        end)
 end
 
 local function close()
