@@ -481,14 +481,12 @@ rebuildLists = function()
 		if child:IsA("Frame") then child:Destroy() end
 	end
 
-	-- Populate
+	-- Populate (include LocalPlayer so admin can send themselves to the private server)
 	for _, player in Players:GetPlayers() do
-		if player ~= LP then
-			if queuedIds[player.UserId] then
-				makeCard(rightScroll, player, true)
-			else
-				makeCard(leftScroll, player, false)
-			end
+		if queuedIds[player.UserId] then
+			makeCard(rightScroll, player, true)
+		else
+			makeCard(leftScroll, player, false)
 		end
 	end
 
