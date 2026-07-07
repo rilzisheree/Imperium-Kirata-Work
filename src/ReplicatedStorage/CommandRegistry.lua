@@ -81,6 +81,16 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all", "language" },
                 permission  = "Admin",
         },
+        invis = {
+                description = "Make a player's character invisible",
+                args        = { "player|all" },
+                permission  = "Admin",
+        },
+        uninvis = {
+                description = "Restore a player's character visibility",
+                args        = { "player|all" },
+                permission  = "Admin",
+        },
         fly = {
                 description = "Enable flight for a player or all players (E to toggle, LeftAlt to boost)",
                 args        = { "player|all", "[speed]" },
