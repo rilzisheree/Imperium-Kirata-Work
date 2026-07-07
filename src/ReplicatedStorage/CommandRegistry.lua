@@ -151,6 +151,21 @@ CommandRegistry.COMMANDS = {
                 args        = { "[id]" },
                 permission  = "Admin",
         },
+        heal = {
+                description = "Restore a player's health (fully, or by a specific amount)",
+                args        = { "player|all", "[amount]" },
+                permission  = "Admin",
+        },
+        damage = {
+                description = "Remove a specific amount of health from a player",
+                args        = { "player|all", "amount" },
+                permission  = "Admin",
+        },
+        kick = {
+                description = "Remove a player from the server with an optional reason",
+                args        = { "player|all", "[reason]" },
+                permission  = "Admin",
+        },
 }
 
 return CommandRegistry

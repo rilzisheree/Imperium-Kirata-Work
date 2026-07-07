@@ -33,7 +33,7 @@ aftman.toml                — Aftman toolchain config (Rojo 7.7.0-rc.1)
 ### Command Bar
 - Press `;` or `'` to open the command bar
 - Tab/Up/Down for autocomplete
-- Commands: `sm`, `im`, `anxiety`
+- Commands: `sm`, `im`, `anxiety`, `heal`, `damage`, `kick`
 - Permission tiers: Helper → Moderator → Admin → Owner
 
 ## Setup (local development)

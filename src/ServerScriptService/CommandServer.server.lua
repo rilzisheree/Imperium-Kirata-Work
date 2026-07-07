@@ -1186,6 +1186,139 @@ CommandRemotes.MusicCommand.OnServerEvent:Connect(function(player: Player, actio
 	end
 end)
 
+HANDLERS["heal"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: heal <player|all> [amount]") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	local amount = nil
+	if args[2] then
+		local n = tonumber(args[2])
+		if not n or n <= 0 then
+			fail(executor, "Amount must be a positive number.")
+			return
+		end
+		amount = n
+	end
+
+	local healed, failures = {}, {}
+	for _, target in targets do
+		local character = target.Character
+		local humanoid  = character and character:FindFirstChildOfClass("Humanoid")
+		if not humanoid then
+			table.insert(failures, target.DisplayName .. " has no character")
+		elseif humanoid.Health <= 0 then
+			table.insert(failures, target.DisplayName .. " is dead")
+		else
+			if amount then
+				humanoid.Health = math.min(humanoid.Health + amount, humanoid.MaxHealth)
+			else
+				humanoid.Health = humanoid.MaxHealth
+			end
+			table.insert(healed, target.DisplayName)
+		end
+	end
+
+	if #healed == 0 then
+		fail(executor, "No players healed: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
+
+	local amountNote = amount and (" by " .. amount) or " fully"
+	local msg = "Healed" .. amountNote .. ": " .. table.concat(healed, ", ") .. "."
+	if #failures > 0 then
+		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
+	end
+	ok(executor, msg)
+end
+
+HANDLERS["damage"] = function(executor, args)
+	if #args < 2 then fail(executor, "Usage: damage <player|all> <amount>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	local amount = tonumber(args[2])
+	if not amount or amount <= 0 then
+		fail(executor, "Amount must be a positive number.")
+		return
+	end
+
+	local damaged, failures = {}, {}
+	for _, target in targets do
+		local character = target.Character
+		local humanoid  = character and character:FindFirstChildOfClass("Humanoid")
+		if not humanoid then
+			table.insert(failures, target.DisplayName .. " has no character")
+		elseif humanoid.Health <= 0 then
+			table.insert(failures, target.DisplayName .. " is already dead")
+		else
+			humanoid.Health = math.max(humanoid.Health - amount, 0)
+			table.insert(damaged, target.DisplayName)
+		end
+	end
+
+	if #damaged == 0 then
+		fail(executor, "No players damaged: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
+
+	local msg = "Dealt " .. amount .. " damage to: " .. table.concat(damaged, ", ") .. "."
+	if #failures > 0 then
+		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
+	end
+	ok(executor, msg)
+end
+
+HANDLERS["kick"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: kick <player|all> [reason]") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	-- prevent the executor from kicking themselves
+	local actualTargets = {}
+	for _, t in targets do
+		if t ~= executor then table.insert(actualTargets, t) end
+	end
+	if #actualTargets == 0 then
+		fail(executor, "You cannot kick yourself.")
+		return
+	end
+
+	local reason = joinArgs(args, 2)
+	local kickMsg
+	if reason ~= "" then
+		kickMsg = "You have been kicked by an administrator.\n\nReason:\n" .. reason
+	else
+		kickMsg = "You have been kicked by an administrator."
+	end
+
+	local kicked, failures = {}, {}
+	for _, target in actualTargets do
+		if target.Parent then
+			local pcallOk, pcallErr = pcall(function() target:Kick(kickMsg) end)
+			if pcallOk then
+				table.insert(kicked, target.DisplayName)
+			else
+				table.insert(failures, target.DisplayName .. " (error: " .. tostring(pcallErr) .. ")")
+			end
+		else
+			table.insert(failures, target.DisplayName .. " already left")
+		end
+	end
+
+	if #kicked == 0 then
+		fail(executor, "No players kicked: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
+
+	local msg = "Kicked: " .. table.concat(kicked, ", ") .. "."
+	if reason ~= "" then msg = msg .. ' Reason: "' .. reason .. '".' end
+	if #failures > 0 then
+		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
+	end
+	ok(executor, msg)
+end
+
 CommandRemotes.CommandExecuted.OnServerEvent:Connect(function(executor: Player, cmdName: string, args: { string })
         if typeof(cmdName) ~= "string" then return end
         if typeof(args) ~= "table" then args = {} end
