@@ -105,7 +105,13 @@ Players.PlayerAdded:Connect(function(player)
                 if not worldSpawnCFrame then return end
                 local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
                 if root and worldSpawnCFrame then
-                        character:PivotTo(worldSpawnCFrame)
+                        -- yield one heartbeat so Roblox's built-in SpawnLocation
+                        -- positioning runs first; without this it overrides our PivotTo
+                        local savedCFrame = worldSpawnCFrame
+                        task.wait()
+                        if character.Parent and player.Character == character and savedCFrame then
+                                character:PivotTo(savedCFrame)
+                        end
                 end
         end)
 end)
@@ -122,7 +128,13 @@ for _, player in Players:GetPlayers() do
                 if not worldSpawnCFrame then return end
                 local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
                 if root and worldSpawnCFrame then
-                        character:PivotTo(worldSpawnCFrame)
+                        -- yield one heartbeat so Roblox's built-in SpawnLocation
+                        -- positioning runs first; without this it overrides our PivotTo
+                        local savedCFrame = worldSpawnCFrame
+                        task.wait()
+                        if character.Parent and player.Character == character and savedCFrame then
+                                character:PivotTo(savedCFrame)
+                        end
                 end
         end)
 end
