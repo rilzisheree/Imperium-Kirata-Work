@@ -1274,16 +1274,6 @@ HANDLERS["kick"] = function(executor, args)
 	local targets = resolveTargets(executor, args[1])
 	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
 
-	-- prevent the executor from kicking themselves
-	local actualTargets = {}
-	for _, t in targets do
-		if t ~= executor then table.insert(actualTargets, t) end
-	end
-	if #actualTargets == 0 then
-		fail(executor, "You cannot kick yourself.")
-		return
-	end
-
 	local reason = joinArgs(args, 2)
 	local kickMsg
 	if reason ~= "" then
@@ -1293,7 +1283,7 @@ HANDLERS["kick"] = function(executor, args)
 	end
 
 	local kicked, failures = {}, {}
-	for _, target in actualTargets do
+	for _, target in targets do
 		if target.Parent then
 			local pcallOk, pcallErr = pcall(function() target:Kick(kickMsg) end)
 			if pcallOk then
