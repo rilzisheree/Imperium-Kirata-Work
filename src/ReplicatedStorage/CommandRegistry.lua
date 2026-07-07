@@ -146,6 +146,11 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all" },
                 permission  = "Admin",
         },
+        music = {
+                description = "Open the Music Control panel, or play an audio ID for all players",
+                args        = { "[id]" },
+                permission  = "Admin",
+        },
 }
 
 return CommandRegistry

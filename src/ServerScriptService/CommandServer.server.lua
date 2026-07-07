@@ -61,6 +61,10 @@ local worldSpawnCFrame = nil :: CFrame?
 -- shutdown guard: prevents the command running twice
 local shutdownInProgress = false
 
+-- music state: the currently playing audio ID (or nil) and volume (0–1)
+local currentMusicId     = nil
+local currentMusicVolume = 1
+
 -- prevents the CharacterAdded world-spawn hook from fighting re/respawn
 -- command placements; set true before LoadCharacter, cleared on first use
 local skipWorldSpawnNext = {}  -- [userId] = true
@@ -87,6 +91,11 @@ Players.PlayerAdded:Connect(function(player)
                 if remaining > 0.5 then
                         CommandRemotes.CountdownStart:FireClient(player, countdownEndTime)
                 end
+        end
+
+        -- sync any active music track to players who join mid-session
+        if currentMusicId ~= nil then
+                CommandRemotes.MusicSync:FireClient(player, currentMusicId, currentMusicVolume)
         end
 
         -- when a player respawns their new character is visible by default,
@@ -1092,6 +1101,43 @@ HANDLERS["accesslanguage"] = function(executor, args)
         end
         ok(executor, msg)
 end
+
+HANDLERS["music"] = function(executor, args)
+	local rawId = args[1]
+	if not rawId or rawId == "" then
+		CommandRemotes.MusicOpen:FireClient(executor)
+		return
+	end
+	-- accept only positive integer strings (Roblox audio asset IDs)
+	if not rawId:match("^%d+$") then
+		fail(executor, 'Invalid audio ID "' .. rawId .. '". Must be a positive numeric Roblox asset ID.')
+		return
+	end
+	currentMusicId = rawId
+	CommandRemotes.MusicPlay:FireAllClients(currentMusicId, currentMusicVolume)
+end
+
+-- MusicCommand: fired by MusicMenu client when clicking songs, stopping, or changing volume.
+-- Permission is re-validated here since this bypasses the normal command pipeline.
+CommandRemotes.MusicCommand.OnServerEvent:Connect(function(player: Player, action: string, data: any)
+	if not hasPermission(player, "Admin") then return end
+	if typeof(action) ~= "string" then return end
+
+	if action == "play" then
+		if typeof(data) ~= "string" or not data:match("^%d+$") then return end
+		currentMusicId = data
+		CommandRemotes.MusicPlay:FireAllClients(currentMusicId, currentMusicVolume)
+	elseif action == "stop" then
+		currentMusicId = nil
+		CommandRemotes.MusicStop:FireAllClients()
+	elseif action == "volume" then
+		if typeof(data) ~= "number" then return end
+		currentMusicVolume = math.clamp(data, 0, 1)
+		if currentMusicId then
+			CommandRemotes.MusicVolume:FireAllClients(currentMusicVolume)
+		end
+	end
+end)
 
 CommandRemotes.CommandExecuted.OnServerEvent:Connect(function(executor: Player, cmdName: string, args: { string })
         if typeof(cmdName) ~= "string" then return end
