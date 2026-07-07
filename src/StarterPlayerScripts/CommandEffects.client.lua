@@ -171,6 +171,9 @@ end
 
 local smQueue: { { text: string, color: Color3, colorName: string? } } = {}
 local smBusy = false
+-- set to true when a shutdown fires; prevents in-flight SM timers from
+-- clearing the shutdown screen before the server kicks the player
+local shutdownActive = false
 
 local function processSmQueue()
 	if smBusy or #smQueue == 0 then return end
@@ -198,11 +201,14 @@ local function processSmQueue()
 	tw(smBody,   0.6, { TextTransparency = 0 })
 
 	task.delay(0.6 + hold, function()
+		-- shutdown has taken over the screen; do not fade out or continue the queue
+		if shutdownActive then return end
 		if removeGlow then removeGlow() end
 		tw(blur,     0.5, { Size = 0 })
 		tw(smHeader, 0.5, { TextTransparency = 1 })
 		tw(smBody,   0.5, { TextTransparency = 1 })
 		task.delay(0.55, function()
+			if shutdownActive then return end
 			smHeader.Visible          = false
 			smHeader.TextTransparency = 0
 			smBody.Visible            = false
@@ -390,4 +396,39 @@ end
 
 if CommandRemotes.Unblind then
 	CommandRemotes.Unblind.OnClientEvent:Connect(removeBlind)
+end
+
+if CommandRemotes.Shutdown then
+	CommandRemotes.Shutdown.OnClientEvent:Connect(function()
+		-- freeze the SM queue so no queued/in-flight SM timer can clear the shutdown screen
+		shutdownActive = true
+		smBusy         = true
+		table.clear(smQueue)
+
+		-- show shutdown screen permanently (same visual as SM, no fade-out scheduled)
+		smHeader.Text             = "Server Shutting Down"
+		smBody.Text               = "A Staff Member has shut down this server,\nPlease rejoin shortly."
+		smHeader.TextColor3       = DEFAULT_COLOR
+		smBody.TextColor3         = DEFAULT_COLOR
+		smHeader.TextTransparency = 1
+		smBody.TextTransparency   = 1
+		smHeader.Visible          = true
+		smBody.Visible            = true
+		blur.Size                 = 0
+
+		tw(blur,     0.6, { Size = 5 })
+		tw(smHeader, 0.6, { TextTransparency = 0 })
+		tw(smBody,   0.6, { TextTransparency = 0 })
+
+		-- disable movement so the admin cannot interact while shutting down
+		local char = LocalPlayer.Character
+		if char then
+			local hum = char:FindFirstChildOfClass("Humanoid")
+			if hum then
+				hum.WalkSpeed  = 0
+				hum.JumpHeight = 0
+				hum.JumpPower  = 0
+			end
+		end
+	end)
 end

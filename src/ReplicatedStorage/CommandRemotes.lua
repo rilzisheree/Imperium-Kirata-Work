@@ -48,6 +48,7 @@ if RunService:IsServer() then
         CommandRemotes.FlyDisable           = getOrCreate("CmdFlyDisable")
         CommandRemotes.WatchStart           = getOrCreate("CmdWatchStart")
         CommandRemotes.WatchStop            = getOrCreate("CmdWatchStop")
+        CommandRemotes.Shutdown             = getOrCreate("CmdShutdown")
 else
         CommandRemotes.CommandExecuted = waitFor("CmdExecuted")
         CommandRemotes.CommandFeedback = waitFor("CmdFeedback")
@@ -78,6 +79,7 @@ else
         CommandRemotes.FlyDisable           = waitFor("CmdFlyDisable")
         CommandRemotes.WatchStart           = waitFor("CmdWatchStart")
         CommandRemotes.WatchStop            = waitFor("CmdWatchStop")
+        CommandRemotes.Shutdown             = waitFor("CmdShutdown")
 end
 
 return CommandRemotes

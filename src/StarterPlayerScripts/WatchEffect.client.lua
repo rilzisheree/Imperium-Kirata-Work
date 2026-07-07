@@ -111,6 +111,8 @@ local function startWatch(target: Player)
 		if watchedPlayer ~= target then return end
 		-- wait one frame so the humanoid is fully initialised
 		task.defer(function()
+			-- re-check: stopWatch may have run while we were deferred
+			if watchedPlayer ~= target then return end
 			setSubject(newCharacter)
 		end)
 	end)

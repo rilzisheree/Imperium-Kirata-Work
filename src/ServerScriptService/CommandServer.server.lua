@@ -55,6 +55,16 @@ local activeWaypoints = {}
 -- cleared on PlayerRemoving and on CharacterAdded (respawn)
 local invisData = {}
 
+-- world spawn override: set by setworldspawn; nil = use default Roblox spawn
+local worldSpawnCFrame = nil :: CFrame?
+
+-- shutdown guard: prevents the command running twice
+local shutdownInProgress = false
+
+-- prevents the CharacterAdded world-spawn hook from fighting re/respawn
+-- command placements; set true before LoadCharacter, cleared on first use
+local skipWorldSpawnNext = {}  -- [userId] = true
+
 Players.PlayerRemoving:Connect(function(player)
         helpUIEnabled[player.UserId] = nil
         activeWaypoints[player.UserId] = nil
@@ -84,11 +94,37 @@ Players.PlayerAdded:Connect(function(player)
         player.CharacterAdded:Connect(function()
                 invisData[player.UserId] = nil
         end)
+
+        -- if a world spawn has been set, override respawn position for this player;
+        -- re/respawn commands skip this by setting skipWorldSpawnNext before LoadCharacter
+        player.CharacterAdded:Connect(function(character)
+                if skipWorldSpawnNext[player.UserId] then
+                        skipWorldSpawnNext[player.UserId] = nil
+                        return
+                end
+                if not worldSpawnCFrame then return end
+                local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
+                if root and worldSpawnCFrame then
+                        character:PivotTo(worldSpawnCFrame)
+                end
+        end)
 end)
 
 -- handle players already connected when this script loads (Studio edge case)
 for _, player in Players:GetPlayers() do
         task.spawn(pushPermissions, player)
+        -- attach world-spawn hook for any player already in the server
+        player.CharacterAdded:Connect(function(character)
+                if skipWorldSpawnNext[player.UserId] then
+                        skipWorldSpawnNext[player.UserId] = nil
+                        return
+                end
+                if not worldSpawnCFrame then return end
+                local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
+                if root and worldSpawnCFrame then
+                        character:PivotTo(worldSpawnCFrame)
+                end
+        end)
 end
 
 -- if the last word of a message is a colour name, strip it and return it separately
@@ -182,6 +218,66 @@ HANDLERS["anxiety"] = function(executor, args)
         ok(executor, "Anxiety level " .. level .. " triggered on " .. recipient .. ".")
 end
 
+HANDLERS["setworldspawn"] = function(executor, args)
+	local adminChar = executor.Character
+	local adminRoot = adminChar and adminChar:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not adminRoot then
+		fail(executor, "Your character is not available.")
+		return
+	end
+
+	local rootPos = adminRoot.Position
+
+	local rayParams = RaycastParams.new()
+	rayParams.FilterDescendantsInstances = { adminChar }
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+	-- probe downward up to 50 studs to find a solid floor
+	local floorHit = Workspace:Raycast(rootPos + Vector3.new(0, 2, 0), Vector3.new(0, -50, 0), rayParams)
+	if not floorHit then
+		fail(executor, "No floor detected below your position. Move to a valid location.")
+		return
+	end
+	local floorY     = floorHit.Position.Y
+	local spawnY     = floorY + 3        -- HumanoidRootPart rests ~3 studs above floor
+
+	-- clearance check: character needs at least 6 studs of vertical space
+	local clearHit = Workspace:Raycast(
+		Vector3.new(rootPos.X, floorY + 0.5, rootPos.Z),
+		Vector3.new(0, 6, 0),
+		rayParams
+	)
+	if clearHit then
+		fail(executor, "Spawn location is obstructed above. Move to a more open area.")
+		return
+	end
+
+	-- preserve the admin's facing direction so spawners arrive oriented sensibly
+	local look   = adminRoot.CFrame.LookVector
+	local yAngle = math.atan2(-look.X, -look.Z)
+	worldSpawnCFrame = CFrame.new(Vector3.new(rootPos.X, spawnY, rootPos.Z))
+		* CFrame.fromEulerAnglesYXZ(0, yAngle, 0)
+
+	ok(executor, "World spawn set to your current position.")
+end
+
+HANDLERS["shutdown"] = function(executor, args)
+	if shutdownInProgress then
+		fail(executor, "A shutdown is already in progress.")
+		return
+	end
+	shutdownInProgress = true
+
+	ok(executor, "Initiating server shutdown in 5 seconds.")
+	CommandRemotes.Shutdown:FireAllClients()
+
+	task.delay(5, function()
+		for _, player in Players:GetPlayers() do
+			player:Kick("This server has been shut down by Staff.")
+		end
+	end)
+end
+
 HANDLERS["blind"] = function(executor, args)
         if #args < 1 then fail(executor, "Usage: blind <player|all> [duration 1-120]") return end
         local targets = resolveTargets(executor, args[1])
@@ -267,6 +363,8 @@ local function refreshPlayer(target: Player): (boolean, string)
         local oldHumanoid  = character:FindFirstChildOfClass("Humanoid")
         local savedHealth  = oldHumanoid and oldHumanoid.Health or nil
 
+        -- skip world-spawn override; re manages placement itself
+        skipWorldSpawnNext[target.UserId] = true
         target:LoadCharacter()
 
         local newCharacter = target.Character
@@ -303,6 +401,8 @@ end
 
 -- reloads a single player's character and places it at the default spawn location
 local function respawnPlayer(target: Player, spawn: BasePart?): (boolean, string)
+        -- skip world-spawn override; respawn manages placement itself
+        skipWorldSpawnNext[target.UserId] = true
         target:LoadCharacter()
 
         local newCharacter = target.Character

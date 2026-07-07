@@ -81,6 +81,16 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all", "language" },
                 permission  = "Admin",
         },
+        setworldspawn = {
+                description = "Set the world spawn to your current position",
+                args        = {},
+                permission  = "Admin",
+        },
+        shutdown = {
+                description = "Gracefully shut down the server",
+                args        = {},
+                permission  = "Owner",
+        },
         watch = {
                 description = "Spectate a player's point of view",
                 args        = { "player" },
