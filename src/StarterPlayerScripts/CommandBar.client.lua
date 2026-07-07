@@ -425,10 +425,11 @@ local function open()
         isOpen = true
         frame.Visible = true
         hideDrop()
-        -- Defer focus so the ; keystroke that triggered open() finishes
-        -- processing before the TextBox captures input — otherwise ; types itself in.
+        -- Defer focus so the ; keystroke has finished its InputBegan cycle,
+        -- then immediately wipe any character that still slipped through.
         task.defer(function()
                 box:CaptureFocus()
+                box.Text = ""
         end)
 end
 

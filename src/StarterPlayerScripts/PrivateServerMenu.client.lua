@@ -220,12 +220,7 @@ local cbPad = Instance.new("UIPadding", codeBox)
 cbPad.PaddingLeft = UDim.new(0, 6)
 makeStroke(codeBox, C_BOR, 1, 0.5)
 
-codeBox.FocusLost:Connect(function()
-	codeBox.Text = PLACE_ID_STR
-end)
-
--- Copy button — fires GuiService:SetClipboard with a pcall so UI never breaks
--- if the API is unavailable; the codeBox above is always the manual fallback
+-- Copy button — fires GuiService:SetClipboard; codeBox is the manual fallback
 local copyCodeBtn = Instance.new("TextButton", statusBar)
 copyCodeBtn.Size             = UDim2.new(0, 72, 0, 22)
 copyCodeBtn.Position         = UDim2.new(0, 320, 0.5, -11)
@@ -246,9 +241,6 @@ copyCodeBtn.MouseButton1Click:Connect(function()
 	-- Cancel any in-flight revert before starting a new one
 	if copyFeedbackThread then task.cancel(copyFeedbackThread) copyFeedbackThread = nil end
 	local ok_ = pcall(function() GuiService:SetClipboard(PLACE_ID_STR) end)
-	-- Always focus the box so the admin can Ctrl+A → Ctrl+C as a fallback
-	codeBox.Text = PLACE_ID_STR
-	codeBox:CaptureFocus()
 	if ok_ then
 		copyCodeBtn.Text       = "✓ Copied!"
 		copyCodeBtn.TextColor3 = C_OK
