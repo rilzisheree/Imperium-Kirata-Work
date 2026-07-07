@@ -586,6 +586,20 @@ local function waitForRoot(player: Player): BasePart?
 	return root :: BasePart?
 end
 
+HANDLERS["watch"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: watch <player>") return end
+	local target = resolvePlayer(executor, args[1])
+	if not target then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	if target == executor then fail(executor, "You cannot watch yourself.") return end
+	CommandRemotes.WatchStart:FireClient(executor, target)
+	ok(executor, "Now watching " .. target.DisplayName .. ".")
+end
+
+HANDLERS["unwatch"] = function(executor, args)
+	CommandRemotes.WatchStop:FireClient(executor)
+	ok(executor, "Stopped watching.")
+end
+
 HANDLERS["fly"] = function(executor, args)
 	if #args < 1 then fail(executor, "Usage: fly <player|all> [speed]") return end
 	local targets = resolveTargets(executor, args[1])

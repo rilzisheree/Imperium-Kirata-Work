@@ -81,6 +81,16 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all", "language" },
                 permission  = "Admin",
         },
+        watch = {
+                description = "Spectate a player's point of view",
+                args        = { "player" },
+                permission  = "Admin",
+        },
+        unwatch = {
+                description = "Stop spectating and restore your normal camera",
+                args        = {},
+                permission  = "Admin",
+        },
         invis = {
                 description = "Make a player's character invisible",
                 args        = { "player|all" },
