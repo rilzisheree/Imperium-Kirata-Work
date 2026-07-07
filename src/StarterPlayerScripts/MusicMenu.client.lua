@@ -215,19 +215,6 @@ titleLbl.TextYAlignment     = Enum.TextYAlignment.Center
 titleLbl.Text               = "Music Control"
 titleLbl.ZIndex             = 12
 
-local closeBtn = Instance.new("TextButton", header)
-closeBtn.AnchorPoint        = Vector2.new(1, 0.5)
-closeBtn.Position           = UDim2.new(1, -PAD, 0.5, 0)
-closeBtn.Size               = UDim2.new(0, 28, 0, 28)
-closeBtn.BackgroundTransparency = 1
-closeBtn.Font               = Enum.Font.GothamBold
-closeBtn.TextSize           = 16
-closeBtn.TextColor3         = C_DIM
-closeBtn.Text               = "✕"
-closeBtn.AutoButtonColor    = false
-closeBtn.ZIndex             = 12
-closeBtn.MouseEnter:Connect(function() closeBtn.TextColor3 = C_TXT end)
-closeBtn.MouseLeave:Connect(function() closeBtn.TextColor3 = C_DIM end)
 
 rowY += HEADER_H; makeDivider(frame, rowY); rowY += DIV_H
 
@@ -882,7 +869,6 @@ local function closeMenu()
 end
 
 -- ── Button connections ─────────────────────────────────────────────────────────
-closeBtn.MouseButton1Click:Connect(closeMenu)
 closeFooter.MouseButton1Click:Connect(closeMenu)
 stopBtn.MouseButton1Click:Connect(function()
 	CommandRemotes.MusicCommand:FireServer("stop")
