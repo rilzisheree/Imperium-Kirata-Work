@@ -126,7 +126,7 @@ header.BorderSizePixel  = 0
 header.ZIndex           = 11
 
 local titleLbl = Instance.new("TextLabel", header)
-titleLbl.Size               = UDim2.new(1, -50, 1, 0)
+titleLbl.Size               = UDim2.new(1, -14, 1, 0)
 titleLbl.Position           = UDim2.new(0, 14, 0, 0)
 titleLbl.BackgroundTransparency = 1
 titleLbl.Font               = Enum.Font.GothamBold
@@ -135,19 +135,6 @@ titleLbl.TextColor3         = C_TXT
 titleLbl.TextXAlignment     = Enum.TextXAlignment.Left
 titleLbl.Text               = "Private Server"
 titleLbl.ZIndex             = 12
-
-local headerCloseBtn = Instance.new("TextButton", header)
-headerCloseBtn.Size             = UDim2.new(0, 28, 0, 28)
-headerCloseBtn.Position         = UDim2.new(1, -38, 0.5, -14)
-headerCloseBtn.BackgroundColor3 = Color3.fromRGB(44, 22, 22)
-headerCloseBtn.BorderSizePixel  = 0
-headerCloseBtn.Font             = Enum.Font.GothamBold
-headerCloseBtn.TextSize         = 13
-headerCloseBtn.TextColor3       = C_ERR
-headerCloseBtn.Text             = "✕"
-headerCloseBtn.AutoButtonColor  = false
-headerCloseBtn.ZIndex           = 13
-Instance.new("UICorner", headerCloseBtn).CornerRadius = UDim.new(0, 6)
 
 -- ── Header drag ─────────────────────────────────────────────────────────────────
 local menuDragging = false
@@ -653,10 +640,6 @@ closeBtn.MouseButton1Click:Connect(function()
 	sg.Enabled = false
 end)
 
-headerCloseBtn.MouseButton1Click:Connect(function()
-	sg.Enabled = false
-end)
-
 -- ── Player join / leave — keep lists fresh while menu is open ───────────────────
 Players.PlayerAdded:Connect(function()
 	if sg.Enabled then rebuildLists() end
@@ -668,11 +651,19 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 -- ── Remote listeners ────────────────────────────────────────────────────────────
-CommandRemotes.PrivateServerOpen.OnClientEvent:Connect(function()
-	-- Reset to a clean, centred state each time the command fires
-	serverStatus = "none"
-	serverCode   = nil
-	queuedIds    = {}
+CommandRemotes.PrivateServerOpen.OnClientEvent:Connect(function(status: string?, code: string?)
+	-- Restore the server's current reservation state instead of always resetting,
+	-- so an active private server stays visible when the menu is reopened
+	if typeof(status) == "string" and status ~= "none" then
+		serverStatus = status
+		if status == "active" and typeof(code) == "string" then
+			serverCode = code
+		end
+	else
+		serverStatus = "none"
+		serverCode   = nil
+	end
+	queuedIds      = {}   -- always start with a fresh queue on open
 	frame.Position = UDim2.new(0.5, 0, 0.5, 0)
 	rebuildLists()
 	sg.Enabled = true

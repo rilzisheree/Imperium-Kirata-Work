@@ -1369,7 +1369,19 @@ HANDLERS["place"] = function(executor, args)
 end
 
 HANDLERS["privateserver"] = function(executor, args)
-	CommandRemotes.PrivateServerOpen:FireClient(executor)
+	-- Pass the current reservation state so the menu can restore it on reopen
+	local state  = privateServerState[executor.UserId]
+	local status = "none"
+	local code: string? = nil
+	if state then
+		if state.reserving then
+			status = "reserving"
+		elseif state.code then
+			status = "active"
+			code   = state.code
+		end
+	end
+	CommandRemotes.PrivateServerOpen:FireClient(executor, status, code)
 	ok(executor, "Private Server menu opened.")
 end
 
