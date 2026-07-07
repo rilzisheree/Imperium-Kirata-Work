@@ -88,7 +88,7 @@ CommandRegistry.COMMANDS = {
         },
         shutdown = {
                 description = "Gracefully shut down the server",
-                args        = {},
+                args        = { "[message]" },
                 permission  = "Owner",
         },
         watch = {

@@ -268,8 +268,11 @@ HANDLERS["shutdown"] = function(executor, args)
 	end
 	shutdownInProgress = true
 
+	local customMsg = joinArgs(args, 1)
+	if customMsg == "" then customMsg = nil end
+
 	ok(executor, "Initiating server shutdown in 5 seconds.")
-	CommandRemotes.Shutdown:FireAllClients()
+	CommandRemotes.Shutdown:FireAllClients(customMsg)
 
 	task.delay(5, function()
 		for _, player in Players:GetPlayers() do
