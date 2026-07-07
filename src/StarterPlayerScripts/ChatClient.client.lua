@@ -440,7 +440,6 @@ ContextActionService:BindAction(
 			return Enum.ContextActionResult.Pass
 		end
 		task.defer(function()
-			inputBox.Text = ""
 			inputBox:CaptureFocus()
 		end)
 		return Enum.ContextActionResult.Sink
