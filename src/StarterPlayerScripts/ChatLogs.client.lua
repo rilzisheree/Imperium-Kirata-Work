@@ -32,14 +32,16 @@ local TITLE_H = 38
 local SRCH_H  = 34
 
 -- Colour palette — dark, matches CommandBar aesthetic
-local C_BG     = Color3.fromRGB(12,  12,  18)
-local C_TITLE  = Color3.fromRGB(18,  18,  28)
-local C_BORDER = Color3.fromRGB(80,  80, 110)
-local C_TXT    = Color3.fromRGB(218, 218, 230)
-local C_DIM    = Color3.fromRGB(85,  85, 105)
-local C_SRCH   = Color3.fromRGB(20,  20,  32)
-local C_ROW    = Color3.fromRGB(16,  16,  24)
-local C_SEP    = Color3.fromRGB(45,  45,  65)
+local C_BG      = Color3.fromRGB(12,  12,  18)
+local C_TITLE   = Color3.fromRGB(18,  18,  28)
+local C_BORDER  = Color3.fromRGB(80,  80, 110)
+local C_TXT     = Color3.fromRGB(218, 218, 230)
+local C_DIM     = Color3.fromRGB(85,  85, 105)
+local C_SRCH    = Color3.fromRGB(20,  20,  32)
+local C_ROW     = Color3.fromRGB(16,  16,  24)
+local C_SEP     = Color3.fromRGB(45,  45,  65)
+-- Thoughts messages are rendered in this purple so they stand out immediately.
+local C_THOUGHT = "#a064ff"
 
 -- ── State ─────────────────────────────────────────────────────────────────────
 -- Each entry:  { teamName, teamColor, senderName, message, row }
@@ -182,8 +184,17 @@ local function toHex(c)
 end
 
 -- Build the RichText string for one log entry.
--- Format:  {TeamName} [Username]: "Message"
+-- Normal format:  {TeamName} [Username]: "Message"
+-- Thought format: [THOUGHTS] [Username]: "Message"   (whole line in purple)
 local function buildText(entry)
+	if entry.isThought then
+		return string.format(
+			'<font color="%s">[THOUGHTS] [%s]: "%s"</font>',
+			C_THOUGHT,
+			escXml(entry.senderName),
+			MarkdownParser.toRichText(entry.message)
+		)
+	end
 	return string.format(
 		'<font color="%s">{%s}</font> [%s]: "%s"',
 		toHex(entry.teamColor),
@@ -346,6 +357,7 @@ ChatRemotes.MessageReceived.OnClientEvent:Connect(function(payload)
 		teamColor  = teamColor,
 		senderName = payload.senderName,
 		message    = payload.message    or "",
+		isThought  = payload.isThought == true,
 		row        = nil,
 	}
 

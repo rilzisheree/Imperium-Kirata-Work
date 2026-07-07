@@ -351,6 +351,9 @@ end)
 -- receive messages from server
 ChatRemotes.MessageReceived.OnClientEvent:Connect(function(payload)
 	if not payload or not payload.senderName then return end
+	-- Thoughts are private text — no speech bubble (bubble floats above the
+	-- character and would be readable by any nearby player, breaking privacy).
+	if payload.isThought then return end
 	local sender = Players:FindFirstChild(payload.senderName)
 	if not sender then return end
 
