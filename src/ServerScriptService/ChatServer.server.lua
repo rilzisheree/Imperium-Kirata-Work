@@ -83,10 +83,11 @@ local function broadcastProximity(sender: Player, rawText: string)
 		return
 	end
 
-	-- Translate the filtered message into the sender's chosen language.
-	-- LanguageManager.translate yields (HTTP request) but caches results,
-	-- so repeated identical messages are instant after the first call.
-	local translated     = LanguageManager.translate(filtered, langDef.isoCode)
+	-- Convert the filtered message into fictional text using the sender's
+	-- chosen script.  fictionalise is synchronous (no HTTP) so it never
+	-- yields — the same call that looked up the language def produces the
+	-- result immediately.
+	local fictionalised  = LanguageManager.fictionalise(filtered, langDef.name)
 	local originalTagged = "[" .. langDef.tag .. "] " .. filtered
 
 	-- Broadcast to everyone — client handles distance show/hide in real time
@@ -94,11 +95,11 @@ local function broadcastProximity(sender: Player, rawText: string)
 		-- A player "understands" the language if their currently selected language
 		-- matches the sender's.  Only granted languages can be selected, so no
 		-- separate grant check is needed here.
-		local pSel       = LanguageManager.getSelected(player.UserId)
+		local pSel        = LanguageManager.getSelected(player.UserId)
 		local understands = pSel ~= nil and pSel:lower() == selectedLang:lower()
 
 		local payload   = table.clone(base)
-		payload.message = understands and originalTagged or translated
+		payload.message = understands and originalTagged or fictionalised
 		ChatRemotes.MessageReceived:FireClient(player, payload)
 	end
 end
