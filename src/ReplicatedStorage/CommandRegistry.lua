@@ -81,6 +81,16 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all", "language" },
                 permission  = "Admin",
         },
+        fly = {
+                description = "Enable flight for a player or all players (E to toggle, LeftAlt to boost)",
+                args        = { "player|all" },
+                permission  = "Admin",
+        },
+        unfly = {
+                description = "Disable flight for a player or all players",
+                args        = { "player|all" },
+                permission  = "Admin",
+        },
         to = {
                 description = "Teleport yourself to a player",
                 args        = { "player" },

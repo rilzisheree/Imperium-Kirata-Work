@@ -575,6 +575,28 @@ local function waitForRoot(player: Player): BasePart?
 	return root :: BasePart?
 end
 
+HANDLERS["fly"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: fly <player|all>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	for _, target in targets do
+		CommandRemotes.FlyEnable:FireClient(target)
+	end
+	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
+	ok(executor, "Flight enabled for " .. recipient .. ".")
+end
+
+HANDLERS["unfly"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: unfly <player|all>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	for _, target in targets do
+		CommandRemotes.FlyDisable:FireClient(target)
+	end
+	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
+	ok(executor, "Flight disabled for " .. recipient .. ".")
+end
+
 HANDLERS["to"] = function(executor, args)
 	if #args < 1 then fail(executor, "Usage: to <player>") return end
 	local target = resolvePlayer(executor, args[1])

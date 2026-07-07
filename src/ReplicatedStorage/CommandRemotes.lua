@@ -44,6 +44,8 @@ if RunService:IsServer() then
         CommandRemotes.Permissions          = getOrCreate("CmdPermissions")
         CommandRemotes.WaypointSet          = getOrCreate("CmdWaypointSet")
         CommandRemotes.WaypointClear        = getOrCreate("CmdWaypointClear")
+        CommandRemotes.FlyEnable            = getOrCreate("CmdFlyEnable")
+        CommandRemotes.FlyDisable           = getOrCreate("CmdFlyDisable")
 else
         CommandRemotes.CommandExecuted = waitFor("CmdExecuted")
         CommandRemotes.CommandFeedback = waitFor("CmdFeedback")
@@ -70,6 +72,8 @@ else
         CommandRemotes.Permissions          = waitFor("CmdPermissions")
         CommandRemotes.WaypointSet          = waitFor("CmdWaypointSet")
         CommandRemotes.WaypointClear        = waitFor("CmdWaypointClear")
+        CommandRemotes.FlyEnable            = waitFor("CmdFlyEnable")
+        CommandRemotes.FlyDisable           = waitFor("CmdFlyDisable")
 end
 
 return CommandRemotes
