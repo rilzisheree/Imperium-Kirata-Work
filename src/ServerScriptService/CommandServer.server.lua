@@ -51,9 +51,14 @@ local countdownEndTime = nil
 -- active waypoints: userId -> Vector3 world position
 local activeWaypoints = {}
 
+-- invisibility: userId -> { [instance] = originalTransparency }
+-- cleared on PlayerRemoving and on CharacterAdded (respawn)
+local invisData = {}
+
 Players.PlayerRemoving:Connect(function(player)
         helpUIEnabled[player.UserId] = nil
         activeWaypoints[player.UserId] = nil
+        invisData[player.UserId]      = nil
 end)
 
 -- push the player's permission tier to their client on join so CommandBar
@@ -73,6 +78,12 @@ Players.PlayerAdded:Connect(function(player)
                         CommandRemotes.CountdownStart:FireClient(player, countdownEndTime)
                 end
         end
+
+        -- when a player respawns their new character is visible by default,
+        -- so stale invisibility data for the old character must be discarded
+        player.CharacterAdded:Connect(function()
+                invisData[player.UserId] = nil
+        end)
 end)
 
 -- handle players already connected when this script loads (Studio edge case)
@@ -607,6 +618,111 @@ HANDLERS["unfly"] = function(executor, args)
 	end
 	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
 	ok(executor, "Flight disabled for " .. recipient .. ".")
+end
+
+-- iterates a character's descendants and sets all visual transparencies to 1,
+-- saving each original value so uninvis can restore them exactly.
+local function applyInvis(target: Player): (boolean, string)
+	if invisData[target.UserId] then
+		return false, target.DisplayName .. " is already invisible"
+	end
+
+	local character = target.Character
+	if not character then
+		return false, target.DisplayName .. " has no character"
+	end
+
+	local saved = {}
+	for _, desc in character:GetDescendants() do
+		if desc:IsA("BasePart") then
+			saved[desc] = desc.Transparency
+			desc.Transparency = 1
+		elseif desc:IsA("Decal") or desc:IsA("Texture") then
+			saved[desc] = desc.Transparency
+			desc.Transparency = 1
+		end
+	end
+
+	invisData[target.UserId] = saved
+	return true, target.DisplayName
+end
+
+-- restores every part/decal/texture in a character to its saved transparency.
+local function removeInvis(target: Player): (boolean, string)
+	local saved = invisData[target.UserId]
+	if not saved then
+		return false, target.DisplayName .. " is not invisible"
+	end
+
+	invisData[target.UserId] = nil
+
+	local character = target.Character
+	if not character then
+		-- player respawned; CharacterAdded already cleared invisData, new character is visible
+		return true, target.DisplayName
+	end
+
+	for inst, transparency in saved do
+		if inst and inst.Parent then   -- guard against parts removed since invis was applied
+			inst.Transparency = transparency
+		end
+	end
+
+	return true, target.DisplayName
+end
+
+HANDLERS["invis"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: invis <player|all>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	local made, failures = {}, {}
+	for _, target in targets do
+		local success, result = applyInvis(target)
+		if success then
+			table.insert(made, result)
+		else
+			table.insert(failures, result)
+		end
+	end
+
+	if #made == 0 then
+		fail(executor, "No players made invisible: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
+
+	local msg = "Made invisible: " .. table.concat(made, ", ") .. "."
+	if #failures > 0 then
+		msg = msg .. " (" .. table.concat(failures, "; ") .. ")"
+	end
+	ok(executor, msg)
+end
+
+HANDLERS["uninvis"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: uninvis <player|all>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	local restored, failures = {}, {}
+	for _, target in targets do
+		local success, result = removeInvis(target)
+		if success then
+			table.insert(restored, result)
+		else
+			table.insert(failures, result)
+		end
+	end
+
+	if #restored == 0 then
+		fail(executor, "No players visible: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
+
+	local msg = "Restored visibility: " .. table.concat(restored, ", ") .. "."
+	if #failures > 0 then
+		msg = msg .. " (" .. table.concat(failures, "; ") .. ")"
+	end
+	ok(executor, msg)
 end
 
 HANDLERS["to"] = function(executor, args)
