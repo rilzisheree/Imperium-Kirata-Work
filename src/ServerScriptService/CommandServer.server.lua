@@ -61,6 +61,9 @@ local worldSpawnCFrame = nil :: CFrame?
 -- shutdown guard: prevents the command running twice
 local shutdownInProgress = false
 
+-- esp state: [adminUserId][targetUserId] = true when ESP is active
+local espActive = {}
+
 -- music state: the currently playing audio ID (or nil) and volume (0–1)
 local currentMusicId     = nil
 local currentMusicVolume = 1
@@ -94,6 +97,12 @@ Players.PlayerRemoving:Connect(function(player)
         helpUIEnabled[player.UserId] = nil
         activeWaypoints[player.UserId] = nil
         invisData[player.UserId]      = nil
+        -- remove as an admin (all their active ESP sessions go away with them)
+        espActive[player.UserId] = nil
+        -- remove as a target from every admin's ESP table
+        for _, adminEsp in espActive do
+                adminEsp[player.UserId] = nil
+        end
 end)
 
 -- push the player's permission tier to their client on join so CommandBar
@@ -1185,6 +1194,37 @@ CommandRemotes.MusicCommand.OnServerEvent:Connect(function(player: Player, actio
 		CommandRemotes.MusicCycleState:FireAllClients(cycleEnabled)
 	end
 end)
+
+HANDLERS["esp"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: esp <player|all>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	local uid = executor.UserId
+	if not espActive[uid] then espActive[uid] = {} end
+
+	local enabled, disabled = {}, {}
+	for _, target in targets do
+		local tid = target.UserId
+		if espActive[uid][tid] then
+			espActive[uid][tid] = nil
+			CommandRemotes.EspToggle:FireClient(executor, target, false)
+			table.insert(disabled, target.DisplayName)
+		else
+			espActive[uid][tid] = true
+			CommandRemotes.EspToggle:FireClient(executor, target, true)
+			table.insert(enabled, target.DisplayName)
+		end
+	end
+
+	-- discard empty admin table
+	if next(espActive[uid]) == nil then espActive[uid] = nil end
+
+	local parts = {}
+	if #enabled  > 0 then table.insert(parts, "ESP on: "  .. table.concat(enabled,  ", ")) end
+	if #disabled > 0 then table.insert(parts, "ESP off: " .. table.concat(disabled, ", ")) end
+	ok(executor, table.concat(parts, " | ") .. ".")
+end
 
 HANDLERS["heal"] = function(executor, args)
 	if #args < 1 then fail(executor, "Usage: heal <player|all> [amount]") return end

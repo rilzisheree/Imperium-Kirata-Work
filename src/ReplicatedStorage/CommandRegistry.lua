@@ -166,6 +166,11 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all", "[reason]" },
                 permission  = "Admin",
         },
+        esp = {
+                description = "Toggle an ESP overlay showing health, team, distance, and location for a player",
+                args        = { "player|all" },
+                permission  = "Admin",
+        },
 }
 
 return CommandRegistry
