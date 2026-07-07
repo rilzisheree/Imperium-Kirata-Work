@@ -495,11 +495,43 @@ HANDLERS["language"] = function(executor, args)
         ok(executor, "Language menu opened.")
 end
 
--- brings a single target to a pre-calculated destination CFrame
+-- computes a safe landing CFrame a few studs in front of anchorRoot,
+-- spreading index/total players laterally so they don't overlap.
+-- excludeModel is filtered out of the floor raycast (typically the anchor's character).
+local FORWARD_DIST = 4   -- studs ahead of the anchor
+local LATERAL_STEP = 3   -- studs between players when multiple are placed
+
+local function nearPlayerCFrame(
+	anchorRoot:   BasePart,
+	excludeModel: Model?,
+	index:        number,
+	total:        number
+): CFrame
+	local anchorPos     = anchorRoot.Position
+	local anchorCFrame  = anchorRoot.CFrame
+	local forward       = anchorCFrame.LookVector
+	local right         = anchorCFrame.RightVector
+
+	local lateralOffset = (index - (total + 1) / 2) * LATERAL_STEP
+	local flatPos       = anchorPos + forward * FORWARD_DIST + right * lateralOffset
+
+	local rayParams = RaycastParams.new()
+	if excludeModel then
+		rayParams.FilterDescendantsInstances = { excludeModel }
+		rayParams.FilterType                 = Enum.RaycastFilterType.Exclude
+	end
+	local result  = Workspace:Raycast(flatPos + Vector3.new(0, 20, 0), Vector3.new(0, -40, 0), rayParams)
+	local groundY = result and (result.Position.Y + 3) or anchorPos.Y
+
+	local dest = Vector3.new(flatPos.X, groundY, flatPos.Z)
+	return CFrame.lookAt(dest, Vector3.new(anchorPos.X, groundY, anchorPos.Z))
+end
+
+-- waits for a player's character and HumanoidRootPart (handles mid-spawn),
+-- then teleports them to destCFrame. Returns (success, displayName or reason).
 local function bringPlayer(target: Player, destCFrame: CFrame): (boolean, string)
 	local character = target.Character
 
-	-- wait briefly for a character that is mid-spawn
 	if not character then
 		local elapsed = 0
 		repeat
@@ -524,6 +556,111 @@ local function bringPlayer(target: Player, destCFrame: CFrame): (boolean, string
 	return true, target.DisplayName
 end
 
+-- waits for a player's character and HumanoidRootPart; returns the root or nil.
+local function waitForRoot(player: Player): BasePart?
+	local character = player.Character
+	if not character then
+		local elapsed = 0
+		repeat
+			task.wait(0.1)
+			elapsed += 0.1
+			character = player.Character
+		until character or elapsed >= 5
+	end
+	if not character then return nil end
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		root = character:WaitForChild("HumanoidRootPart", 5) :: BasePart?
+	end
+	return root :: BasePart?
+end
+
+HANDLERS["to"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: to <player>") return end
+	local target = resolvePlayer(executor, args[1])
+	if not target then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	if target == executor then fail(executor, "You are already there.") return end
+
+	-- ensure executor's character is ready
+	local adminChar = executor.Character
+	local adminRoot = adminChar and adminChar:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not adminRoot then
+		fail(executor, "Your character is not available.")
+		return
+	end
+
+	-- wait for the target's character/root if mid-spawn
+	local targetRoot = waitForRoot(target)
+	if not targetRoot then
+		fail(executor, target.DisplayName .. "'s character is not available.")
+		return
+	end
+
+	local destCFrame = nearPlayerCFrame(targetRoot, targetRoot.Parent :: Model, 1, 1)
+	adminChar:PivotTo(destCFrame)
+	ok(executor, "Teleported to " .. target.DisplayName .. ".")
+end
+
+HANDLERS["tp"] = function(executor, args)
+	if #args < 2 then fail(executor, "Usage: tp <player|all> <player>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	local dest = resolvePlayer(executor, args[2])
+	if not dest then fail(executor, 'Player "' .. args[2] .. '" not found.') return end
+
+	-- cannot teleport a player to themselves
+	local actualTargets = {}
+	for _, t in targets do
+		if t ~= dest then table.insert(actualTargets, t) end
+	end
+	if #actualTargets == 0 then
+		fail(executor, "Cannot teleport a player to themselves.")
+		return
+	end
+
+	-- resolve destination root once and snapshot it
+	local destRoot = waitForRoot(dest)
+	if not destRoot then
+		fail(executor, dest.DisplayName .. "'s character is not available.")
+		return
+	end
+	local destChar = destRoot.Parent :: Model
+
+	-- pre-calculate all landing CFrames from the snapshot
+	local destCFrames = {}
+	for i in actualTargets do
+		destCFrames[i] = nearPlayerCFrame(destRoot, destChar, i, #actualTargets)
+	end
+
+	local brought, failures = {}, {}
+	local remaining = #actualTargets
+
+	for i, target in actualTargets do
+		task.spawn(function()
+			local success, result = bringPlayer(target, destCFrames[i])
+			if success then
+				table.insert(brought, result)
+			else
+				table.insert(failures, result)
+			end
+			remaining -= 1
+		end)
+	end
+
+	while remaining > 0 do task.wait() end
+
+	if #brought == 0 then
+		fail(executor, "No players teleported: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
+
+	local msg = "Teleported " .. table.concat(brought, ", ") .. " to " .. dest.DisplayName .. "."
+	if #failures > 0 then
+		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
+	end
+	ok(executor, msg)
+end
+
 HANDLERS["bring"] = function(executor, args)
 	if #args < 1 then fail(executor, "Usage: bring <player|all>") return end
 	local targets = resolveTargets(executor, args[1])
@@ -546,34 +683,10 @@ HANDLERS["bring"] = function(executor, args)
 		return
 	end
 
-	local adminCFrame = adminRoot.CFrame
-	local forward     = adminCFrame.LookVector
-	local right       = adminCFrame.RightVector
-	local adminPos    = adminCFrame.Position
-
-	local FORWARD_DIST = 4    -- studs ahead of the admin
-	local LATERAL_STEP = 3    -- studs between players when multiple are brought
-
-	-- pre-calculate one destination CFrame per target so all spawned tasks
-	-- reference a snapshot of the admin's position taken at call time
-	local rayParams = RaycastParams.new()
-	rayParams.FilterDescendantsInstances = { adminChar }
-	rayParams.FilterType                 = Enum.RaycastFilterType.Exclude
-
+	-- pre-calculate all landing CFrames from a snapshot of the admin's position
 	local destCFrames = {}
-	for i, target in actualTargets do
-		-- spread players laterally so they don't overlap
-		local lateralOffset = (i - (#actualTargets + 1) / 2) * LATERAL_STEP
-		local flatPos       = adminPos + forward * FORWARD_DIST + right * lateralOffset
-
-		-- raycast downward from 20 studs above to find the floor
-		local rayOrigin = flatPos + Vector3.new(0, 20, 0)
-		local result    = Workspace:Raycast(rayOrigin, Vector3.new(0, -40, 0), rayParams)
-		local groundY   = result and (result.Position.Y + 3) or (adminPos.Y)
-
-		local dest = Vector3.new(flatPos.X, groundY, flatPos.Z)
-		-- face the player toward the admin
-		destCFrames[i] = CFrame.lookAt(dest, Vector3.new(adminPos.X, groundY, adminPos.Z))
+	for i in actualTargets do
+		destCFrames[i] = nearPlayerCFrame(adminRoot, adminChar, i, #actualTargets)
 	end
 
 	local brought, failures = {}, {}

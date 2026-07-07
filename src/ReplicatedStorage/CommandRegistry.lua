@@ -81,6 +81,16 @@ CommandRegistry.COMMANDS = {
                 args        = { "player|all", "language" },
                 permission  = "Admin",
         },
+        to = {
+                description = "Teleport yourself to a player",
+                args        = { "player" },
+                permission  = "Admin",
+        },
+        tp = {
+                description = "Teleport a player (or all players) to another player",
+                args        = { "player|all", "player" },
+                permission  = "Admin",
+        },
         bring = {
                 description = "Teleport a player or players to your current position",
                 args        = { "player|all" },
