@@ -425,11 +425,15 @@ local function open()
         isOpen = true
         frame.Visible = true
         hideDrop()
-        -- Defer focus so the ; keystroke has finished its InputBegan cycle,
-        -- then immediately wipe any character that still slipped through.
+        -- Focus is deferred so the InputBegan cycle finishes first.
+        -- The OS character-injection event fires AFTER the defer (on the same
+        -- frame), so we use task.delay(0) — which waits for the next Heartbeat —
+        -- to wipe the ; that was typed after the box gained focus.
         task.defer(function()
                 box:CaptureFocus()
-                box.Text = ""
+        end)
+        task.delay(0, function()
+                if isOpen then box.Text = "" end
         end)
 end
 
