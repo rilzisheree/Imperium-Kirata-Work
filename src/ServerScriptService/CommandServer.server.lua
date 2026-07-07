@@ -64,6 +64,27 @@ local shutdownInProgress = false
 -- music state: the currently playing audio ID (or nil) and volume (0–1)
 local currentMusicId     = nil
 local currentMusicVolume = 1
+local cycleEnabled       = false
+
+-- catalogue of audio IDs eligible for auto-cycle (keep in sync with MusicMenu SECTIONS)
+local MUSIC_TRACK_IDS = {
+	"7029031068","1836102253","1847107549","9046651755","1839806128",
+	"1838853198","1841831379","76350635489391","1847854017","118028992848427",
+	"1839661340","9048339210","1837065029","1844272332","9042437001",
+	"1838635121","9047885144","9041904416","1846115874","1840524246",
+	"847732158","114213622974713","1844634063","9046435309","1840435172",
+	"1846486437","1846503445","9039953638","1848090455",
+}
+
+local function pickRandomTrack(): string?
+	if #MUSIC_TRACK_IDS == 0 then return nil end
+	if #MUSIC_TRACK_IDS == 1 then return MUSIC_TRACK_IDS[1] end
+	local newId
+	repeat
+		newId = MUSIC_TRACK_IDS[math.random(1, #MUSIC_TRACK_IDS)]
+	until newId ~= currentMusicId
+	return newId
+end
 
 -- prevents the CharacterAdded world-spawn hook from fighting re/respawn
 -- command placements; set true before LoadCharacter, cleared on first use
@@ -93,9 +114,11 @@ Players.PlayerAdded:Connect(function(player)
                 end
         end
 
-        -- sync any active music track to players who join mid-session
+        -- sync music + cycle state to players who join mid-session
         if currentMusicId ~= nil then
-                CommandRemotes.MusicSync:FireClient(player, currentMusicId, currentMusicVolume)
+                CommandRemotes.MusicSync:FireClient(player, currentMusicId, currentMusicVolume, cycleEnabled)
+        elseif cycleEnabled then
+                CommandRemotes.MusicCycleState:FireClient(player, cycleEnabled)
         end
 
         -- when a player respawns their new character is visible by default,
@@ -1117,11 +1140,27 @@ HANDLERS["music"] = function(executor, args)
 	CommandRemotes.MusicPlay:FireAllClients(currentMusicId, currentMusicVolume)
 end
 
--- MusicCommand: fired by MusicMenu client when clicking songs, stopping, or changing volume.
--- Permission is re-validated here since this bypasses the normal command pipeline.
+-- MusicCommand: fired by MusicMenu or MusicClient when the user interacts with music controls.
+-- "ended" is allowed from any player (cycle needs reports from all clients) but validated
+-- strictly against the current track ID to prevent spoofing.
+-- All other actions require Admin permission.
 CommandRemotes.MusicCommand.OnServerEvent:Connect(function(player: Player, action: string, data: any)
-	if not hasPermission(player, "Admin") then return end
 	if typeof(action) ~= "string" then return end
+
+	-- Handle "ended" before the admin gate so non-admin clients can drive cycle.
+	if action == "ended" then
+		if typeof(data) ~= "string" then return end
+		if cycleEnabled and data == currentMusicId then
+			local nextId = pickRandomTrack()
+			if nextId then
+				currentMusicId = nextId
+				CommandRemotes.MusicPlay:FireAllClients(currentMusicId, currentMusicVolume)
+			end
+		end
+		return
+	end
+
+	if not hasPermission(player, "Admin") then return end
 
 	if action == "play" then
 		if typeof(data) ~= "string" or not data:match("^%d+$") then return end
@@ -1136,6 +1175,14 @@ CommandRemotes.MusicCommand.OnServerEvent:Connect(function(player: Player, actio
 		if currentMusicId then
 			CommandRemotes.MusicVolume:FireAllClients(currentMusicVolume)
 		end
+	elseif action == "seek" then
+		-- seek all clients to a position in seconds
+		if typeof(data) ~= "number" then return end
+		CommandRemotes.MusicSeek:FireAllClients(math.max(0, data))
+	elseif action == "cycle" then
+		if typeof(data) ~= "boolean" then return end
+		cycleEnabled = data
+		CommandRemotes.MusicCycleState:FireAllClients(cycleEnabled)
 	end
 end)
 

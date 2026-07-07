@@ -1,7 +1,7 @@
 --[[
 	MusicClient.client.lua
 	Manages the single global music Sound instance for this player.
-	Responds to server remotes: MusicPlay, MusicStop, MusicSync, MusicVolume.
+	Handles: MusicPlay, MusicStop, MusicSync, MusicVolume, MusicSeek, MusicCycleState.
 	No UI — see MusicMenu.client.lua for the admin control panel.
 ]]
 
@@ -12,27 +12,45 @@ local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 
 local SOUND_NAME = "AdminMusicTrack"
 
--- Remove any existing sound instance cleanly before creating a new one.
-local function stopMusic()
+local localCycleEnabled = false
+local localCurrentId    = nil   -- ID of the track this client is currently playing
+
+-- ── Sound management ──────────────────────────────────────────────────────────
+
+local function getSound(): Sound?
 	local s = SoundService:FindFirstChild(SOUND_NAME)
-	if s and s:IsA("Sound") then
-		s:Stop()
-		s:Destroy()
-	end
+	return (s and s:IsA("Sound")) and s or nil
 end
 
--- Stop current track (if any) and start the new one at the given volume.
+local function stopMusic()
+	local s = getSound()
+	if s then s:Stop(); s:Destroy() end
+	localCurrentId = nil
+end
+
+-- Create a new Sound, hook its Ended event for auto-cycle, and play it.
 local function playMusic(id: string, volume: number)
 	stopMusic()
+	localCurrentId = id
 	local s = Instance.new("Sound")
 	s.Name               = SOUND_NAME
 	s.SoundId            = "rbxassetid://" .. id
 	s.Volume             = math.clamp(volume, 0, 1)
-	s.Looped             = true
+	s.Looped             = false   -- cycle picks the next track via server
 	s.RollOffMaxDistance = 0
 	s.Parent             = SoundService
 	s:Play()
+
+	-- When the track finishes naturally, report it to the server for cycle handling.
+	-- The server decides the next track; this avoids all-client race conditions.
+	s.Ended:Connect(function()
+		if localCycleEnabled and localCurrentId == id then
+			CommandRemotes.MusicCommand:FireServer("ended", id)
+		end
+	end)
 end
+
+-- ── Remote listeners ──────────────────────────────────────────────────────────
 
 -- Server broadcasts a new track (from the `music <id>` command or menu click).
 CommandRemotes.MusicPlay.OnClientEvent:Connect(function(id: string, volume: number)
@@ -41,27 +59,42 @@ CommandRemotes.MusicPlay.OnClientEvent:Connect(function(id: string, volume: numb
 	playMusic(id, volume)
 end)
 
--- Server broadcasts a stop (Stop Music button in menu).
+-- Server broadcasts a stop (Stop Music button or `stop` action).
 CommandRemotes.MusicStop.OnClientEvent:Connect(function()
 	stopMusic()
 end)
 
 -- Server sends current track to players who join while music is playing.
-CommandRemotes.MusicSync.OnClientEvent:Connect(function(id: string, volume: number)
+CommandRemotes.MusicSync.OnClientEvent:Connect(function(id: string, volume: number, cycleState: boolean)
 	if typeof(id) ~= "string" or id == "" then return end
 	volume = typeof(volume) == "number" and volume or 1
-	-- Only apply if we aren't already playing (avoids restarting mid-track on edge cases).
-	local existing = SoundService:FindFirstChild(SOUND_NAME)
-	if existing and existing:IsA("Sound") and existing.IsPlaying then return end
+	-- Only start if we aren't already playing the same track.
+	local s = getSound()
+	if s and s.IsPlaying and localCurrentId == id then return end
+	if typeof(cycleState) == "boolean" then
+		localCycleEnabled = cycleState
+	end
 	playMusic(id, volume)
 end)
 
--- Server broadcasts a volume change (from the menu slider).
--- Updates the existing sound's volume without restarting the track.
+-- Server broadcasts a volume change (slider in menu).
+-- Updates .Volume on the existing sound without restarting the track.
 CommandRemotes.MusicVolume.OnClientEvent:Connect(function(volume: number)
 	if typeof(volume) ~= "number" then return end
-	local s = SoundService:FindFirstChild(SOUND_NAME)
-	if s and s:IsA("Sound") then
-		s.Volume = math.clamp(volume, 0, 1)
+	local s = getSound()
+	if s then s.Volume = math.clamp(volume, 0, 1) end
+end)
+
+-- Server broadcasts a seek position in seconds.
+CommandRemotes.MusicSeek.OnClientEvent:Connect(function(position: number)
+	if typeof(position) ~= "number" then return end
+	local s = getSound()
+	if s then s.TimePosition = math.max(0, position) end
+end)
+
+-- Server broadcasts cycle state changes (toggle in menu).
+CommandRemotes.MusicCycleState.OnClientEvent:Connect(function(state: boolean)
+	if typeof(state) == "boolean" then
+		localCycleEnabled = state
 	end
 end)

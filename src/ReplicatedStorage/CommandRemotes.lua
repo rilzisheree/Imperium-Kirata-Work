@@ -55,6 +55,8 @@ if RunService:IsServer() then
         CommandRemotes.MusicSync            = getOrCreate("CmdMusicSync")
         CommandRemotes.MusicVolume          = getOrCreate("CmdMusicVolume")
         CommandRemotes.MusicCommand         = getOrCreate("CmdMusicCommand")
+        CommandRemotes.MusicSeek            = getOrCreate("CmdMusicSeek")
+        CommandRemotes.MusicCycleState      = getOrCreate("CmdMusicCycleState")
 else
         CommandRemotes.CommandExecuted = waitFor("CmdExecuted")
         CommandRemotes.CommandFeedback = waitFor("CmdFeedback")
@@ -92,6 +94,8 @@ else
         CommandRemotes.MusicSync            = waitFor("CmdMusicSync")
         CommandRemotes.MusicVolume          = waitFor("CmdMusicVolume")
         CommandRemotes.MusicCommand         = waitFor("CmdMusicCommand")
+        CommandRemotes.MusicSeek            = waitFor("CmdMusicSeek")
+        CommandRemotes.MusicCycleState      = waitFor("CmdMusicCycleState")
 end
 
 return CommandRemotes
