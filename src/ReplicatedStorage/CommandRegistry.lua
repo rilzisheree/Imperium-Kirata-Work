@@ -181,13 +181,13 @@ CommandRegistry.COMMANDS = {
                 args        = {},
                 permission  = "Admin",
         },
-        ragdoll = {
-                description = "Force a player into a ragdoll state (optional auto-recovery duration in seconds)",
-                args        = { "player|all", "[duration]" },
+        freeze = {
+                description = "Freeze a player in place, preventing all movement",
+                args        = { "player|all" },
                 permission  = "Admin",
         },
-        unragdoll = {
-                description = "Restore a ragdolled player to their normal standing state",
+        unfreeze = {
+                description = "Unfreeze a player and restore their movement",
                 args        = { "player|all" },
                 permission  = "Admin",
         },

@@ -63,8 +63,6 @@ if RunService:IsServer() then
         CommandRemotes.PrivateServerStatus  = getOrCreate("CmdPSStatus")
         CommandRemotes.PrivateServerSend    = getOrCreate("CmdPSSend")
         CommandRemotes.PrivateServerCancel  = getOrCreate("CmdPSCancel")
-        CommandRemotes.RagdollApply         = getOrCreate("CmdRagdollApply")
-        CommandRemotes.RagdollRemove        = getOrCreate("CmdRagdollRemove")
 else
         CommandRemotes.CommandExecuted = waitFor("CmdExecuted")
         CommandRemotes.CommandFeedback = waitFor("CmdFeedback")
@@ -110,8 +108,6 @@ else
         CommandRemotes.PrivateServerStatus  = waitFor("CmdPSStatus")
         CommandRemotes.PrivateServerSend    = waitFor("CmdPSSend")
         CommandRemotes.PrivateServerCancel  = waitFor("CmdPSCancel")
-        CommandRemotes.RagdollApply         = waitFor("CmdRagdollApply")
-        CommandRemotes.RagdollRemove        = waitFor("CmdRagdollRemove")
 end
 
 return CommandRemotes
