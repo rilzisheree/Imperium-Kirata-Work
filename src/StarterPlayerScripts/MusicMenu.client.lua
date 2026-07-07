@@ -1,13 +1,3 @@
---[[
-	MusicMenu.client.lua
-	Draggable Music Control panel. Toggled by the `music` admin command.
-	Styling matches WeatherMenu exactly: same palette, drag, open/close animation.
-
-	New in this version:
-	  • Seek slider  — scrub the current track's position (broadcasts to all players)
-	  • Auto-cycle   — when a track ends, the server picks a random next track
-]]
-
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService        = game:GetService("RunService")
@@ -20,7 +10,6 @@ local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 local LP   = Players.LocalPlayer
 local PGui = LP:WaitForChild("PlayerGui")
 
--- ── Song catalogue ─────────────────────────────────────────────────────────────
 -- Add new sections / tracks here; the menu builds itself from this table.
 -- Keep IDs in sync with MUSIC_TRACK_IDS in CommandServer.server.lua.
 local SECTIONS = {
@@ -62,7 +51,6 @@ local SECTIONS = {
 	{ name = "Fighting", tracks = {} },
 }
 
--- ── Palette (matches WeatherMenu / CommandBar exactly) ─────────────────────────
 local C_BG   = Color3.fromRGB( 12,  12,  18)
 local C_BOR  = Color3.fromRGB( 90,  90, 120)
 local C_TXT  = Color3.fromRGB(235, 235, 252)
@@ -73,7 +61,6 @@ local C_HEAD = Color3.fromRGB( 16,  16,  26)
 local C_FOOT = Color3.fromRGB( 14,  14,  22)
 local C_BTN  = Color3.fromRGB( 22,  22,  34)
 
--- ── Layout ─────────────────────────────────────────────────────────────────────
 local MENU_W   = 620
 local PAD      = 12
 local HEADER_H = 44
@@ -98,7 +85,6 @@ local MENU_H = HEADER_H + DIV_H
              + LIST_H   + DIV_H
              + FOOTER_H
 
--- ── Runtime state ──────────────────────────────────────────────────────────────
 local isOpen          = false
 local currentId       = nil   -- currently playing audio ID string (or nil)
 local currentVolume   = 1     -- 0–1
@@ -109,7 +95,6 @@ local dragging        = false -- window drag
 local dragStart       = nil
 local framePos        = nil
 
--- ── Helpers ────────────────────────────────────────────────────────────────────
 local function formatTime(secs: number): string
 	secs = math.floor(math.max(0, secs))
 	return string.format("%d:%02d", math.floor(secs / 60), secs % 60)
@@ -120,7 +105,6 @@ local function getSound(): Sound?
 	return (s and s:IsA("Sound")) and s or nil
 end
 
--- ── ScreenGui ──────────────────────────────────────────────────────────────────
 local sg = Instance.new("ScreenGui")
 sg.Name           = "MusicMenuGui"
 sg.DisplayOrder   = 104
@@ -129,7 +113,6 @@ sg.IgnoreGuiInset = false
 sg.Enabled        = false
 sg.Parent         = PGui
 
--- ── Main frame ─────────────────────────────────────────────────────────────────
 local frame = Instance.new("Frame")
 frame.Name             = "MusicMenu"
 frame.AnchorPoint      = Vector2.new(0.5, 0.5)
@@ -151,7 +134,6 @@ fStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 local uiScale = Instance.new("UIScale", frame)
 uiScale.Scale = 1
 
--- ── Shared divider helper ──────────────────────────────────────────────────────
 local function makeDivider(parent, yPos)
 	local d = Instance.new("Frame", parent)
 	d.Size                   = UDim2.new(1, 0, 0, DIV_H)
@@ -192,7 +174,6 @@ local function makeSliderTrack(parent, yAnchor)
 	return track, fill, thumb
 end
 
--- ── ① HEADER (drag handle + title + close) ─────────────────────────────────────
 local rowY = 0
 
 local header = Instance.new("Frame", frame)
@@ -215,10 +196,8 @@ titleLbl.TextYAlignment     = Enum.TextYAlignment.Center
 titleLbl.Text               = "Music Control"
 titleLbl.ZIndex             = 12
 
-
 rowY += HEADER_H; makeDivider(frame, rowY); rowY += DIV_H
 
--- ── ② NOW-PLAYING bar ─────────────────────────────────────────────────────────
 local nowRow = Instance.new("Frame", frame)
 nowRow.Name                   = "NowPlaying"
 nowRow.Size                   = UDim2.new(1, 0, 0, NOW_H)
@@ -252,7 +231,6 @@ nowLabel.ZIndex             = 12
 
 rowY += NOW_H; makeDivider(frame, rowY); rowY += DIV_H
 
--- ── ③ SEEK SLIDER ─────────────────────────────────────────────────────────────
 local seekRow = Instance.new("Frame", frame)
 seekRow.Name                   = "SeekRow"
 seekRow.Size                   = UDim2.new(1, 0, 0, SEEK_H)
@@ -342,7 +320,6 @@ end)
 
 rowY += SEEK_H; makeDivider(frame, rowY); rowY += DIV_H
 
--- ── ④ SEARCH bar ──────────────────────────────────────────────────────────────
 local searchFrame = Instance.new("Frame", frame)
 searchFrame.Name                   = "SearchRow"
 searchFrame.Size                   = UDim2.new(1, 0, 0, SEARCH_H)
@@ -378,7 +355,6 @@ sPad.PaddingRight = UDim.new(0, 8)
 
 rowY += SEARCH_H; makeDivider(frame, rowY); rowY += DIV_H
 
--- ── ⑤ VOLUME SLIDER ───────────────────────────────────────────────────────────
 local volRow = Instance.new("Frame", frame)
 volRow.Name                   = "VolumeRow"
 volRow.Size                   = UDim2.new(1, 0, 0, SLIDER_H)
@@ -447,7 +423,6 @@ end)
 
 rowY += SLIDER_H; makeDivider(frame, rowY); rowY += DIV_H
 
--- ── ⑥ AUTO-CYCLE TOGGLE ───────────────────────────────────────────────────────
 local cycleRow = Instance.new("Frame", frame)
 cycleRow.Name                   = "CycleRow"
 cycleRow.Size                   = UDim2.new(1, 0, 0, CYCLE_H)
@@ -508,7 +483,6 @@ end)
 
 rowY += CYCLE_H; makeDivider(frame, rowY); rowY += DIV_H
 
--- ── ⑦ SONG LIST (ScrollingFrame) ──────────────────────────────────────────────
 local listStartY = rowY
 local songList = Instance.new("ScrollingFrame", frame)
 songList.Name                  = "SongList"
@@ -536,7 +510,6 @@ listPad.PaddingBottom = UDim.new(0, 6)
 
 rowY += LIST_H; makeDivider(frame, rowY); rowY += DIV_H
 
--- ── ⑧ FOOTER ──────────────────────────────────────────────────────────────────
 local footer = Instance.new("Frame", frame)
 footer.Size             = UDim2.new(1, 0, 0, FOOTER_H)
 footer.Position         = UDim2.new(0, 0, 0, rowY)
@@ -592,7 +565,6 @@ closeFooter.Text               = "Close"
 closeFooter.AutoButtonColor    = false
 closeFooter.ZIndex             = 12
 
--- ── Build song rows ────────────────────────────────────────────────────────────
 local layoutOrder = 0
 local function nextOrder()
 	layoutOrder += 1
@@ -743,7 +715,6 @@ for si, sec in ipairs(SECTIONS) do
 	end)
 end
 
--- ── Highlight / now-playing update ────────────────────────────────────────────
 local function updateHighlight(id: string?)
 	currentId = id
 	for _, row in ipairs(allRows) do
@@ -778,7 +749,6 @@ local function updateHighlight(id: string?)
 	end
 end
 
--- ── Seek heartbeat: update slider position from the live Sound ─────────────────
 RunService.Heartbeat:Connect(function()
 	if not isOpen or seekIsDragging then return end
 	local sound = getSound()
@@ -791,13 +761,11 @@ RunService.Heartbeat:Connect(function()
 	seekTimeLbl.Text   = formatTime(tp) .. " / " .. formatTime(tl)
 end)
 
--- ── Search ────────────────────────────────────────────────────────────────────
 searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 	searchQuery = searchBox.Text
 	refreshVisibility()
 end)
 
--- ── Global input: slider drag + window drag ────────────────────────────────────
 UserInputService.InputChanged:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseMovement then
 		if activeSliderFn then
@@ -843,7 +811,6 @@ header.InputBegan:Connect(function(input)
 	end
 end)
 
--- ── Open / Close ──────────────────────────────────────────────────────────────
 local openInfo  = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local closeInfo = TweenInfo.new(0.20, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
 
@@ -868,13 +835,11 @@ local function closeMenu()
 	end)
 end
 
--- ── Button connections ─────────────────────────────────────────────────────────
 closeFooter.MouseButton1Click:Connect(closeMenu)
 stopBtn.MouseButton1Click:Connect(function()
 	CommandRemotes.MusicCommand:FireServer("stop")
 end)
 
--- ── Remote listeners ──────────────────────────────────────────────────────────
 CommandRemotes.MusicOpen.OnClientEvent:Connect(function()
 	if isOpen then closeMenu() else openMenu() end
 end)

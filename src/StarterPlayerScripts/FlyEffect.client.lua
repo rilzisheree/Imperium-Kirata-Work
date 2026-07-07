@@ -7,8 +7,6 @@ local Workspace         = game:GetService("Workspace")
 local LocalPlayer    = Players.LocalPlayer
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 
--- ── constants ──────────────────────────────────────────────────────────────────
-
 local DEFAULT_SPEED  = 50   -- studs/s when no speed is specified
 local BOOST_MULT     = 3    -- LeftAlt multiplies normal speed by this factor
 
@@ -17,16 +15,12 @@ local BG_P         = 1e4   -- BodyGyro responsiveness
 local BG_D         = 100   -- BodyGyro damping (prevents overshoot/wobble)
 local MAX_FORCE    = 1e5   -- force cap on all axes
 
--- ── state ──────────────────────────────────────────────────────────────────────
-
 local flyActive     = false   -- true while the player is currently flying
 local flyGranted    = false   -- true once the admin has granted flight this session
 local grantedSpeed  = nil     -- studs/s set by the admin; nil means use DEFAULT_SPEED
 local bodyVelocity  = nil :: BodyVelocity?
 local bodyGyro      = nil :: BodyGyro?
 local heartbeatConn = nil :: RBXScriptConnection?
-
--- ── helpers ────────────────────────────────────────────────────────────────────
 
 local function getCharParts(): (BasePart?, Humanoid?)
 	local character = LocalPlayer.Character
@@ -41,8 +35,6 @@ local function cleanUp()
 	if bodyVelocity  then bodyVelocity:Destroy();     bodyVelocity  = nil end
 	if bodyGyro      then bodyGyro:Destroy();          bodyGyro      = nil end
 end
-
--- ── core flight logic ──────────────────────────────────────────────────────────
 
 local function startFlight(normalSpeed: number?)
 	if flyActive then return end
@@ -122,8 +114,6 @@ local function stopFlight()
 	end
 end
 
--- ── E key — toggle flight (only when the admin has granted it) ─────────────────
-
 UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: boolean)
 	if gameProcessed                       then return end   -- TextBox / GUI consumed it
 	if input.KeyCode ~= Enum.KeyCode.E    then return end
@@ -131,16 +121,12 @@ UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: 
 	if flyActive then stopFlight() else startFlight(grantedSpeed) end
 end)
 
--- ── respawn — wipe state; player must re-enable with E or wait for re-grant ────
-
 LocalPlayer.CharacterAdded:Connect(function()
 	flyActive = false
 	cleanUp()
 	-- flyGranted intentionally preserved — admin gave permission for this session.
 	-- The player can press E again to resume without the admin re-running the command.
 end)
-
--- ── remote listeners ───────────────────────────────────────────────────────────
 
 if CommandRemotes.FlyEnable then
 	CommandRemotes.FlyEnable.OnClientEvent:Connect(function(speed: number?)

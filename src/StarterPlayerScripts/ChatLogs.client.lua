@@ -1,17 +1,3 @@
---[[
-	ChatLogs.client.lua
-	LocalScript — StarterPlayerScripts
-
-	Maintains a running log of every chat message received this session.
-	Opened/closed by the "chatlogs" command in CommandBar.
-	CommandBar.client.lua creates the BindableEvent "ToggleChatLogs" in
-	PlayerGui; this script waits for it and connects.
-
-	Log format:  {TeamName} [Username]: "Message"
-	Team name is rendered in the team's colour via RichText.
-	Search bar filters live by team name, username, or message content.
---]]
-
 local Players          = game:GetService("Players")
 local ReplicatedStorage= game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -21,8 +7,6 @@ local PGui = LP:WaitForChild("PlayerGui")
 
 local ChatRemotes    = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 local MarkdownParser = require(ReplicatedStorage:WaitForChild("MarkdownParser"))
-
--- ── Constants ──────────────────────────────────────────────────────────────────
 
 local MAX_ENTRIES = 500   -- oldest entry is evicted when this is exceeded
 
@@ -45,14 +29,11 @@ local C_THOUGHT  = "#a064ff"
 -- Whisper messages are rendered in light gray to distinguish them from normal chat.
 local C_WHISPER  = "#b8b8c8"
 
--- ── State ─────────────────────────────────────────────────────────────────────
 -- Each entry:  { teamName, teamColor, senderName, message, row }
 local logEntries   = {}
 local currentQuery = ""
 local isOpen       = false
 local nextOrder    = 0   -- monotonic counter; never reused, keeps UIListLayout ordering stable
-
--- ── Root GUI ──────────────────────────────────────────────────────────────────
 
 local sg = Instance.new("ScreenGui")
 sg.Name           = "ChatLogsGui"
@@ -76,8 +57,6 @@ do
 	s.Thickness       = 1.5
 	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 end
-
--- ── Title bar ─────────────────────────────────────────────────────────────────
 
 local titleBar = Instance.new("Frame", win)
 titleBar.Size                  = UDim2.new(1, 0, 0, TITLE_H)
@@ -116,8 +95,6 @@ sep0.BackgroundColor3 = C_BORDER
 sep0.BackgroundTransparency = 0.5
 sep0.BorderSizePixel  = 0
 
--- ── Search bar ────────────────────────────────────────────────────────────────
-
 local srchWrap = Instance.new("Frame", win)
 srchWrap.Size                  = UDim2.new(1, -16, 0, SRCH_H)
 srchWrap.Position               = UDim2.new(0, 8, 0, TITLE_H + 7)
@@ -147,8 +124,6 @@ searchBox.Text                = ""
 searchBox.TextXAlignment      = Enum.TextXAlignment.Left
 searchBox.TextYAlignment      = Enum.TextYAlignment.Center
 
--- ── Scroll list ───────────────────────────────────────────────────────────────
-
 local SCROLL_TOP = TITLE_H + SRCH_H + 15
 
 local scroll = Instance.new("ScrollingFrame", win)
@@ -168,8 +143,6 @@ listLayout.FillDirection     = Enum.FillDirection.Vertical
 listLayout.VerticalAlignment = Enum.VerticalAlignment.Top
 listLayout.SortOrder         = Enum.SortOrder.LayoutOrder
 listLayout.Padding           = UDim.new(0, 0)
-
--- ── Helpers ───────────────────────────────────────────────────────────────────
 
 -- Escape characters that would break RichText parsing.
 local XML_ESC = { ["&"] = "&amp;", ["<"] = "&lt;", [">"] = "&gt;", ['"'] = "&quot;" }
@@ -258,8 +231,6 @@ local function makeRow(entry, layoutOrder)
 	return row
 end
 
--- ── Filter ────────────────────────────────────────────────────────────────────
-
 local function matchesQuery(entry, q)
 	if q == "" then return true end
 	return entry.teamName:lower():find(q, 1, true) ~= nil
@@ -280,15 +251,11 @@ searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 	applyFilter(searchBox.Text)
 end)
 
--- ── Scroll to bottom ──────────────────────────────────────────────────────────
-
 local function scrollToBottom()
 	task.defer(function()
 		scroll.CanvasPosition = Vector2.new(0, math.huge)
 	end)
 end
-
--- ── Open / Close ──────────────────────────────────────────────────────────────
 
 local function closeWindow()
 	if not isOpen then return end
@@ -304,8 +271,6 @@ local function openWindow()
 end
 
 closeBtn.MouseButton1Click:Connect(closeWindow)
-
--- ── Drag ──────────────────────────────────────────────────────────────────────
 
 local dragging  = false
 local dragStart = Vector2.zero
@@ -333,8 +298,6 @@ UserInputService.InputEnded:Connect(function(inp)
 	end
 end)
 
--- ── Toggle BindableEvent (created by CommandBar.client.lua) ───────────────────
-
 task.spawn(function()
 	local toggle = PGui:WaitForChild("ToggleChatLogs", 30)
 	if not toggle then
@@ -345,8 +308,6 @@ task.spawn(function()
 		if isOpen then closeWindow() else openWindow() end
 	end)
 end)
-
--- ── Receive messages ──────────────────────────────────────────────────────────
 
 ChatRemotes.MessageReceived.OnClientEvent:Connect(function(payload)
 	if not payload or not payload.senderName then return end

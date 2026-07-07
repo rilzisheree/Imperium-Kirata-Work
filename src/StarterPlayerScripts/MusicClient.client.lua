@@ -1,10 +1,3 @@
---[[
-	MusicClient.client.lua
-	Manages the single global music Sound instance for this player.
-	Handles: MusicPlay, MusicStop, MusicSync, MusicVolume, MusicSeek, MusicCycleState.
-	No UI — see MusicMenu.client.lua for the admin control panel.
-]]
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService      = game:GetService("SoundService")
 
@@ -14,8 +7,6 @@ local SOUND_NAME = "AdminMusicTrack"
 
 local localCycleEnabled = false
 local localCurrentId    = nil   -- ID of the track this client is currently playing
-
--- ── Sound management ──────────────────────────────────────────────────────────
 
 local function getSound(): Sound?
 	local s = SoundService:FindFirstChild(SOUND_NAME)
@@ -49,8 +40,6 @@ local function playMusic(id: string, volume: number)
 		end
 	end)
 end
-
--- ── Remote listeners ──────────────────────────────────────────────────────────
 
 -- Server broadcasts a new track (from the `music <id>` command or menu click).
 CommandRemotes.MusicPlay.OnClientEvent:Connect(function(id: string, volume: number)

@@ -1,19 +1,3 @@
---[[
-	LanguageMenu.client.lua
-	LocalScript — StarterPlayerScripts
-
-	Provides two things:
-
-	1. Language Indicator — persistent plain-text label in the top-right corner.
-	   Font: Merriweather, matching the existing SM/IM style (CommandEffects).
-	   Shows "Language: English" by default; updates whenever the player changes.
-
-	2. Language Menu — small draggable window listing the player's granted
-	   languages plus a "None" option that returns them to English.
-	   Opened by the `language` command (server fires LanguageOpen remote).
-	   Visual palette matches CommandBar / WeatherMenu (dark, consistent).
---]]
-
 local Players          = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -23,7 +7,6 @@ local PGui = LP:WaitForChild("PlayerGui")
 
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 
--- ── Palette (matches CommandBar / WeatherMenu) ────────────────────────────────
 local C_BG   = Color3.fromRGB(12,  12,  18)
 local C_BOR  = Color3.fromRGB(90,  90, 120)
 local C_TXT  = Color3.fromRGB(235, 235, 252)
@@ -34,11 +17,9 @@ local C_BTN  = Color3.fromRGB(20,  20,  34)
 local C_SEL  = Color3.fromRGB(28,  28,  50)
 local C_HOV  = Color3.fromRGB(255, 255, 255)
 
--- ── State ─────────────────────────────────────────────────────────────────────
 local grantedLanguages = {}   -- { "Korean", "Japanese", ... } from server
 local selectedLanguage = nil  -- string or nil (nil = English)
 
--- ── Root ScreenGui ────────────────────────────────────────────────────────────
 local sg = Instance.new("ScreenGui")
 sg.Name           = "LanguageGui"
 sg.ResetOnSpawn   = false
@@ -46,10 +27,8 @@ sg.IgnoreGuiInset = false
 sg.DisplayOrder   = 102
 sg.Parent         = PGui
 
--- ════════════════════════════════════════════════════════════════════════════
 -- 1.  LANGUAGE INDICATOR
 --     Plain text, top-right corner, Merriweather to match SM/IM.
--- ════════════════════════════════════════════════════════════════════════════
 
 local indicator = Instance.new("TextLabel", sg)
 indicator.Name                   = "LanguageIndicator"
@@ -72,9 +51,7 @@ local function updateIndicator()
 	indicator.Visible = #grantedLanguages > 0
 end
 
--- ════════════════════════════════════════════════════════════════════════════
 -- 2.  LANGUAGE MENU
--- ════════════════════════════════════════════════════════════════════════════
 
 local MENU_W  = 240
 local HDR_H   = 38
@@ -163,8 +140,6 @@ local listPad = Instance.new("UIPadding", listFrame)
 listPad.PaddingTop    = UDim.new(0, LST_PAD)
 listPad.PaddingBottom = UDim.new(0, LST_PAD)
 
--- ── Drag logic ────────────────────────────────────────────────────────────────
-
 local isDragging = false
 local dragStart  = Vector2.zero
 local frameStart = UDim2.new()
@@ -192,8 +167,6 @@ UserInputService.InputEnded:Connect(function(inp)
 	end
 end)
 
--- ── Open / Close ──────────────────────────────────────────────────────────────
-
 local function closeMenu()
 	menuFrame.Visible = false
 end
@@ -203,8 +176,6 @@ local function openMenu()
 end
 
 closeBtn.MouseButton1Click:Connect(closeMenu)
-
--- ── Button building ───────────────────────────────────────────────────────────
 
 -- buttonRefs maps a normalised key → TextButton frame:
 --   "none"          → the None button
@@ -314,8 +285,6 @@ local function rebuildMenu()
 	-- Reflect current selection immediately
 	applySelectionHighlight(selectedLanguage)
 end
-
--- ── Remote listeners ──────────────────────────────────────────────────────────
 
 -- Server pushes the player's complete grant list on join and after each grant.
 CommandRemotes.LanguageGrants.OnClientEvent:Connect(function(grants: { string })

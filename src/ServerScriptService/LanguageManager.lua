@@ -1,17 +1,3 @@
---[[
-	LanguageManager.lua
-	ModuleScript — ServerScriptService
-
-	Manages per-player language state:
-	  • DataStore persistence for granted languages
-	  • In-memory selected language per session
-	  • Local fictional text generation (no external API)
-
-	Requires: ReplicatedStorage/LanguageData
-	Required by: LanguageServer.server.lua, CommandServer.server.lua,
-	             ChatServer.server.lua
---]]
-
 local DataStoreService  = game:GetService("DataStoreService")
 local HttpService       = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -27,8 +13,6 @@ local ds = DataStoreService:GetDataStore("PlayerLanguages_v1")
 local playerGrants   = {}   -- [userId] = { "Korean", "Japanese", ... }
 local playerSelected = {}   -- [userId] = "Korean" | nil  (nil = English / none)
 
--- ── DataStore helpers ──────────────────────────────────────────────────────────
-
 local function loadGrants(userId: number): { string }
 	local ok, result = pcall(function()
 		return ds:GetAsync(DS_KEY_PREFIX .. userId)
@@ -36,7 +20,6 @@ local function loadGrants(userId: number): { string }
 	if ok and type(result) == "string" then
 		local decOk, decoded = pcall(HttpService.JSONDecode, HttpService, result)
 		if decOk and type(decoded) == "table" then
-			-- Re-validate each entry against LanguageData so bad/old data is silently dropped
 			local clean = {}
 			for _, v in ipairs(decoded) do
 				if type(v) == "string" and LanguageData.BY_NAME[v:lower()] then
@@ -55,10 +38,6 @@ local function saveGrants(userId: number, grants: { string })
 	end)
 end
 
--- ── Player lifecycle ───────────────────────────────────────────────────────────
-
--- Must be called (and awaited) before getGrants is reliable for this player.
--- Yields while the DataStore load is in flight.
 function LanguageManager.onPlayerAdded(player: Player)
 	local grants = loadGrants(player.UserId)
 	playerGrants[player.UserId]   = grants
@@ -69,8 +48,6 @@ function LanguageManager.onPlayerRemoving(player: Player)
 	playerGrants[player.UserId]   = nil
 	playerSelected[player.UserId] = nil
 end
-
--- ── Getters / setters ──────────────────────────────────────────────────────────
 
 function LanguageManager.getGrants(userId: number): { string }
 	return playerGrants[userId] or {}
@@ -84,11 +61,6 @@ function LanguageManager.setSelected(userId: number, langName: string?)
 	playerSelected[userId] = langName
 end
 
--- Attempts to grant `langName` to `userId`.
--- Returns (true, canonicalName) on success.
--- Returns (false, "already_granted") if they already have it — caller
---   may surface this differently from a validation error.
--- Returns (false, errorMsg) for validation failures.
 function LanguageManager.grantLanguage(userId: number, langName: string): (boolean, string)
 	local lower = langName:lower()
 	if lower == "english" then
@@ -109,30 +81,16 @@ function LanguageManager.grantLanguage(userId: number, langName: string): (boole
 	local newGrants = table.clone(grants)
 	table.insert(newGrants, lang.name)
 	playerGrants[userId] = newGrants
-	task.spawn(saveGrants, userId, newGrants)   -- save async; don't block the caller
+	task.spawn(saveGrants, userId, newGrants)
 	return true, lang.name
 end
 
--- ── Fictional text generation ──────────────────────────────────────────────────
 --
--- Each entry in SCRIPT_DEFS defines:
---   chars — array of single Unicode characters (UTF-8) to sample from;
---            vowels are listed multiple times so they appear more often,
---            producing more pronounceable-looking output.
---   ratio — how many output characters to generate per input ASCII letter.
---            Syllabic / logographic scripts use < 1 (one glyph encodes more
---            sound than one Latin letter), alphabetic scripts use 1.0.
---
--- The generator is purely random (math.random) so:
---   • the same message produces different output each call, and
---   • common English letter sequences never reliably map to the same glyph run.
-
+-- chars = what glyphs to pick from, ratio = output chars per input letter
 local SCRIPT_DEFS = {
 
 	Korean = {
 		-- Hangul syllable blocks — C+V and C+V+C forms for variety.
-		-- One syllable block ≈ one CV(C) sound, so we target ~0.5 output
-		-- chars per input letter (a 5-letter word → ~2-3 syllables).
 		chars = {
 			-- C+아/야/와
 			"가","나","다","라","마","바","사","아","자","차","카","타","파","하",
@@ -163,8 +121,6 @@ local SCRIPT_DEFS = {
 	},
 
 	Japanese = {
-		-- Hiragana only; digraphs (きゃ etc.) count as one "character" in the
-		-- pool but represent one mora, keeping output length comparable.
 		chars = {
 			-- Basic gojūon
 			"あ","い","う","え","お",
@@ -203,9 +159,6 @@ local SCRIPT_DEFS = {
 	},
 
 	Chinese = {
-		-- A wide spread of CJK Unified Ideographs.  These are real characters
-		-- but chosen to avoid obvious common modern words — players who read
-		-- Chinese will still see clearly nonsensical combinations.
 		chars = {
 			"勃","仵","呖","咣","哔","嗖","啰","唻","呔","吒",
 			"幺","夯","廾","弋","仨","佤","侏","倥","偌","儡",
@@ -228,10 +181,6 @@ local SCRIPT_DEFS = {
 	},
 
 	Russian = {
-		-- Cyrillic lowercase.  Vowels are listed multiple times so the random
-		-- draw produces more vowel-consonant alternation (more pronounceable).
-		-- ъ and ь are omitted (they have no standalone phoneme value and would
-		-- make the output look like garbled input rather than a real language).
 		chars = {
 			-- Vowels (listed 3×)
 			"а","е","и","о","у","э","ю","я","ё",
@@ -245,7 +194,6 @@ local SCRIPT_DEFS = {
 	},
 
 	Greek = {
-		-- Classical Greek lowercase with vowels weighted up.
 		chars = {
 			-- Vowels (listed 3×)
 			"α","ε","η","ι","ο","υ","ω",
@@ -259,10 +207,6 @@ local SCRIPT_DEFS = {
 	},
 
 	Hebrew = {
-		-- Hebrew alphabet.  The script is right-to-left but Roblox TextLabels
-		-- display glyphs left-to-right, so the output will look authentically
-		-- Hebrew-character without actually being grammatically RTL.
-		-- Common letters are listed extra times for a more natural frequency.
 		chars = {
 			"א","ב","ג","ד","ה","ו","ז","ח","ט","י",
 			"כ","ל","מ","נ","ס","ע","פ","צ","ק","ר","ש","ת",
@@ -276,9 +220,6 @@ local SCRIPT_DEFS = {
 	},
 
 	French = {
-		-- Latin + French-specific accented characters.
-		-- Accented chars are listed twice so they appear frequently enough to
-		-- distinguish the output from plain English.
 		chars = {
 			-- Plain vowels and high-frequency consonants
 			"a","e","i","o","u","n","r","s","t","l","c","d","m","p",
@@ -292,7 +233,6 @@ local SCRIPT_DEFS = {
 	},
 
 	German = {
-		-- Latin + German Umlaut characters.
 		chars = {
 			"a","e","i","o","u","n","r","s","t","l","c","d","m","p",
 			-- German-specific (listed 2×)
@@ -304,7 +244,6 @@ local SCRIPT_DEFS = {
 	},
 
 	Spanish = {
-		-- Latin + Spanish-specific characters.
 		chars = {
 			"a","e","i","o","u","n","r","s","t","l","c","d","m","p",
 			-- Spanish-specific (listed 2×)
@@ -316,7 +255,6 @@ local SCRIPT_DEFS = {
 	},
 
 	Portuguese = {
-		-- Latin + Portuguese-specific characters.
 		chars = {
 			"a","e","i","o","u","n","r","s","t","l","c","d","m","p",
 			-- Portuguese-specific (listed 2×)
@@ -328,7 +266,6 @@ local SCRIPT_DEFS = {
 	},
 
 	Italian = {
-		-- Latin + Italian-specific accented characters.
 		chars = {
 			"a","e","i","o","u","n","r","s","t","l","c","d","m","p",
 			-- Italian-specific (listed 2×)
@@ -340,7 +277,6 @@ local SCRIPT_DEFS = {
 	},
 
 	Turkish = {
-		-- Latin + Turkish-specific characters.
 		chars = {
 			"a","e","i","o","u","n","r","s","t","l","c","d","m","p",
 			-- Turkish-specific (listed 2×)
@@ -352,9 +288,6 @@ local SCRIPT_DEFS = {
 	},
 }
 
--- Returns the byte-length of the UTF-8 character that starts with `firstByte`.
--- Used to step over non-ASCII characters (emojis, accented letters, etc.)
--- in the source message without corrupting them.
 local function utf8CharLen(firstByte: number): number
 	if firstByte < 0x80 then return 1 end
 	if firstByte < 0xE0 then return 2 end
@@ -362,8 +295,6 @@ local function utf8CharLen(firstByte: number): number
 	return 4
 end
 
--- Generates one fake "word" to replace `letterCount` ASCII letters using the
--- given script definition.  Output length is `max(1, round(letterCount * ratio))`.
 local function generateFakeWord(letterCount: number, def: { chars: { string }, ratio: number }): string
 	local outputCount = math.max(1, math.round(letterCount * def.ratio))
 	local pool = def.chars
@@ -375,17 +306,7 @@ local function generateFakeWord(letterCount: number, def: { chars: { string }, r
 	return table.concat(parts)
 end
 
--- Converts an English plain-text message into believable-looking fictional text
--- using characters from the named language's writing system.
---
--- Rules:
---   • ASCII letters (a-z A-Z) are replaced by sampled script characters.
---   • All other bytes — spaces, punctuation, numbers, emojis, etc. — are
---     copied through verbatim, preserving their exact positions.
---   • Output length approximates input length (ratio < 1 for syllabic scripts).
---   • math.random ensures different results every call, even for identical input.
---
--- Returns `text` unchanged if `langName` has no entry in SCRIPT_DEFS.
+-- replaces ascii letters with glyphs from the target script, leaves everything else alone
 function LanguageManager.fictionalise(text: string, langName: string): string
 	local def = SCRIPT_DEFS[langName]
 	if not def then return text end

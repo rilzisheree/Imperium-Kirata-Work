@@ -20,10 +20,6 @@ local LanguageData    = require(ReplicatedStorage:WaitForChild("LanguageData") :
 
 local MAX_MESSAGE_LENGTH = 200
 
--- ── Admin detection ───────────────────────────────────────────────────────────
--- Mirrors the STAFF_IDS table in CommandServer.  Both must be kept in sync
--- when adding or removing staff members.
-
 local IS_STUDIO = RunService:IsStudio()
 
 local STAFF_IDS = {
@@ -69,18 +65,10 @@ local function filterMessage(sender: Player, text: string): string
 	return text
 end
 
--- ── Message formatting ────────────────────────────────────────────────────────
--- Applied to every outgoing message before filtering.
--- • Capitalises the first character.
--- • Appends a period if the message doesn't already end in sentence-closing
---   punctuation (. ! ? or the UTF-8 ellipsis …).
-
+-- capitalize first letter + auto-period if needed
 local function formatText(text: string): string
 	if text == "" then return text end
-	-- Capitalise first character (ASCII-safe; first char of any user message is ASCII)
 	text = text:sub(1, 1):upper() .. text:sub(2)
-	-- Append period when no sentence-closer is present.
-	-- "…" is 3 bytes in UTF-8 (E2 80 A6); check sub(-3) to catch it.
 	local last = text:sub(-1)
 	if last ~= "." and last ~= "!" and last ~= "?" and text:sub(-3) ~= "…" then
 		text = text .. "."
@@ -127,10 +115,6 @@ local function broadcastProximity(sender: Player, rawText: string)
 		return
 	end
 
-	-- Convert the filtered message into fictional text using the sender's
-	-- chosen script.  fictionalise is synchronous (no HTTP) so it never
-	-- yields — the same call that looked up the language def produces the
-	-- result immediately.
 	local fictionalised  = LanguageManager.fictionalise(filtered, langDef.name)
 	local originalTagged = "[" .. langDef.tag .. "] " .. filtered
 
@@ -148,12 +132,7 @@ local function broadcastProximity(sender: Player, rawText: string)
 	end
 end
 
--- ── Thoughts broadcast ────────────────────────────────────────────────────────
--- Sends a private "Thoughts" message.  Only the sender and online admins
--- receive the payload; no one else knows the message was sent.
--- Language rules mirror broadcastProximity: non-English language players still
--- see the selected-language version, understanders see the tagged original.
-
+-- /t command: sender + admins only, no one else hears it
 local function broadcastThought(sender: Player, rawText: string)
 	local text = rawText:match("^%s*(.-)%s*$")
 	if text == "" then return end
@@ -167,8 +146,6 @@ local function broadcastThought(sender: Player, rawText: string)
 	local team      = sender.Team
 	local teamColor = team and team.TeamColor.Color or Color3.new(0.8, 0.8, 0.8)
 
-	-- Base payload — same shape as broadcastProximity; isThought tells clients
-	-- to suppress the speech bubble and render the log entry in purple.
 	local base = {
 		senderName  = sender.Name,
 		displayName = sender.DisplayName,
@@ -182,12 +159,9 @@ local function broadcastThought(sender: Player, rawText: string)
 		isThought   = true,
 	}
 
-	-- Apply language system exactly as in broadcastProximity.
 	local selectedLang = LanguageManager.getSelected(sender.UserId)
 	local langDef      = selectedLang and LanguageData.BY_NAME[selectedLang:lower()]
 
-	-- Pre-compute the fictionalised text once so every non-understanding
-	-- admin receives the same output (consistent with proximity chat behaviour).
 	local fictionalised: string?
 	local originalTagged: string?
 	if langDef then
@@ -195,7 +169,6 @@ local function broadcastThought(sender: Player, rawText: string)
 		originalTagged = "[" .. langDef.tag .. "] " .. filtered
 	end
 
-	-- Deliver only to the sender and every online admin.
 	for _, player in Players:GetPlayers() do
 		if player ~= sender and not isAdmin(player) then continue end
 
@@ -213,12 +186,7 @@ local function broadcastThought(sender: Player, rawText: string)
 	end
 end
 
--- ── Whisper broadcast ─────────────────────────────────────────────────────────
--- Sends a whisper message to the sender and any player whose HumanoidRootPart
--- is within WHISPER_DISTANCE studs of the sender at the moment of sending.
--- Recipients are calculated once on the server; no client-side distance check
--- is needed because non-recipients simply never receive the payload.
-
+-- /w command: sender + anyone within WHISPER_DISTANCE studs
 local WHISPER_DISTANCE = 6
 
 local function broadcastWhisper(sender: Player, rawText: string)
@@ -247,7 +215,6 @@ local function broadcastWhisper(sender: Player, rawText: string)
 		isWhisper   = true,
 	}
 
-	-- Apply language system exactly as in broadcastProximity / broadcastThought.
 	local selectedLang = LanguageManager.getSelected(sender.UserId)
 	local langDef      = selectedLang and LanguageData.BY_NAME[selectedLang:lower()]
 
@@ -258,13 +225,10 @@ local function broadcastWhisper(sender: Player, rawText: string)
 		originalTagged = "[" .. langDef.tag .. "] " .. filtered
 	end
 
-	-- Snapshot the sender's root position once; avoids repeated lookups inside
-	-- the loop and ensures a consistent reference point for all distance checks.
 	local senderChar = sender.Character
 	local senderRoot = senderChar and senderChar:FindFirstChild("HumanoidRootPart") :: BasePart?
 
 	for _, player in Players:GetPlayers() do
-		-- Always deliver to sender; others must be within WHISPER_DISTANCE.
 		if player ~= sender then
 			if not senderRoot then continue end
 			local pChar = player.Character
@@ -287,16 +251,7 @@ local function broadcastWhisper(sender: Player, rawText: string)
 	end
 end
 
--- ── Incoming message router ───────────────────────────────────────────────────
--- Single entry point for all incoming chat text, regardless of source.
--- Keeps /t routing consistent whether the message arrives via the custom
--- RemoteEvent or the legacy player.Chatted fallback.
-
 local function routeMessage(sender: Player, rawText: string)
-	-- Each command branch is terminal: a recognised prefix never falls through
-	-- to broadcastProximity, even when the body is empty.  This prevents a
-	-- failed /t or /w attempt from leaking as public proximity chat.
-
 	-- /t <message> — Thoughts: private to sender + admins only.
 	if rawText:match("^%s*/t$") or rawText:match("^%s*/t%s") then
 		local body = rawText:match("^%s*/t%s+(.-)%s*$") or ""
@@ -319,9 +274,6 @@ ChatRemotes.MessageSent.OnServerEvent:Connect(function(sender: Player, rawText: 
 	routeMessage(sender, rawText)
 end)
 
--- Fallback for legacy player.Chatted (e.g. older Roblox clients or Studio
--- tests that bypass the custom RemoteEvent).  Routed through the same parser
--- so /t is never accidentally broadcast as proximity chat.
 Players.PlayerAdded:Connect(function(player: Player)
 	player.Chatted:Connect(function(message: string)
 		routeMessage(player, message)

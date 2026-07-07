@@ -20,32 +20,32 @@ local SERVERJOIN_QUERY_TOPIC = "ImperiumServerjoinQ_" .. game.PlaceId
 local SERVERJOIN_REPLY_TOPIC = "ImperiumServerjoinR_" .. game.PlaceId
 
 local STAFF_IDS = {
-        [1872507151] = "Owner",
+	[1872507151] = "Owner",
 }
 
 local TIER_ORDER = { Helper = 1, Moderator = 2, Admin = 3, Owner = 4 }
 
 local function getTier(player: Player): string?
-        if IS_STUDIO then return "Owner" end
-        if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
-                return "Owner"
-        end
-        return STAFF_IDS[player.UserId]
+	if IS_STUDIO then return "Owner" end
+	if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
+		return "Owner"
+	end
+	return STAFF_IDS[player.UserId]
 end
 
 local function hasPermission(player: Player, required: string): boolean
-        if required == "Everyone" then return true end
-        local tier = getTier(player)
-        if not tier then return false end
-        return (TIER_ORDER[tier] or 0) >= (TIER_ORDER[required] or 99)
+	if required == "Everyone" then return true end
+	local tier = getTier(player)
+	if not tier then return false end
+	return (TIER_ORDER[tier] or 0) >= (TIER_ORDER[required] or 99)
 end
 
 local function ok(player: Player, msg: string)
-        CommandRemotes.CommandFeedback:FireClient(player, true, msg)
+	CommandRemotes.CommandFeedback:FireClient(player, true, msg)
 end
 
 local function fail(player: Player, msg: string)
-        CommandRemotes.CommandFeedback:FireClient(player, false, msg)
+	CommandRemotes.CommandFeedback:FireClient(player, false, msg)
 end
 
 -- per-admin preference: whether they currently want to see help request notifications
@@ -86,14 +86,8 @@ local serverjoinPending = {}
 local serverjoinCallbacks = {}
 
 -- freeze state: [userId] = { character, frozenParts, walkSpeed, jumpPower, connections }
--- frozenParts — BaseParts that were unanchored before freeze; unanchored on restore
--- walkSpeed   — saved Humanoid.WalkSpeed to restore on unfreeze
--- jumpPower   — saved Humanoid.JumpPower  to restore on unfreeze
--- connections — RBXScriptConnections to disconnect on cleanup
 local freezeData = {}
 
--- if this server instance is a reserved private server, stores the access code so
--- serverbring can broadcast it and receiving servers can use TeleportToPrivateServer
 local activePrivateServerCode: string? = nil
 
 -- music state: the currently playing audio ID (or nil) and volume (0–1)
@@ -126,119 +120,119 @@ end
 local skipWorldSpawnNext = {}  -- [userId] = true
 
 Players.PlayerRemoving:Connect(function(player)
-        helpUIEnabled[player.UserId] = nil
-        activeWaypoints[player.UserId] = nil
-        invisData[player.UserId]      = nil
-        -- remove as an admin (all their active ESP sessions go away with them)
-        espActive[player.UserId] = nil
-        -- remove as a target from every admin's ESP table
-        for _, adminEsp in espActive do
-                adminEsp[player.UserId] = nil
-        end
-        -- clear private server reservation, serverbring cooldown, and serverjoin state
-        privateServerState[player.UserId]    = nil
-        serverbringCooldowns[player.UserId]  = nil
-        serverjoinCooldowns[player.UserId]   = nil
-        -- cancel any in-flight serverjoin so the callback never fires for a gone admin
-        local pendingId = serverjoinPending[player.UserId]
-        if pendingId then
-                serverjoinCallbacks[pendingId]  = nil
-                serverjoinPending[player.UserId] = nil
-        end
-        -- clear any active freeze; Roblox destroys the character (and its anchored
-        -- parts) when the player departs, so only tracking state needs clearing
-        local fData = freezeData[player.UserId]
-        if fData then
-                for _, conn in fData.connections do conn:Disconnect() end
-                freezeData[player.UserId] = nil
-        end
+	helpUIEnabled[player.UserId] = nil
+	activeWaypoints[player.UserId] = nil
+	invisData[player.UserId]      = nil
+	-- remove as an admin (all their active ESP sessions go away with them)
+	espActive[player.UserId] = nil
+	-- remove as a target from every admin's ESP table
+	for _, adminEsp in espActive do
+		adminEsp[player.UserId] = nil
+	end
+	-- clear private server reservation, serverbring cooldown, and serverjoin state
+	privateServerState[player.UserId]    = nil
+	serverbringCooldowns[player.UserId]  = nil
+	serverjoinCooldowns[player.UserId]   = nil
+	-- cancel any in-flight serverjoin so the callback never fires for a gone admin
+	local pendingId = serverjoinPending[player.UserId]
+	if pendingId then
+		serverjoinCallbacks[pendingId]  = nil
+		serverjoinPending[player.UserId] = nil
+	end
+	-- clear any active freeze; Roblox destroys the character (and its anchored
+	-- parts) when the player departs, so only tracking state needs clearing
+	local fData = freezeData[player.UserId]
+	if fData then
+		for _, conn in fData.connections do conn:Disconnect() end
+		freezeData[player.UserId] = nil
+	end
 end)
 
 -- push the player's permission tier to their client on join so CommandBar
 -- knows which commands to show in autocomplete
 local function pushPermissions(player: Player)
-        local tier = getTier(player) or "Everyone"
-        CommandRemotes.Permissions:FireClient(player, tier)
+	local tier = getTier(player) or "Everyone"
+	CommandRemotes.Permissions:FireClient(player, tier)
 end
 
 Players.PlayerAdded:Connect(function(player)
-        pushPermissions(player)
+	pushPermissions(player)
 
-        -- detect whether this server instance is a reserved private server by reading
-        -- the teleport data stamped by PrivateServerSend; only needs to happen once
-        if not activePrivateServerCode then
-                local ok_, joinData = pcall(function() return player:GetJoinData() end)
-                if ok_ and joinData then
-                        local td = joinData.TeleportData
-                        if typeof(td) == "table" and typeof(td.psCode) == "string" then
-                                activePrivateServerCode = td.psCode
-                        end
-                end
-        end
+	-- detect whether this server instance is a reserved private server by reading
+	-- the teleport data stamped by PrivateServerSend; only needs to happen once
+	if not activePrivateServerCode then
+		local ok_, joinData = pcall(function() return player:GetJoinData() end)
+		if ok_ and joinData then
+			local td = joinData.TeleportData
+			if typeof(td) == "table" and typeof(td.psCode) == "string" then
+				activePrivateServerCode = td.psCode
+			end
+		end
+	end
 
-        -- sync an active countdown to players who join mid-countdown
-        if countdownEndTime ~= nil then
-                local remaining = countdownEndTime - Workspace.DistributedGameTime
-                if remaining > 0.5 then
-                        CommandRemotes.CountdownStart:FireClient(player, countdownEndTime)
-                end
-        end
+	-- sync an active countdown to players who join mid-countdown
+	if countdownEndTime ~= nil then
+		local remaining = countdownEndTime - Workspace.DistributedGameTime
+		if remaining > 0.5 then
+			CommandRemotes.CountdownStart:FireClient(player, countdownEndTime)
+		end
+	end
 
-        -- sync music + cycle state to players who join mid-session
-        if currentMusicId ~= nil then
-                CommandRemotes.MusicSync:FireClient(player, currentMusicId, currentMusicVolume, cycleEnabled)
-        elseif cycleEnabled then
-                CommandRemotes.MusicCycleState:FireClient(player, cycleEnabled)
-        end
+	-- sync music + cycle state to players who join mid-session
+	if currentMusicId ~= nil then
+		CommandRemotes.MusicSync:FireClient(player, currentMusicId, currentMusicVolume, cycleEnabled)
+	elseif cycleEnabled then
+		CommandRemotes.MusicCycleState:FireClient(player, cycleEnabled)
+	end
 
-        -- when a player respawns their new character is visible by default,
-        -- so stale invisibility data for the old character must be discarded
-        player.CharacterAdded:Connect(function()
-                invisData[player.UserId] = nil
-        end)
+	-- when a player respawns their new character is visible by default,
+	-- so stale invisibility data for the old character must be discarded
+	player.CharacterAdded:Connect(function()
+		invisData[player.UserId] = nil
+	end)
 
-        -- if a world spawn has been set, override respawn position for this player;
-        -- re/respawn commands skip this by setting skipWorldSpawnNext before LoadCharacter
-        player.CharacterAdded:Connect(function(character)
-                if skipWorldSpawnNext[player.UserId] then
-                        skipWorldSpawnNext[player.UserId] = nil
-                        return
-                end
-                if not worldSpawnCFrame then return end
-                local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
-                if root and worldSpawnCFrame then
-                        -- yield one heartbeat so Roblox's built-in SpawnLocation
-                        -- positioning runs first; without this it overrides our PivotTo
-                        local savedCFrame = worldSpawnCFrame
-                        task.wait()
-                        if character.Parent and player.Character == character and savedCFrame then
-                                character:PivotTo(savedCFrame)
-                        end
-                end
-        end)
+	-- if a world spawn has been set, override respawn position for this player;
+	-- re/respawn commands skip this by setting skipWorldSpawnNext before LoadCharacter
+	player.CharacterAdded:Connect(function(character)
+		if skipWorldSpawnNext[player.UserId] then
+			skipWorldSpawnNext[player.UserId] = nil
+			return
+		end
+		if not worldSpawnCFrame then return end
+		local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
+		if root and worldSpawnCFrame then
+			-- yield one heartbeat so Roblox's built-in SpawnLocation
+			-- positioning runs first; without this it overrides our PivotTo
+			local savedCFrame = worldSpawnCFrame
+			task.wait()
+			if character.Parent and player.Character == character and savedCFrame then
+				character:PivotTo(savedCFrame)
+			end
+		end
+	end)
 end)
 
 -- handle players already connected when this script loads (Studio edge case)
 for _, player in Players:GetPlayers() do
-        task.spawn(pushPermissions, player)
-        -- attach world-spawn hook for any player already in the server
-        player.CharacterAdded:Connect(function(character)
-                if skipWorldSpawnNext[player.UserId] then
-                        skipWorldSpawnNext[player.UserId] = nil
-                        return
-                end
-                if not worldSpawnCFrame then return end
-                local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
-                if root and worldSpawnCFrame then
-                        -- yield one heartbeat so Roblox's built-in SpawnLocation
-                        -- positioning runs first; without this it overrides our PivotTo
-                        local savedCFrame = worldSpawnCFrame
-                        task.wait()
-                        if character.Parent and player.Character == character and savedCFrame then
-                                character:PivotTo(savedCFrame)
-                        end
-                end
-        end)
+	task.spawn(pushPermissions, player)
+	-- attach world-spawn hook for any player already in the server
+	player.CharacterAdded:Connect(function(character)
+		if skipWorldSpawnNext[player.UserId] then
+			skipWorldSpawnNext[player.UserId] = nil
+			return
+		end
+		if not worldSpawnCFrame then return end
+		local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
+		if root and worldSpawnCFrame then
+			-- yield one heartbeat so Roblox's built-in SpawnLocation
+			-- positioning runs first; without this it overrides our PivotTo
+			local savedCFrame = worldSpawnCFrame
+			task.wait()
+			if character.Parent and player.Character == character and savedCFrame then
+				character:PivotTo(savedCFrame)
+			end
+		end
+	end)
 end
 
 -- Subscribe to serverbring requests from admins in other server instances.
@@ -394,93 +388,93 @@ end
 
 -- if the last word of a message is a colour name, strip it and return it separately
 local COLOUR_NAMES = {
-        red=true, blue=true, green=true, yellow=true, orange=true,
-        purple=true, pink=true, white=true, cyan=true, lime=true,
+	red=true, blue=true, green=true, yellow=true, orange=true,
+	purple=true, pink=true, white=true, cyan=true, lime=true,
 }
 
 local function stripColour(msg: string): (string, string?)
-        local lastWord = msg:match("(%S+)%s*$")
-        if lastWord and COLOUR_NAMES[lastWord:lower()] then
-                local stripped = msg:match("^(.-)%s*%S+%s*$") or ""
-                return stripped, lastWord:lower()
-        end
-        return msg, nil
+	local lastWord = msg:match("(%S+)%s*$")
+	if lastWord and COLOUR_NAMES[lastWord:lower()] then
+		local stripped = msg:match("^(.-)%s*%S+%s*$") or ""
+		return stripped, lastWord:lower()
+	end
+	return msg, nil
 end
 
 local function resolvePlayer(executor: Player, name: string): Player?
-        if name:lower() == "me" then return executor end
-        local lower = name:lower()
-        for _, p in Players:GetPlayers() do
-                if p.Name:lower() == lower or p.DisplayName:lower() == lower then
-                        return p
-                end
-        end
-        -- fallback: prefix match
-        for _, p in Players:GetPlayers() do
-                if p.Name:lower():sub(1, #lower) == lower then return p end
-        end
-        return nil
+	if name:lower() == "me" then return executor end
+	local lower = name:lower()
+	for _, p in Players:GetPlayers() do
+		if p.Name:lower() == lower or p.DisplayName:lower() == lower then
+			return p
+		end
+	end
+	-- fallback: prefix match
+	for _, p in Players:GetPlayers() do
+		if p.Name:lower():sub(1, #lower) == lower then return p end
+	end
+	return nil
 end
 
 -- returns a list of players; "all" targets everyone, otherwise resolves by name
 local function resolveTargets(executor: Player, name: string): { Player }?
-        if name:lower() == "all" then
-                return Players:GetPlayers()
-        end
-        local target = resolvePlayer(executor, name)
-        if not target then return nil end
-        return { target }
+	if name:lower() == "all" then
+		return Players:GetPlayers()
+	end
+	local target = resolvePlayer(executor, name)
+	if not target then return nil end
+	return { target }
 end
 
 local function joinArgs(args: { string }, from: number): string
-        local parts = {}
-        for i = from, #args do table.insert(parts, args[i]) end
-        return table.concat(parts, " ")
+	local parts = {}
+	for i = from, #args do table.insert(parts, args[i]) end
+	return table.concat(parts, " ")
 end
 
 local HANDLERS = {}
 
 HANDLERS["sm"] = function(executor, args)
-        local raw = joinArgs(args, 1)
-        if raw == "" then fail(executor, "Usage: sm <message> [colour]") return end
-        local msg, colour = stripColour(raw)
-        if msg == "" then msg = raw; colour = nil end
-        for _, player in Players:GetPlayers() do
-                CommandRemotes.SM:FireClient(player, msg, colour)
-        end
-        ok(executor, 'Server message sent: "' .. msg .. '"' .. (colour and " (" .. colour .. ")" or ""))
+	local raw = joinArgs(args, 1)
+	if raw == "" then fail(executor, "Usage: sm <message> [colour]") return end
+	local msg, colour = stripColour(raw)
+	if msg == "" then msg = raw; colour = nil end
+	for _, player in Players:GetPlayers() do
+		CommandRemotes.SM:FireClient(player, msg, colour)
+	end
+	ok(executor, 'Server message sent: "' .. msg .. '"' .. (colour and " (" .. colour .. ")" or ""))
 end
 
 HANDLERS["im"] = function(executor, args)
-        if #args < 2 then fail(executor, "Usage: im <player|all> <message> [colour]") return end
-        local targets = resolveTargets(executor, args[1])
-        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
-        local raw = joinArgs(args, 2)
-        if raw == "" then fail(executor, "Usage: im <player|all> <message> [colour]") return end
-        local msg, colour = stripColour(raw)
-        if msg == "" then msg = raw; colour = nil end
-        for _, target in targets do
-                CommandRemotes.IM:FireClient(target, msg, colour)
-        end
-        local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
-        ok(executor, 'Message sent to ' .. recipient .. ': "' .. msg .. '"' .. (colour and " (" .. colour .. ")" or ""))
+	if #args < 2 then fail(executor, "Usage: im <player|all> <message> [colour]") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	local raw = joinArgs(args, 2)
+	if raw == "" then fail(executor, "Usage: im <player|all> <message> [colour]") return end
+	local msg, colour = stripColour(raw)
+	if msg == "" then msg = raw; colour = nil end
+	for _, target in targets do
+		CommandRemotes.IM:FireClient(target, msg, colour)
+	end
+	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
+	ok(executor, 'Message sent to ' .. recipient .. ': "' .. msg .. '"' .. (colour and " (" .. colour .. ")" or ""))
 end
 
 HANDLERS["anxiety"] = function(executor, args)
-        if #args < 2 then fail(executor, "Usage: anxiety <player|all> <level 1-5>") return end
-        local targets = resolveTargets(executor, args[1])
-        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
-        local level = tonumber(args[2])
-        if not level or level < 1 or level > 5 then
-                fail(executor, "Level must be 1–5.")
-                return
-        end
-        level = math.round(level)
-        for _, target in targets do
-                CommandRemotes.Anxiety:FireClient(target, level)
-        end
-        local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
-        ok(executor, "Anxiety level " .. level .. " triggered on " .. recipient .. ".")
+	if #args < 2 then fail(executor, "Usage: anxiety <player|all> <level 1-5>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	local level = tonumber(args[2])
+	if not level or level < 1 or level > 5 then
+		fail(executor, "Level must be 1–5.")
+		return
+	end
+	level = math.round(level)
+	for _, target in targets do
+		CommandRemotes.Anxiety:FireClient(target, level)
+	end
+	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
+	ok(executor, "Anxiety level " .. level .. " triggered on " .. recipient .. ".")
 end
 
 HANDLERS["setworldspawn"] = function(executor, args)
@@ -547,331 +541,331 @@ HANDLERS["shutdown"] = function(executor, args)
 end
 
 HANDLERS["blind"] = function(executor, args)
-        if #args < 1 then fail(executor, "Usage: blind <player|all> [duration 1-120]") return end
-        local targets = resolveTargets(executor, args[1])
-        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
-        local duration = 0
-        if args[2] then
-                local d = tonumber(args[2])
-                if not d or d < 1 or d > 120 then
-                        fail(executor, "Duration must be 1–120 seconds.")
-                        return
-                end
-                duration = math.floor(d)
-        end
-        for _, target in targets do
-                CommandRemotes.Blind:FireClient(target, duration)
-        end
-        local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
-        if duration > 0 then
-                ok(executor, "Blinding " .. recipient .. " over " .. duration .. "s.")
-        else
-                ok(executor, "Blinded " .. recipient .. ".")
-        end
+	if #args < 1 then fail(executor, "Usage: blind <player|all> [duration 1-120]") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	local duration = 0
+	if args[2] then
+		local d = tonumber(args[2])
+		if not d or d < 1 or d > 120 then
+			fail(executor, "Duration must be 1–120 seconds.")
+			return
+		end
+		duration = math.floor(d)
+	end
+	for _, target in targets do
+		CommandRemotes.Blind:FireClient(target, duration)
+	end
+	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
+	if duration > 0 then
+		ok(executor, "Blinding " .. recipient .. " over " .. duration .. "s.")
+	else
+		ok(executor, "Blinded " .. recipient .. ".")
+	end
 end
 
 HANDLERS["unblind"] = function(executor, args)
-        if #args < 1 then fail(executor, "Usage: unblind <player|all>") return end
-        local targets = resolveTargets(executor, args[1])
-        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
-        for _, target in targets do
-                CommandRemotes.Unblind:FireClient(target)
-        end
-        local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
-        ok(executor, "Unblinded " .. recipient .. ".")
+	if #args < 1 then fail(executor, "Usage: unblind <player|all>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	for _, target in targets do
+		CommandRemotes.Unblind:FireClient(target)
+	end
+	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
+	ok(executor, "Unblinded " .. recipient .. ".")
 end
 
 HANDLERS["createcorpse"] = function(executor, args)
-        if #args < 1 then fail(executor, "Usage: createcorpse <player|all> [lifetime seconds]") return end
-        local targets = resolveTargets(executor, args[1])
-        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	if #args < 1 then fail(executor, "Usage: createcorpse <player|all> [lifetime seconds]") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
 
-        local lifetime = nil
-        if args[2] then
-                local n = tonumber(args[2])
-                if not n or n < CorpseFactory.MIN_LIFETIME or n > CorpseFactory.MAX_LIFETIME then
-                        fail(executor, "Lifetime must be " .. CorpseFactory.MIN_LIFETIME .. "–" .. CorpseFactory.MAX_LIFETIME .. " seconds.")
-                        return
-                end
-                lifetime = math.floor(n)
-        end
+	local lifetime = nil
+	if args[2] then
+		local n = tonumber(args[2])
+		if not n or n < CorpseFactory.MIN_LIFETIME or n > CorpseFactory.MAX_LIFETIME then
+			fail(executor, "Lifetime must be " .. CorpseFactory.MIN_LIFETIME .. "–" .. CorpseFactory.MAX_LIFETIME .. " seconds.")
+			return
+		end
+		lifetime = math.floor(n)
+	end
 
-        local created, failures = {}, {}
-        for _, target in targets do
-                local success, result = CorpseFactory.Create(target, lifetime)
-                if success then
-                        table.insert(created, result)
-                else
-                        table.insert(failures, result)
-                end
-        end
+	local created, failures = {}, {}
+	for _, target in targets do
+		local success, result = CorpseFactory.Create(target, lifetime)
+		if success then
+			table.insert(created, result)
+		else
+			table.insert(failures, result)
+		end
+	end
 
-        if #created == 0 then
-                fail(executor, "No corpses created: " .. table.concat(failures, "; ") .. ".")
-                return
-        end
+	if #created == 0 then
+		fail(executor, "No corpses created: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
 
-        local msg = "Created corpse for " .. table.concat(created, ", ") .. "."
-        if #failures > 0 then
-                msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
-        end
-        ok(executor, msg)
+	local msg = "Created corpse for " .. table.concat(created, ", ") .. "."
+	if #failures > 0 then
+		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
+	end
+	ok(executor, msg)
 end
 
 -- reloads a single player's character in place, preserving their position,
 -- orientation, and health where possible
 local function refreshPlayer(target: Player): (boolean, string)
-        local character = target.Character
-        local rootPart = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-        if not rootPart then
-                return false, target.DisplayName .. " has no character to refresh"
-        end
+	local character = target.Character
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not rootPart then
+		return false, target.DisplayName .. " has no character to refresh"
+	end
 
-        local savedCFrame = rootPart.CFrame
-        local oldHumanoid  = character:FindFirstChildOfClass("Humanoid")
-        local savedHealth  = oldHumanoid and oldHumanoid.Health or nil
+	local savedCFrame = rootPart.CFrame
+	local oldHumanoid  = character:FindFirstChildOfClass("Humanoid")
+	local savedHealth  = oldHumanoid and oldHumanoid.Health or nil
 
-        -- skip world-spawn override; re manages placement itself
-        skipWorldSpawnNext[target.UserId] = true
-        target:LoadCharacter()
+	-- skip world-spawn override; re manages placement itself
+	skipWorldSpawnNext[target.UserId] = true
+	target:LoadCharacter()
 
-        local newCharacter = target.Character
-        if not newCharacter then
-                return false, target.DisplayName .. "'s character failed to reload"
-        end
+	local newCharacter = target.Character
+	if not newCharacter then
+		return false, target.DisplayName .. "'s character failed to reload"
+	end
 
-        local newRoot = newCharacter:WaitForChild("HumanoidRootPart", 10) :: BasePart?
-        if not newRoot then
-                return false, target.DisplayName .. "'s character didn't finish loading in time"
-        end
+	local newRoot = newCharacter:WaitForChild("HumanoidRootPart", 10) :: BasePart?
+	if not newRoot then
+		return false, target.DisplayName .. "'s character didn't finish loading in time"
+	end
 
-        newCharacter:PivotTo(savedCFrame)
+	newCharacter:PivotTo(savedCFrame)
 
-        if savedHealth then
-                local newHumanoid = newCharacter:FindFirstChildOfClass("Humanoid")
-                if newHumanoid then
-                        newHumanoid.Health = math.clamp(savedHealth, 0, newHumanoid.MaxHealth)
-                end
-        end
+	if savedHealth then
+		local newHumanoid = newCharacter:FindFirstChildOfClass("Humanoid")
+		if newHumanoid then
+			newHumanoid.Health = math.clamp(savedHealth, 0, newHumanoid.MaxHealth)
+		end
+	end
 
-        return true, target.DisplayName
+	return true, target.DisplayName
 end
 
 -- finds the world's default spawn point (first enabled SpawnLocation in the workspace)
 local function findSpawnLocation(): BasePart?
-        for _, inst in Workspace:GetDescendants() do
-                if inst:IsA("SpawnLocation") and inst.Enabled then
-                        return inst
-                end
-        end
-        return nil
+	for _, inst in Workspace:GetDescendants() do
+		if inst:IsA("SpawnLocation") and inst.Enabled then
+			return inst
+		end
+	end
+	return nil
 end
 
 -- reloads a single player's character and places it at the default spawn location
 local function respawnPlayer(target: Player, spawn: BasePart?): (boolean, string)
-        -- skip world-spawn override; respawn manages placement itself
-        skipWorldSpawnNext[target.UserId] = true
-        target:LoadCharacter()
+	-- skip world-spawn override; respawn manages placement itself
+	skipWorldSpawnNext[target.UserId] = true
+	target:LoadCharacter()
 
-        local newCharacter = target.Character
-        if not newCharacter then
-                return false, target.DisplayName .. "'s character failed to reload"
-        end
+	local newCharacter = target.Character
+	if not newCharacter then
+		return false, target.DisplayName .. "'s character failed to reload"
+	end
 
-        local newRoot = newCharacter:WaitForChild("HumanoidRootPart", 10) :: BasePart?
-        if not newRoot then
-                return false, target.DisplayName .. "'s character didn't finish loading in time"
-        end
+	local newRoot = newCharacter:WaitForChild("HumanoidRootPart", 10) :: BasePart?
+	if not newRoot then
+		return false, target.DisplayName .. "'s character didn't finish loading in time"
+	end
 
-        if spawn then
-                newCharacter:PivotTo(spawn.CFrame + Vector3.new(0, 5, 0))
-        end
+	if spawn then
+		newCharacter:PivotTo(spawn.CFrame + Vector3.new(0, 5, 0))
+	end
 
-        return true, target.DisplayName
+	return true, target.DisplayName
 end
 
 HANDLERS["respawn"] = function(executor, args)
-        if #args < 1 then fail(executor, "Usage: respawn <player|all>") return end
-        local targets = resolveTargets(executor, args[1])
-        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	if #args < 1 then fail(executor, "Usage: respawn <player|all>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
 
-        local spawn = findSpawnLocation()
+	local spawn = findSpawnLocation()
 
-        local respawned, failures = {}, {}
-        local remaining = #targets
+	local respawned, failures = {}, {}
+	local remaining = #targets
 
-        for _, target in targets do
-                task.spawn(function()
-                        local success, result = respawnPlayer(target, spawn)
-                        if success then
-                                table.insert(respawned, result)
-                        else
-                                table.insert(failures, result)
-                        end
-                        remaining -= 1
-                end)
-        end
+	for _, target in targets do
+		task.spawn(function()
+			local success, result = respawnPlayer(target, spawn)
+			if success then
+				table.insert(respawned, result)
+			else
+				table.insert(failures, result)
+			end
+			remaining -= 1
+		end)
+	end
 
-        while remaining > 0 do
-                task.wait()
-        end
+	while remaining > 0 do
+		task.wait()
+	end
 
-        if #respawned == 0 then
-                fail(executor, "No players respawned: " .. table.concat(failures, "; ") .. ".")
-                return
-        end
+	if #respawned == 0 then
+		fail(executor, "No players respawned: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
 
-        local msg = "Respawned " .. table.concat(respawned, ", ") .. "."
-        if #failures > 0 then
-                msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
-        end
-        if not spawn then
-                msg = msg .. " (no SpawnLocation found; used default spawn behaviour)"
-        end
-        ok(executor, msg)
+	local msg = "Respawned " .. table.concat(respawned, ", ") .. "."
+	if #failures > 0 then
+		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
+	end
+	if not spawn then
+		msg = msg .. " (no SpawnLocation found; used default spawn behaviour)"
+	end
+	ok(executor, msg)
 end
 
 HANDLERS["re"] = function(executor, args)
-        if #args < 1 then fail(executor, "Usage: re <player|all>") return end
-        local targets = resolveTargets(executor, args[1])
-        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	if #args < 1 then fail(executor, "Usage: re <player|all>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
 
-        local refreshed, failures = {}, {}
-        local remaining = #targets
+	local refreshed, failures = {}, {}
+	local remaining = #targets
 
-        for _, target in targets do
-                task.spawn(function()
-                        local success, result = refreshPlayer(target)
-                        if success then
-                                table.insert(refreshed, result)
-                        else
-                                table.insert(failures, result)
-                        end
-                        remaining -= 1
-                end)
-        end
+	for _, target in targets do
+		task.spawn(function()
+			local success, result = refreshPlayer(target)
+			if success then
+				table.insert(refreshed, result)
+			else
+				table.insert(failures, result)
+			end
+			remaining -= 1
+		end)
+	end
 
-        while remaining > 0 do
-                task.wait()
-        end
+	while remaining > 0 do
+		task.wait()
+	end
 
-        if #refreshed == 0 then
-                fail(executor, "No players refreshed: " .. table.concat(failures, "; ") .. ".")
-                return
-        end
+	if #refreshed == 0 then
+		fail(executor, "No players refreshed: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
 
-        local msg = "Refreshed " .. table.concat(refreshed, ", ") .. "."
-        if #failures > 0 then
-                msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
-        end
-        ok(executor, msg)
+	local msg = "Refreshed " .. table.concat(refreshed, ", ") .. "."
+	if #failures > 0 then
+		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
+	end
+	ok(executor, msg)
 end
 
 HANDLERS["help"] = function(executor, args)
-        local message = joinArgs(args, 1)
-        if message == "" then
-                fail(executor, "Usage: help <message>")
-                return
-        end
+	local message = joinArgs(args, 1)
+	if message == "" then
+		fail(executor, "Usage: help <message>")
+		return
+	end
 
-        local team      = executor.Team
-        local teamName  = team and team.Name or "No Team"
-        local teamColor = team and team.TeamColor.Color or Color3.fromRGB(200, 200, 200)
+	local team      = executor.Team
+	local teamName  = team and team.Name or "No Team"
+	local teamColor = team and team.TeamColor.Color or Color3.fromRGB(200, 200, 200)
 
-        local payload = {
-                requestId       = HttpService:GenerateGUID(false),
-                fromUserId      = executor.UserId,
-                fromName        = executor.Name,
-                fromDisplayName = executor.DisplayName,
-                teamName        = teamName,
-                teamColor       = teamColor,
-                message         = message,
-        }
+	local payload = {
+		requestId       = HttpService:GenerateGUID(false),
+		fromUserId      = executor.UserId,
+		fromName        = executor.Name,
+		fromDisplayName = executor.DisplayName,
+		teamName        = teamName,
+		teamColor       = teamColor,
+		message         = message,
+	}
 
-        for _, player in Players:GetPlayers() do
-                if hasPermission(player, "Admin") and helpUIEnabled[player.UserId] ~= false then
-                        CommandRemotes.HelpRequest:FireClient(player, payload)
-                end
-        end
+	for _, player in Players:GetPlayers() do
+		if hasPermission(player, "Admin") and helpUIEnabled[player.UserId] ~= false then
+			CommandRemotes.HelpRequest:FireClient(player, payload)
+		end
+	end
 
-        ok(executor, "Help request sent.")
+	ok(executor, "Help request sent.")
 end
 
 HANDLERS["weather"] = function(executor, args)
-        CommandRemotes.WeatherOpen:FireClient(executor)
-        ok(executor, "Weather panel toggled.")
+	CommandRemotes.WeatherOpen:FireClient(executor)
+	ok(executor, "Weather panel toggled.")
 end
 
 HANDLERS["notif"] = function(executor, args)
-        if #args < 2 then fail(executor, "Usage: notif <player|all> <message>") return end
-        local targets = resolveTargets(executor, args[1])
-        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
-        local msg = joinArgs(args, 2)
-        if msg == "" then fail(executor, "Usage: notif <player|all> <message>") return end
-        for _, target in targets do
-                CommandRemotes.Notif:FireClient(target, msg, executor.Name)
-        end
-        local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
-        ok(executor, 'Notification sent to ' .. recipient .. ': "' .. msg .. '"')
+	if #args < 2 then fail(executor, "Usage: notif <player|all> <message>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	local msg = joinArgs(args, 2)
+	if msg == "" then fail(executor, "Usage: notif <player|all> <message>") return end
+	for _, target in targets do
+		CommandRemotes.Notif:FireClient(target, msg, executor.Name)
+	end
+	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
+	ok(executor, 'Notification sent to ' .. recipient .. ': "' .. msg .. '"')
 end
 
 HANDLERS["helpui"] = function(executor, args)
-        local uid     = executor.UserId
-        local current = helpUIEnabled[uid]
-        if current == nil then current = true end
-        local newState = not current
-        helpUIEnabled[uid] = newState
+	local uid     = executor.UserId
+	local current = helpUIEnabled[uid]
+	if current == nil then current = true end
+	local newState = not current
+	helpUIEnabled[uid] = newState
 
-        CommandRemotes.HelpUIToggle:FireClient(executor, newState)
-        ok(executor, "Help request notifications " .. (newState and "enabled" or "disabled") .. ".")
+	CommandRemotes.HelpUIToggle:FireClient(executor, newState)
+	ok(executor, "Help request notifications " .. (newState and "enabled" or "disabled") .. ".")
 end
 
 HANDLERS["countdown"] = function(executor, args)
-        if #args < 1 then fail(executor, "Usage: countdown <seconds>") return end
-        local seconds = tonumber(args[1])
-        if not seconds or seconds < 1 or seconds > 3600 then
-                fail(executor, "Seconds must be 1–3600.")
-                return
-        end
-        seconds = math.floor(seconds)
+	if #args < 1 then fail(executor, "Usage: countdown <seconds>") return end
+	local seconds = tonumber(args[1])
+	if not seconds or seconds < 1 or seconds > 3600 then
+		fail(executor, "Seconds must be 1–3600.")
+		return
+	end
+	seconds = math.floor(seconds)
 
-        local myEndTime = Workspace.DistributedGameTime + seconds
-        countdownEndTime = myEndTime
+	local myEndTime = Workspace.DistributedGameTime + seconds
+	countdownEndTime = myEndTime
 
-        for _, player in Players:GetPlayers() do
-                CommandRemotes.CountdownStart:FireClient(player, myEndTime)
-        end
+	for _, player in Players:GetPlayers() do
+		CommandRemotes.CountdownStart:FireClient(player, myEndTime)
+	end
 
-        -- clear the server-side record once the countdown has expired
-        task.delay(seconds + 1, function()
-                if countdownEndTime == myEndTime then
-                        countdownEndTime = nil
-                end
-        end)
+	-- clear the server-side record once the countdown has expired
+	task.delay(seconds + 1, function()
+		if countdownEndTime == myEndTime then
+			countdownEndTime = nil
+		end
+	end)
 
-        ok(executor, "Countdown of " .. seconds .. "s started.")
+	ok(executor, "Countdown of " .. seconds .. "s started.")
 end
 
 HANDLERS["stopcountdown"] = function(executor, args)
-        if countdownEndTime == nil then
-                fail(executor, "No countdown is currently running.")
-                return
-        end
-        countdownEndTime = nil
-        for _, player in Players:GetPlayers() do
-                CommandRemotes.CountdownStop:FireClient(player)
-        end
-        ok(executor, "Countdown stopped.")
+	if countdownEndTime == nil then
+		fail(executor, "No countdown is currently running.")
+		return
+	end
+	countdownEndTime = nil
+	for _, player in Players:GetPlayers() do
+		CommandRemotes.CountdownStop:FireClient(player)
+	end
+	ok(executor, "Countdown stopped.")
 end
 
 HANDLERS["language"] = function(executor, args)
-        local grants = LanguageManager.getGrants(executor.UserId)
-        if #grants == 0 then
-                fail(executor, "You have not been granted any languages.")
-                return
-        end
-        CommandRemotes.LanguageOpen:FireClient(executor)
-        ok(executor, "Language menu opened.")
+	local grants = LanguageManager.getGrants(executor.UserId)
+	if #grants == 0 then
+		fail(executor, "You have not been granted any languages.")
+		return
+	end
+	CommandRemotes.LanguageOpen:FireClient(executor)
+	ok(executor, "Language menu opened.")
 end
 
 -- computes a safe landing CFrame a few studs in front of anchorRoot,
@@ -1452,52 +1446,52 @@ HANDLERS["clearwaypoints"] = function(executor, args)
 end
 
 HANDLERS["accesslanguage"] = function(executor, args)
-        if #args < 2 then fail(executor, "Usage: accesslanguage <player|all> <language>") return end
-        local targets = resolveTargets(executor, args[1])
-        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
-        local langName = joinArgs(args, 2)
-        if langName == "" then fail(executor, "Usage: accesslanguage <player|all> <language>") return end
+	if #args < 2 then fail(executor, "Usage: accesslanguage <player|all> <language>") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+	local langName = joinArgs(args, 2)
+	if langName == "" then fail(executor, "Usage: accesslanguage <player|all> <language>") return end
 
-        -- Validate the language up front (same result for every target)
-        local lower = langName:lower()
-        if lower == "english" then
-                fail(executor, "English is available to all players by default.")
-                return
-        end
-        local langDef = LanguageData.BY_NAME[lower]
-        if not langDef then
-                fail(executor, 'Unknown language "' .. langName .. '".')
-                return
-        end
+	-- Validate the language up front (same result for every target)
+	local lower = langName:lower()
+	if lower == "english" then
+		fail(executor, "English is available to all players by default.")
+		return
+	end
+	local langDef = LanguageData.BY_NAME[lower]
+	if not langDef then
+		fail(executor, 'Unknown language "' .. langName .. '".')
+		return
+	end
 
-        local granted, alreadyHad = {}, {}
-        for _, target in targets do
-                local success, msg = LanguageManager.grantLanguage(target.UserId, langDef.name)
-                if success then
-                        table.insert(granted, target.DisplayName)
-                        -- Push the updated grant list to the player immediately
-                        local grants = LanguageManager.getGrants(target.UserId)
-                        CommandRemotes.LanguageGrants:FireClient(target, grants)
-                else
-                        -- msg is "already_granted" here (language validation passed above)
-                        table.insert(alreadyHad, target.DisplayName)
-                end
-        end
+	local granted, alreadyHad = {}, {}
+	for _, target in targets do
+		local success, msg = LanguageManager.grantLanguage(target.UserId, langDef.name)
+		if success then
+			table.insert(granted, target.DisplayName)
+			-- Push the updated grant list to the player immediately
+			local grants = LanguageManager.getGrants(target.UserId)
+			CommandRemotes.LanguageGrants:FireClient(target, grants)
+		else
+			-- msg is "already_granted" here (language validation passed above)
+			table.insert(alreadyHad, target.DisplayName)
+		end
+	end
 
-        if #granted == 0 then
-                if #alreadyHad == 1 then
-                        fail(executor, alreadyHad[1] .. " already has " .. langDef.name .. ".")
-                else
-                        fail(executor, "All targets already have " .. langDef.name .. ".")
-                end
-                return
-        end
+	if #granted == 0 then
+		if #alreadyHad == 1 then
+			fail(executor, alreadyHad[1] .. " already has " .. langDef.name .. ".")
+		else
+			fail(executor, "All targets already have " .. langDef.name .. ".")
+		end
+		return
+	end
 
-        local msg = "Granted " .. langDef.name .. " to " .. table.concat(granted, ", ") .. "."
-        if #alreadyHad > 0 then
-                msg = msg .. " (" .. table.concat(alreadyHad, ", ") .. " already had it)"
-        end
-        ok(executor, msg)
+	local msg = "Granted " .. langDef.name .. " to " .. table.concat(granted, ", ") .. "."
+	if #alreadyHad > 0 then
+		msg = msg .. " (" .. table.concat(alreadyHad, ", ") .. " already had it)"
+	end
+	ok(executor, msg)
 end
 
 HANDLERS["music"] = function(executor, args)
@@ -2044,37 +2038,37 @@ CommandRemotes.PrivateServerCancel.OnServerEvent:Connect(function(player: Player
 end)
 
 CommandRemotes.CommandExecuted.OnServerEvent:Connect(function(executor: Player, cmdName: string, args: { string })
-        if typeof(cmdName) ~= "string" then return end
-        if typeof(args) ~= "table" then args = {} end
+	if typeof(cmdName) ~= "string" then return end
+	if typeof(args) ~= "table" then args = {} end
 
-        cmdName = cmdName:lower():match("^%s*(.-)%s*$") or ""
-        if cmdName == "" then return end
+	cmdName = cmdName:lower():match("^%s*(.-)%s*$") or ""
+	if cmdName == "" then return end
 
-        local safeArgs = {}
-        for _, v in args do
-                if typeof(v) == "string" then table.insert(safeArgs, v) end
-        end
+	local safeArgs = {}
+	for _, v in args do
+		if typeof(v) == "string" then table.insert(safeArgs, v) end
+	end
 
-        local definition = CommandRegistry.COMMANDS[cmdName]
-        if not definition then
-                fail(executor, 'Unknown command: "' .. cmdName .. '".')
-                return
-        end
+	local definition = CommandRegistry.COMMANDS[cmdName]
+	if not definition then
+		fail(executor, 'Unknown command: "' .. cmdName .. '".')
+		return
+	end
 
-        if not hasPermission(executor, definition.permission) then
-                fail(executor, 'No permission for "' .. cmdName .. '" (requires ' .. definition.permission .. ').')
-                return
-        end
+	if not hasPermission(executor, definition.permission) then
+		fail(executor, 'No permission for "' .. cmdName .. '" (requires ' .. definition.permission .. ').')
+		return
+	end
 
-        local handler = HANDLERS[cmdName]
-        if not handler then
-                fail(executor, '"' .. cmdName .. '" has no handler.')
-                return
-        end
+	local handler = HANDLERS[cmdName]
+	if not handler then
+		fail(executor, '"' .. cmdName .. '" has no handler.')
+		return
+	end
 
-        local success, err = pcall(handler, executor, safeArgs)
-        if not success then
-                fail(executor, "Error: " .. tostring(err))
-                warn("[CommandServer] error in '" .. cmdName .. "': " .. tostring(err))
-        end
+	local success, err = pcall(handler, executor, safeArgs)
+	if not success then
+		fail(executor, "Error: " .. tostring(err))
+		warn("[CommandServer] error in '" .. cmdName .. "': " .. tostring(err))
+	end
 end)

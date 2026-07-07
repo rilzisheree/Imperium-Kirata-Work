@@ -6,16 +6,12 @@ local LocalPlayer    = Players.LocalPlayer
 local PlayerGui      = LocalPlayer:WaitForChild("PlayerGui")
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 
--- ── container ──────────────────────────────────────────────────────────────────
-
 local espGui = Instance.new("ScreenGui")
 espGui.Name           = "EspGui"
 espGui.DisplayOrder   = 98
 espGui.ResetOnSpawn   = false
 espGui.IgnoreGuiInset = true
 espGui.Parent         = PlayerGui
-
--- ── state ──────────────────────────────────────────────────────────────────────
 
 -- tracked[userId] = {
 --   player:     Player,
@@ -28,8 +24,6 @@ espGui.Parent         = PlayerGui
 --   conns:      { RBXScriptConnection },
 -- }
 local tracked: { [number]: any } = {}
-
--- ── helpers ────────────────────────────────────────────────────────────────────
 
 local function formatDist(studs: number): string
 	local m = math.round(studs)
@@ -58,8 +52,6 @@ local function makeLabel(parent: Instance, yPos: number, height: number): TextLa
 	lbl.Parent                 = parent
 	return lbl
 end
-
--- ── build overlay ──────────────────────────────────────────────────────────────
 
 local LINE  = 16   -- px per line
 local GAP   = 2    -- px between lines
@@ -104,8 +96,6 @@ local function buildOverlay(player: Player, character: Model?)
 
 	return bb, highlight, nameLabel, hpLabel, teamLabel, distLabel
 end
-
--- ── add / remove ───────────────────────────────────────────────────────────────
 
 local function removeEsp(userId: number)
 	local entry = tracked[userId]
@@ -154,8 +144,6 @@ local function addEsp(player: Player)
 		conns     = conns,
 	}
 end
-
--- ── per-frame update ───────────────────────────────────────────────────────────
 
 RunService.Heartbeat:Connect(function()
 	if next(tracked) == nil then return end
@@ -218,8 +206,6 @@ RunService.Heartbeat:Connect(function()
 		end
 	end
 end)
-
--- ── remote listener ────────────────────────────────────────────────────────────
 
 if CommandRemotes.EspToggle then
 	CommandRemotes.EspToggle.OnClientEvent:Connect(function(target: Player, enabled: boolean)

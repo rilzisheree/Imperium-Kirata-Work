@@ -7,8 +7,6 @@ local LocalPlayer    = Players.LocalPlayer
 local PlayerGui      = LocalPlayer:WaitForChild("PlayerGui")
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 
--- ── indicator UI ───────────────────────────────────────────────────────────────
-
 local watchGui = Instance.new("ScreenGui")
 watchGui.Name           = "WatchIndicator"
 watchGui.DisplayOrder   = 105
@@ -32,8 +30,6 @@ watchLabel.TextStrokeTransparency = 0.4
 watchLabel.ZIndex                 = 10
 watchLabel.Parent                 = watchGui
 
--- ── state ──────────────────────────────────────────────────────────────────────
-
 local watchedPlayer      = nil :: Player?
 local savedCameraType    = nil :: Enum.CameraType?
 local savedCameraSubject = nil :: Instance?
@@ -41,8 +37,6 @@ local savedCameraSubject = nil :: Instance?
 local charAddedConn      = nil :: RBXScriptConnection?
 local playerRemovingConn = nil :: RBXScriptConnection?
 local adminRespawnConn   = nil :: RBXScriptConnection?
-
--- ── helpers ────────────────────────────────────────────────────────────────────
 
 local function getCamera(): Camera
 	return Workspace.CurrentCamera
@@ -54,8 +48,6 @@ local function setSubject(character: Model?)
 		getCamera().CameraSubject = humanoid
 	end
 end
-
--- ── core logic ─────────────────────────────────────────────────────────────────
 
 local function stopWatch(leftMsg: string?)
 	if not watchedPlayer then return end
@@ -132,8 +124,6 @@ local function startWatch(target: Player)
 	watchLabel.Text  = "Watching: " .. target.DisplayName .. " (@" .. target.Name .. ")"
 	watchGui.Enabled = true
 end
-
--- ── remote listeners ───────────────────────────────────────────────────────────
 
 if CommandRemotes.WatchStart then
 	CommandRemotes.WatchStart.OnClientEvent:Connect(function(target: Player)

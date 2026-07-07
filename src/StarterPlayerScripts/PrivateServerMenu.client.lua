@@ -1,21 +1,3 @@
---[[
-	PrivateServerMenu.client.lua
-	Opened by the "privateserver" admin command (via PrivateServerOpen remote).
-
-	Two-column layout:
-	  Left  — "Current Server"  (all players not in the send queue)
-	  Right — "Send Queue"      (players selected to be sent to the reserved server)
-
-	Players can be moved between columns with the → / ← button on each card,
-	or by clicking and dragging a card from one column into the other.
-
-	Footer buttons:
-	  Create Server   — fires PrivateServerReserve → server reserves a slot
-	  Send Selected   — fires PrivateServerSend with queued userId list
-	  Cancel Server   — fires PrivateServerCancel, clears state, closes menu
-	  Close           — local-only dismiss
---]]
-
 local Players           = game:GetService("Players")
 local UserInputService  = game:GetService("UserInputService")
 local RunService        = game:GetService("RunService")
@@ -26,7 +8,6 @@ local LP   = Players.LocalPlayer
 local PGui = LP:WaitForChild("PlayerGui")
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes") :: ModuleScript)
 
--- ── Palette ────────────────────────────────────────────────────────────────────
 local C_BG   = Color3.fromRGB( 12,  12,  18)
 local C_BOR  = Color3.fromRGB( 90,  90, 120)
 local C_TXT  = Color3.fromRGB(235, 235, 252)
@@ -41,7 +22,6 @@ local C_WARN = Color3.fromRGB(200, 150,  60)
 local C_ERR  = Color3.fromRGB(215,  75,  75)
 local C_DRAG = Color3.fromRGB(100, 140, 255)
 
--- ── Layout constants ───────────────────────────────────────────────────────────
 local MENU_W      = 480
 local HEADER_H    = 44
 local STATUS_H    = 30
@@ -57,7 +37,6 @@ local COL_W    = MENU_W / 2     -- 240
 local CARD_H   = 38
 local CARD_GAP = 4
 
--- ── Runtime state ──────────────────────────────────────────────────────────────
 local queuedIds    : { [number]: boolean } = {}  -- [userId] = true
 local serverStatus : string                = "none"
 -- "none" | "reserving" | "active" | "failed" | "cancelled"
@@ -70,7 +49,6 @@ local dragState: {
 	fromQueue: boolean,
 }? = nil
 
--- ── ScreenGui ──────────────────────────────────────────────────────────────────
 local sg = Instance.new("ScreenGui")
 sg.Name           = "PrivateServerGui"
 sg.DisplayOrder   = 106
@@ -79,7 +57,6 @@ sg.IgnoreGuiInset = true
 sg.Enabled        = false
 sg.Parent         = PGui
 
--- ── Main frame ─────────────────────────────────────────────────────────────────
 local frame = Instance.new("Frame")
 frame.Name             = "PSMenu"
 frame.AnchorPoint      = Vector2.new(0.5, 0.5)
@@ -97,7 +74,6 @@ fStroke.Color           = C_BOR
 fStroke.Thickness       = 1.5
 fStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
--- ── Helpers ────────────────────────────────────────────────────────────────────
 local function makeDivider(yOff: number)
 	local d = Instance.new("Frame", frame)
 	d.Size             = UDim2.new(1, 0, 0, 1)
@@ -117,7 +93,6 @@ local function makeStroke(parent: Instance, colour: Color3?, thick: number?, alp
 	return s
 end
 
--- ── Header ─────────────────────────────────────────────────────────────────────
 local header = Instance.new("Frame", frame)
 header.Name             = "Header"
 header.Size             = UDim2.new(1, 0, 0, HEADER_H)
@@ -136,7 +111,6 @@ titleLbl.TextXAlignment     = Enum.TextXAlignment.Left
 titleLbl.Text               = "Private Server"
 titleLbl.ZIndex             = 12
 
--- ── Header drag ─────────────────────────────────────────────────────────────────
 local menuDragging = false
 local menuDragStart: Vector3
 local menuStartPos: UDim2
@@ -167,7 +141,6 @@ end)
 
 makeDivider(HEADER_H)
 
--- ── Status bar ─────────────────────────────────────────────────────────────────
 local statusBarY = HEADER_H + DIV
 local statusBar  = Instance.new("Frame", frame)
 statusBar.Size             = UDim2.new(1, 0, 0, STATUS_H)
@@ -257,7 +230,6 @@ end)
 
 makeDivider(statusBarY + STATUS_H)
 
--- ── Column headers ─────────────────────────────────────────────────────────────
 local colLabelY = statusBarY + STATUS_H + DIV
 
 local leftColLabel = Instance.new("TextLabel", frame)
@@ -284,7 +256,6 @@ rightColLabel.Text               = "   Send Queue"
 rightColLabel.TextXAlignment     = Enum.TextXAlignment.Left
 rightColLabel.ZIndex             = 11
 
--- ── Scroll columns ─────────────────────────────────────────────────────────────
 local scrollY  = colLabelY + COL_LABEL_H
 local scrollH  = CONTENT_H - COL_LABEL_H
 
@@ -327,7 +298,6 @@ centerDiv.ZIndex           = 12
 
 makeDivider(colLabelY + CONTENT_H)
 
--- ── Footer ─────────────────────────────────────────────────────────────────────
 local footerY = colLabelY + CONTENT_H + DIV
 local footer  = Instance.new("Frame", frame)
 footer.Size             = UDim2.new(1, 0, 0, FOOTER_H)
@@ -366,7 +336,6 @@ local sendBtn   = makeFooterBtn("Send Selected",  2)
 local cancelBtn = makeFooterBtn("Cancel Server",  3)
 local closeBtn  = makeFooterBtn("Close",          4)
 
--- ── Status-bar + button-state sync ─────────────────────────────────────────────
 local function syncStatus()
 	local n = 0
 	for _ in queuedIds do n += 1 end
@@ -422,7 +391,6 @@ local function syncStatus()
 	sendBtn.TextColor3 = (serverStatus == "active" and n > 0) and C_TXT or C_DIM
 end
 
--- ── Card builder ───────────────────────────────────────────────────────────────
 -- Forward-declare so makeCard callbacks can reference them
 local rebuildLists: () -> ()
 local moveToQueue:  (number) -> ()
@@ -538,7 +506,6 @@ local function makeCard(parent: ScrollingFrame, player: Player, inQueue: boolean
 	return card
 end
 
--- ── Rebuild both columns ────────────────────────────────────────────────────────
 rebuildLists = function()
 	-- Clear old cards
 	for _, child in leftScroll:GetChildren() do
@@ -560,7 +527,6 @@ rebuildLists = function()
 	syncStatus()
 end
 
--- ── Queue helpers ───────────────────────────────────────────────────────────────
 moveToQueue = function(uid: number)
 	queuedIds[uid] = true
 	rebuildLists()
@@ -571,7 +537,6 @@ removeFromQueue = function(uid: number)
 	rebuildLists()
 end
 
--- ── Drag-drop: resolve drop column on release ───────────────────────────────────
 UserInputService.InputEnded:Connect(function(inp)
 	if inp.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
 	if not dragState then return end
@@ -598,7 +563,6 @@ UserInputService.InputEnded:Connect(function(inp)
 	end
 end)
 
--- ── Footer button handlers ──────────────────────────────────────────────────────
 createBtn.MouseButton1Click:Connect(function()
 	if serverStatus == "reserving" then return end
 	if serverStatus == "active"    then return end
@@ -632,7 +596,6 @@ closeBtn.MouseButton1Click:Connect(function()
 	sg.Enabled = false
 end)
 
--- ── Player join / leave — keep lists fresh while menu is open ───────────────────
 Players.PlayerAdded:Connect(function()
 	if sg.Enabled then rebuildLists() end
 end)
@@ -642,7 +605,6 @@ Players.PlayerRemoving:Connect(function(player)
 	if sg.Enabled then rebuildLists() end
 end)
 
--- ── Remote listeners ────────────────────────────────────────────────────────────
 CommandRemotes.PrivateServerOpen.OnClientEvent:Connect(function(status: string?, code: string?)
 	-- Restore the server's current reservation state instead of always resetting,
 	-- so an active private server stays visible when the menu is reopened

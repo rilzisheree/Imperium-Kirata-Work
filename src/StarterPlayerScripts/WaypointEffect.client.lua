@@ -6,12 +6,8 @@ local Workspace         = game:GetService("Workspace")
 local LocalPlayer    = Players.LocalPlayer
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 
--- ── active waypoint state ──────────────────────────────────────────────────────
-
 local waypointPart  = nil   -- Part anchored in Workspace (client-local)
 local heartbeatConn = nil   -- RunService.Heartbeat connection for distance updates
-
--- ── helpers ────────────────────────────────────────────────────────────────────
 
 local function formatDist(studs: number): string
 	local m = math.round(studs)
@@ -20,8 +16,6 @@ local function formatDist(studs: number): string
 	end
 	return m .. "m"
 end
-
--- ── clear ──────────────────────────────────────────────────────────────────────
 
 local function clearWaypoint()
 	if heartbeatConn then
@@ -33,8 +27,6 @@ local function clearWaypoint()
 		waypointPart = nil
 	end
 end
-
--- ── create ─────────────────────────────────────────────────────────────────────
 
 local function createWaypoint(pos: Vector3, title: string?)
 	clearWaypoint()
@@ -127,8 +119,6 @@ local function createWaypoint(pos: Vector3, title: string?)
 		end
 	end)
 end
-
--- ── remote listeners ───────────────────────────────────────────────────────────
 
 if CommandRemotes.WaypointSet then
 	CommandRemotes.WaypointSet.OnClientEvent:Connect(function(pos: Vector3, title: string?)

@@ -123,7 +123,6 @@ do
 	s.Transparency = 0.3; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 end
 
--- ── Measurement proxy ─────────────────────────────────────────────────────────
 -- Off-screen TextLabel that mirrors inputBox content.  TextLabel.TextBounds
 -- correctly reports wrapped height; TextBox.TextBounds does not.
 -- Must NOT be Visible=false: Roblox skips layout (including TextBounds) for
@@ -155,7 +154,6 @@ inputFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 	measureLabel.Size = UDim2.fromOffset(measureWidth(), 0)
 end)
 
--- ── Auto-height logic ─────────────────────────────────────────────────────────
 local function updateBarHeight()
 	local textH = math.max(measureLabel.TextBounds.Y, LINE_H)
 	local newH  = math.clamp(textH + 12, BAR_H_MIN, BAR_H_MAX)

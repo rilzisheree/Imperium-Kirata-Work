@@ -1,15 +1,5 @@
---[[
-	LanguageData.lua
-	Shared ModuleScript — ReplicatedStorage
-
-	Single source of truth for every grantable language.
-	To add a new language, append one entry to LANGUAGES; everything else
-	(fast lookups, command validation, fictionalisation) derives from it.
-
-	Fields per entry:
-	  name — display name; used as the DataStore key and player-facing label
-	  tag  — short prefix shown in chat, e.g. [K]
---]]
+-- all the languages players can be granted
+-- to add one just throw a new entry in here, everything else derives from it
 
 local LanguageData = {}
 
@@ -26,7 +16,7 @@ LanguageData.LANGUAGES = {
 	{ name = "Italian",    tag = "IT" },
 }
 
--- Fast lookup by lowercase name: LanguageData.BY_NAME["korean"] → { name, tag }
+-- quick lookup by lowercase name
 LanguageData.BY_NAME = {}
 for _, lang in ipairs(LanguageData.LANGUAGES) do
 	LanguageData.BY_NAME[lang.name:lower()] = lang

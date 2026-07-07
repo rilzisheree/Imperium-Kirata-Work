@@ -100,7 +100,6 @@ imLabel.ZIndex                 = 10
 imLabel.Visible                = false
 imLabel.Parent                 = gui
 
--- ── notif UI ──────────────────────────────────────────────────────────────────
 -- Direct children of gui (same as SM/IM) so font rendering is identical.
 -- notifMsg anchored at its bottom, notifSender anchored at its top,
 -- both pinned to Y = 0.80 so they sit ~20% above the bottom edge.
@@ -144,7 +143,6 @@ notifSender.TextStrokeTransparency = 1
 notifSender.ZIndex                 = 10
 notifSender.Visible                = false
 notifSender.Parent                 = gui
-
 
 -- reading time based on word count
 local function calcHold(text: string): number
@@ -257,7 +255,6 @@ notifSound.SoundId = "rbxassetid://131390520971848"
 notifSound.Volume  = 1
 notifSound.Parent  = gui
 
--- ── notif queue ───────────────────────────────────────────────────────────────
 local notifQueue: { { message: string, sender: string } } = {}
 local notifBusy = false
 
