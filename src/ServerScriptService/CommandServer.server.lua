@@ -576,14 +576,26 @@ local function waitForRoot(player: Player): BasePart?
 end
 
 HANDLERS["fly"] = function(executor, args)
-	if #args < 1 then fail(executor, "Usage: fly <player|all>") return end
+	if #args < 1 then fail(executor, "Usage: fly <player|all> [speed]") return end
 	local targets = resolveTargets(executor, args[1])
 	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
-	for _, target in targets do
-		CommandRemotes.FlyEnable:FireClient(target)
+
+	local speed = nil
+	if args[2] then
+		local n = tonumber(args[2])
+		if not n or n < 1 or n > 500 then
+			fail(executor, "Speed must be 1–500.")
+			return
+		end
+		speed = math.floor(n)
 	end
-	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
-	ok(executor, "Flight enabled for " .. recipient .. ".")
+
+	for _, target in targets do
+		CommandRemotes.FlyEnable:FireClient(target, speed)
+	end
+	local recipient  = #targets == 1 and targets[1].DisplayName or "everyone"
+	local speedNote  = speed and (" at speed " .. speed) or ""
+	ok(executor, "Flight enabled for " .. recipient .. speedNote .. ".")
 end
 
 HANDLERS["unfly"] = function(executor, args)

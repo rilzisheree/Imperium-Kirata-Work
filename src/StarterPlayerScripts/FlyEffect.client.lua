@@ -9,8 +9,8 @@ local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 
 -- ── constants ──────────────────────────────────────────────────────────────────
 
-local NORMAL_SPEED = 50    -- studs/s during normal flight
-local BOOST_SPEED  = 150   -- studs/s while LeftAlt is held
+local DEFAULT_SPEED  = 50   -- studs/s when no speed is specified
+local BOOST_MULT     = 3    -- LeftAlt multiplies normal speed by this factor
 
 local BV_P         = 1e4   -- BodyVelocity responsiveness
 local BG_P         = 1e4   -- BodyGyro responsiveness
@@ -21,6 +21,7 @@ local MAX_FORCE    = 1e5   -- force cap on all axes
 
 local flyActive     = false   -- true while the player is currently flying
 local flyGranted    = false   -- true once the admin has granted flight this session
+local grantedSpeed  = nil     -- studs/s set by the admin; nil means use DEFAULT_SPEED
 local bodyVelocity  = nil :: BodyVelocity?
 local bodyGyro      = nil :: BodyGyro?
 local heartbeatConn = nil :: RBXScriptConnection?
@@ -43,7 +44,7 @@ end
 
 -- ── core flight logic ──────────────────────────────────────────────────────────
 
-local function startFlight()
+local function startFlight(normalSpeed: number?)
 	if flyActive then return end
 	local root, humanoid = getCharParts()
 	if not root or not humanoid then return end
@@ -96,7 +97,8 @@ local function startFlight()
 		if UIS:IsKeyDown(Enum.KeyCode.Space)     then dir += Vector3.yAxis end
 		if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir -= Vector3.yAxis end
 
-		local speed = UIS:IsKeyDown(Enum.KeyCode.LeftAlt) and BOOST_SPEED or NORMAL_SPEED
+		local base  = normalSpeed or DEFAULT_SPEED
+		local speed = UIS:IsKeyDown(Enum.KeyCode.LeftAlt) and base * BOOST_MULT or base
 
 		bv.Velocity = dir.Magnitude > 0 and dir.Unit * speed or Vector3.zero
 
@@ -126,7 +128,7 @@ UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: 
 	if gameProcessed                       then return end   -- TextBox / GUI consumed it
 	if input.KeyCode ~= Enum.KeyCode.E    then return end
 	if not flyGranted                      then return end
-	if flyActive then stopFlight() else startFlight() end
+	if flyActive then stopFlight() else startFlight(grantedSpeed) end
 end)
 
 -- ── respawn — wipe state; player must re-enable with E or wait for re-grant ────
@@ -141,9 +143,10 @@ end)
 -- ── remote listeners ───────────────────────────────────────────────────────────
 
 if CommandRemotes.FlyEnable then
-	CommandRemotes.FlyEnable.OnClientEvent:Connect(function()
-		flyGranted = true
-		startFlight()
+	CommandRemotes.FlyEnable.OnClientEvent:Connect(function(speed: number?)
+		flyGranted   = true
+		grantedSpeed = typeof(speed) == "number" and speed or nil
+		startFlight(grantedSpeed)
 	end)
 end
 

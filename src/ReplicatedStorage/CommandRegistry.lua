@@ -83,7 +83,7 @@ CommandRegistry.COMMANDS = {
         },
         fly = {
                 description = "Enable flight for a player or all players (E to toggle, LeftAlt to boost)",
-                args        = { "player|all" },
+                args        = { "player|all", "[speed]" },
                 permission  = "Admin",
         },
         unfly = {
