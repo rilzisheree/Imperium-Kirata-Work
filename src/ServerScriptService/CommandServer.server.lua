@@ -281,14 +281,14 @@ HANDLERS["shutdown"] = function(executor, args)
 	shutdownInProgress = true
 
 	local customMsg = joinArgs(args, 1)
-	if customMsg == "" then customMsg = nil end
+	local kickMsg = (customMsg ~= "") and customMsg or "This server has been shut down by Staff."
 
 	ok(executor, "Initiating server shutdown in 5 seconds.")
-	CommandRemotes.Shutdown:FireAllClients(customMsg)
+	CommandRemotes.Shutdown:FireAllClients()
 
 	task.delay(5, function()
 		for _, player in Players:GetPlayers() do
-			player:Kick("This server has been shut down by Staff.")
+			player:Kick(kickMsg)
 		end
 	end)
 end

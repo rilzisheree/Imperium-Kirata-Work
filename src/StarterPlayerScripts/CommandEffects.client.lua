@@ -399,7 +399,7 @@ if CommandRemotes.Unblind then
 end
 
 if CommandRemotes.Shutdown then
-	CommandRemotes.Shutdown.OnClientEvent:Connect(function(customMsg: string?)
+	CommandRemotes.Shutdown.OnClientEvent:Connect(function()
 		-- freeze the SM queue so no queued/in-flight SM timer can clear the shutdown screen
 		shutdownActive = true
 		smBusy         = true
@@ -407,8 +407,7 @@ if CommandRemotes.Shutdown then
 
 		-- show shutdown screen permanently (same visual as SM, no fade-out scheduled)
 		smHeader.Text             = "Server Shutting Down"
-		smBody.Text               = (typeof(customMsg) == "string" and customMsg ~= "") and customMsg
-			or "A Staff Member has shut down this server,\nPlease rejoin shortly."
+		smBody.Text               = "A Staff Member has shut down this server,\nPlease rejoin shortly."
 		smHeader.TextColor3       = DEFAULT_COLOR
 		smBody.TextColor3         = DEFAULT_COLOR
 		smHeader.TextTransparency = 1
