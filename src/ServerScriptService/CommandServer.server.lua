@@ -94,26 +94,41 @@ local activePrivateServerCode: string? = nil
 local currentMusicId     = nil
 local currentMusicVolume = 1
 local cycleEnabled       = false
+local currentMusicGenre  = nil  -- genre of the currently playing track (or nil for custom IDs)
 
-local MUSIC_TRACK_IDS = {
-	-- Calm
-	"131663436896795","74223976958523","77528113627917","81231077476265","126321638662994",
-	"99627506664097","75252809311040","105659474170173","114522608184310","91439003360287",
-	"100586849702964","127682939322771","120226505866112","140002258083304","74163496697693",
-	"77446191745586","89891313789297","110395238223034","95497960463962",
-	-- Intense
-	"104073444477137","88748272922027","73016828165566","71866511116940",
-	"99418915964524","136063864916383","107888398080501",
-	-- Fighting
-	"111610037616781","85282093297000","103132935432313",
+local MUSIC_TRACKS = {
+	Calm = {
+		"131663436896795","74223976958523","77528113627917","81231077476265","126321638662994",
+		"99627506664097","75252809311040","105659474170173","114522608184310","91439003360287",
+		"100586849702964","127682939322771","120226505866112","140002258083304","74163496697693",
+		"89891313789297","110395238223034","95497960463962",
+	},
+	Intense = {
+		"104073444477137","88748272922027","73016828165566","71866511116940",
+		"99418915964524","136063864916383","107888398080501",
+	},
+	Fighting = {
+		"111610037616781","85282093297000","103132935432313",
+	},
 }
 
+-- reverse lookup: track id → genre name
+local TRACK_GENRE = {}
+local ALL_TRACK_IDS = {}  -- flat list for fallback when genre is unknown
+for genre, ids in MUSIC_TRACKS do
+	for _, id in ids do
+		TRACK_GENRE[id] = genre
+		table.insert(ALL_TRACK_IDS, id)
+	end
+end
+
 local function pickRandomTrack(): string?
-	if #MUSIC_TRACK_IDS == 0 then return nil end
-	if #MUSIC_TRACK_IDS == 1 then return MUSIC_TRACK_IDS[1] end
+	local pool = currentMusicGenre and MUSIC_TRACKS[currentMusicGenre] or ALL_TRACK_IDS
+	if #pool == 0 then return nil end
+	if #pool == 1 then return pool[1] end
 	local newId
 	repeat
-		newId = MUSIC_TRACK_IDS[math.random(1, #MUSIC_TRACK_IDS)]
+		newId = pool[math.random(1, #pool)]
 	until newId ~= currentMusicId
 	return newId
 end
@@ -1508,7 +1523,8 @@ HANDLERS["music"] = function(executor, args)
 		fail(executor, 'Invalid audio ID "' .. rawId .. '". Must be a positive numeric Roblox asset ID.')
 		return
 	end
-	currentMusicId = rawId
+	currentMusicId    = rawId
+	currentMusicGenre = TRACK_GENRE[rawId]
 	CommandRemotes.MusicPlay:FireAllClients(currentMusicId, currentMusicVolume)
 end
 
@@ -1536,10 +1552,12 @@ CommandRemotes.MusicCommand.OnServerEvent:Connect(function(player: Player, actio
 
 	if action == "play" then
 		if typeof(data) ~= "string" or not data:match("^%d+$") then return end
-		currentMusicId = data
+		currentMusicId    = data
+		currentMusicGenre = TRACK_GENRE[data]
 		CommandRemotes.MusicPlay:FireAllClients(currentMusicId, currentMusicVolume)
 	elseif action == "stop" then
-		currentMusicId = nil
+		currentMusicId    = nil
+		currentMusicGenre = nil
 		CommandRemotes.MusicStop:FireAllClients()
 	elseif action == "volume" then
 		if typeof(data) ~= "number" then return end

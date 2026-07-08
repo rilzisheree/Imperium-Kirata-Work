@@ -27,13 +27,13 @@ local function playMusic(id: string, volume: number)
 	s.Name               = SOUND_NAME
 	s.SoundId            = "rbxassetid://" .. id
 	s.Volume             = math.clamp(volume, 0, 1)
-	s.Looped             = false   -- cycle picks the next track via server
+	s.Looped             = not localCycleEnabled  -- loop when cycle is off; end naturally when cycle is on
 	s.RollOffMaxDistance = 0
 	s.Parent             = SoundService
 	s:Play()
 
-	-- When the track finishes naturally, report it to the server for cycle handling.
-	-- The server decides the next track; this avoids all-client race conditions.
+	-- When the track finishes naturally (cycle on, so Looped = false), report to
+	-- the server so it can pick the next track in the same genre.
 	s.Ended:Connect(function()
 		if localCycleEnabled and localCurrentId == id then
 			CommandRemotes.MusicCommand:FireServer("ended", id)
@@ -82,8 +82,13 @@ CommandRemotes.MusicSeek.OnClientEvent:Connect(function(position: number)
 end)
 
 -- Server broadcasts cycle state changes (toggle in menu).
+-- Also flips Looped on the active sound so the behaviour takes effect immediately.
 CommandRemotes.MusicCycleState.OnClientEvent:Connect(function(state: boolean)
 	if typeof(state) == "boolean" then
 		localCycleEnabled = state
+		local s = getSound()
+		if s then
+			s.Looped = not state
+		end
 	end
 end)

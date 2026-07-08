@@ -29,7 +29,6 @@ local SECTIONS = {
 			{ id = "120226505866112", title = "Merrier Tamako"                           },
 			{ id = "140002258083304", title = "Yattemiyou"                               },
 			{ id = "74163496697693",  title = "Food Court Dialogue"                     },
-			{ id = "77446191745586",  title = "My Universe (Instrumental)"              },
 			{ id = "89891313789297",  title = "Living Room — Blue Lock OST"             },
 			{ id = "110395238223034", title = "Bedroom — Blue Lock OST"                 },
 			{ id = "95497960463962",  title = "???"                                      },
