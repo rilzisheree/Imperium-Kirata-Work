@@ -1,0 +1,125 @@
+Before making any changes, thoroughly read and understand my existing admin command system, character customization system, avatar loading, DataStore system, RemoteEvents, and coding style. Reuse the current architecture and only add the functionality described below.
+
+Create the following admin commands:
+
+sethair <target> <assetId> <true/false>
+
+setshirt <target> <assetId> <true/false>
+
+setpants <target> <assetId> <true/false>
+
+removehat <target>
+
+clearhats <target>
+
+--------------------------------------------------
+SETHAIR
+--------------------------------------------------
+
+Description:
+- Gives the specified player a hair/accessory.
+
+Usage:
+sethair <target> <assetId> <true/false>
+
+Examples:
+sethair Kirata 123456789 true
+sethair Kirata 123456789 false
+
+Requirements:
+- Follow the existing admin command framework and coding style.
+- Support all existing target selectors.
+- The Asset ID should be an Accessory/Hair asset.
+- If the last parameter is `true`, permanently save the accessory so it automatically reapplies whenever the player rejoins or respawns.
+- If the last parameter is `false`, only equip it temporarily.
+- If the accessory was previously permanent and the command is executed with `false`, remove it from the player's permanent saved accessories while still equipping it temporarily.
+- Replace duplicate accessories instead of stacking identical ones.
+- Gracefully handle invalid Asset IDs.
+
+--------------------------------------------------
+SETSHIRT
+--------------------------------------------------
+
+Description:
+- Sets the player's shirt.
+
+Usage:
+setshirt <target> <assetId> <true/false>
+
+Examples:
+setshirt Kirata 123456789 true
+setshirt Kirata 123456789 false
+
+Requirements:
+- The Asset ID must be a Shirt asset.
+- If `true`, permanently save the shirt in the player's DataStore and automatically apply it after every respawn and rejoin.
+- If `false`, only apply it for the current session.
+- If the shirt was previously permanent and the command is executed with `false`, remove it from permanent storage while still applying it temporarily.
+- Replace any existing shirt.
+
+--------------------------------------------------
+SETPANTS
+--------------------------------------------------
+
+Description:
+- Sets the player's pants.
+
+Usage:
+setpants <target> <assetId> <true/false>
+
+Examples:
+setpants Kirata 123456789 true
+setpants Kirata 123456789 false
+
+Requirements:
+- The Asset ID must be a Pants asset.
+- If `true`, permanently save the pants in the player's DataStore and automatically apply them after every respawn and rejoin.
+- If `false`, only apply them for the current session.
+- If the pants were previously permanent and the command is executed with `false`, remove them from permanent storage while still applying them temporarily.
+- Replace any existing pants.
+
+--------------------------------------------------
+REMOVEHAT
+--------------------------------------------------
+
+Description:
+- Permanently removes a player's saved hair/accessory.
+
+Usage:
+removehat <target>
+
+Requirements:
+- Remove every permanently saved accessory/hair from the player's DataStore.
+- Immediately remove those accessories from the player's current character.
+- Accessories that were only temporary should remain unaffected.
+- Handle players who have no permanent accessories without errors.
+
+--------------------------------------------------
+CLEARHATS
+--------------------------------------------------
+
+Description:
+- Temporarily removes all accessories from the player's current character.
+
+Usage:
+clearhats <target>
+
+Requirements:
+- Remove every accessory currently equipped.
+- Do NOT modify the player's permanent saved accessories.
+- If the player respawns, all permanent accessories should automatically return.
+- Only affects the player's current life.
+- Handle multiple targeted players correctly.
+
+--------------------------------------------------
+GENERAL REQUIREMENTS
+--------------------------------------------------
+
+- Follow the existing admin command framework and coding style.
+- Support all existing target selectors.
+- Use the existing DataStore system for permanent saves.
+- Prevent duplicate accessories or duplicate saved entries.
+- Gracefully handle invalid asset IDs and failed asset loads.
+- Automatically reapply permanent cosmetics after respawning and rejoining.
+- Integrate seamlessly into the existing admin system without breaking any current functionality.
+- Keep the implementation optimized, modular, and easy to extend.
