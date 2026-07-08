@@ -420,11 +420,15 @@ end)
 ContextActionService:BindAction(
         "ChatOpenSlash",
         function(_, state, _)
-                if state ~= Enum.UserInputState.Begin then
-                        return Enum.ContextActionResult.Pass
-                end
                 if UserInputService:GetFocusedTextBox() == inputBox then
                         return Enum.ContextActionResult.Pass
+                end
+                -- Wait for the key to be released before capturing focus. If we
+                -- capture focus while "/" is still physically held down, Roblox
+                -- replays that held keystroke into the freshly-focused TextBox,
+                -- which is what caused the stray "/" to appear.
+                if state ~= Enum.UserInputState.End then
+                        return Enum.ContextActionResult.Sink
                 end
                 task.defer(function()
                         inputBox:CaptureFocus()

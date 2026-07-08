@@ -1,1 +1,2 @@
 - [Roblox clothing template IDs](roblox-clothing-templates.md) — never build rbxassetid://<userInputId> for Shirt/Pants; resolve the real template from the loaded asset instance instead.
+- [Roblox TextBox key-replay on focus](roblox-textbox-focus-keystroke-replay.md) — capturing TextBox focus while a hotkey is still held replays that key into the box; capture on key release instead.
