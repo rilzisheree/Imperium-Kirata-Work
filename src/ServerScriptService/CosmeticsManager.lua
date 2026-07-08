@@ -13,8 +13,8 @@ local playerData = {}
 
 -- caches so repeated sethair/respawns don't hit InsertService every time
 local accessoryTemplateCache = {} -- [assetIdString] = Accessory/Hat instance template (not parented)
-local shirtTemplateCache     = {} -- [assetIdString] = resolved ShirtTemplate content id string
-local pantsTemplateCache     = {} -- [assetIdString] = resolved PantsTemplate content id string
+local shirtValidCache        = {} -- [assetIdString] = true/false
+local pantsValidCache        = {} -- [assetIdString] = true/false
 
 local function defaultData()
         return { accessories = {}, shirt = nil, pants = nil }
@@ -180,66 +180,58 @@ local function findDescendantOfClass(root: Instance, className: string): Instanc
         return nil
 end
 
--- Resolves the given asset ID to an actual usable ShirtTemplate/PantsTemplate
--- content id. We can't just build "rbxassetid://<assetId>" ourselves: if the
--- admin passed a bundle/package ID (the ID shown on most catalog pages) rather
--- than the underlying individual Shirt/Pants asset ID, that URL doesn't point
--- to a real clothing texture and the clothing renders as nothing (bare body).
--- Instead we load the asset, find the actual Shirt/Pants instance inside it,
--- and reuse its own template property, which is always correct.
-local function resolveClothingTemplate(assetId: number, className: string, cache: { [string]: string }): (string?, string?)
+local function validateClothing(assetId: number, className: string, cache: { [string]: boolean }): (boolean, string?)
         local idStr = tostring(assetId)
         if cache[idStr] then
-                return cache[idStr], nil
+                return true, nil
         end
 
         local model, err = loadAssetModel(assetId)
         if not model then
-                return nil, err
+                return false, err
         end
 
-        local found = findDescendantOfClass(model, className)
-        local template = found and (found :: any)[className == "Shirt" and "ShirtTemplate" or "PantsTemplate"] or nil
+        local found = findDescendantOfClass(model, className) ~= nil
         model:Destroy()
 
-        if not found or type(template) ~= "string" or template == "" then
+        if not found then
                 -- don't cache negatives: a transient load hiccup shouldn't permanently
                 -- brand a valid asset ID as invalid for the rest of the server's life
-                return nil, "Asset " .. idStr .. " is not a " .. className .. " asset."
+                return false, "Asset " .. idStr .. " is not a " .. className .. " asset."
         end
 
-        cache[idStr] = template
-        return template, nil
+        cache[idStr] = true
+        return true, nil
 end
 
-local function applyShirtToCharacter(character: Model, template: string)
+local function applyShirtToCharacter(character: Model, assetId: number)
         local shirt = character:FindFirstChildOfClass("Shirt")
         if not shirt then
                 shirt = Instance.new("Shirt")
                 shirt.Parent = character
         end
-        shirt.ShirtTemplate = template
+        shirt.ShirtTemplate = "rbxassetid://" .. tostring(assetId)
 end
 
-local function applyPantsToCharacter(character: Model, template: string)
+local function applyPantsToCharacter(character: Model, assetId: number)
         local pants = character:FindFirstChildOfClass("Pants")
         if not pants then
                 pants = Instance.new("Pants")
                 pants.Parent = character
         end
-        pants.PantsTemplate = template
+        pants.PantsTemplate = "rbxassetid://" .. tostring(assetId)
 end
 
 -- setshirt <target> <assetId> <permanent>
 function CosmeticsManager.setShirt(player: Player, assetId: number, permanent: boolean): (boolean, string)
-        local template, err = resolveClothingTemplate(assetId, "Shirt", shirtTemplateCache)
-        if not template then
+        local valid, err = validateClothing(assetId, "Shirt", shirtValidCache)
+        if not valid then
                 return false, err or "Invalid asset ID."
         end
 
         local character = player.Character
         if character then
-                applyShirtToCharacter(character, template)
+                applyShirtToCharacter(character, assetId)
         end
 
         local data = getData(player.UserId)
@@ -251,14 +243,14 @@ end
 
 -- setpants <target> <assetId> <permanent>
 function CosmeticsManager.setPants(player: Player, assetId: number, permanent: boolean): (boolean, string)
-        local template, err = resolveClothingTemplate(assetId, "Pants", pantsTemplateCache)
-        if not template then
+        local valid, err = validateClothing(assetId, "Pants", pantsValidCache)
+        if not valid then
                 return false, err or "Invalid asset ID."
         end
 
         local character = player.Character
         if character then
-                applyPantsToCharacter(character, template)
+                applyPantsToCharacter(character, assetId)
         end
 
         local data = getData(player.UserId)
@@ -317,26 +309,10 @@ function CosmeticsManager.onCharacterAdded(player: Player, character: Model)
         if not data then return end
 
         if data.shirt then
-                local assetId = tonumber(data.shirt)
-                if assetId then
-                        local template, err = resolveClothingTemplate(assetId, "Shirt", shirtTemplateCache)
-                        if template then
-                                applyShirtToCharacter(character, template)
-                        else
-                                warn("[CosmeticsManager] failed to reapply shirt " .. data.shirt .. ": " .. tostring(err))
-                        end
-                end
+                applyShirtToCharacter(character, tonumber(data.shirt) :: number)
         end
         if data.pants then
-                local assetId = tonumber(data.pants)
-                if assetId then
-                        local template, err = resolveClothingTemplate(assetId, "Pants", pantsTemplateCache)
-                        if template then
-                                applyPantsToCharacter(character, template)
-                        else
-                                warn("[CosmeticsManager] failed to reapply pants " .. data.pants .. ": " .. tostring(err))
-                        end
-                end
+                applyPantsToCharacter(character, tonumber(data.pants) :: number)
         end
 
         for idStr in pairs(data.accessories) do
