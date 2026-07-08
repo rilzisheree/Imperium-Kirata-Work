@@ -571,20 +571,7 @@ HANDLERS["shutdown"] = function(executor, args)
 
         task.delay(5, function()
                 for _, player in Players:GetPlayers() do
-                        if IS_STUDIO then
-                                -- TeleportService rejoin isn't reliable in Studio testing, so
-                                -- fall back to a plain kick there
-                                player:Kick(kickMsg)
-                        else
-                                -- force an automatic rejoin into a fresh server instead of
-                                -- just kicking them out to the game's home page
-                                local teleOk = pcall(function()
-                                        TeleportService:Teleport(game.PlaceId, player)
-                                end)
-                                if not teleOk then
-                                        player:Kick(kickMsg)
-                                end
-                        end
+                        player:Kick(kickMsg)
                 end
         end)
 end
