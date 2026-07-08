@@ -1,0 +1,1 @@
+- [Roblox clothing template IDs](roblox-clothing-templates.md) — never build rbxassetid://<userInputId> for Shirt/Pants; resolve the real template from the loaded asset instance instead.
