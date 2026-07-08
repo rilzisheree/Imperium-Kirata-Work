@@ -1,2 +1,0 @@
-- [Serverbring cross-server pattern](serverbring-pattern.md) — MessagingService broadcast with IS_STUDIO guard; receiver uses exact-then-prefix match mirroring resolvePlayer; 5 s cooldown per admin.
-- [PrivateServer state lifecycle](private-server-state.md) — privateServerState[uid] must be nil/reserving/active; reserve blocked if code already set; Cancel clears server-side and fires "cancelled" to client.
