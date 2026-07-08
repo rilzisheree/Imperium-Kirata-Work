@@ -294,6 +294,7 @@ if not IS_STUDIO then
                                 local function tryBring(player: Player)
                                         task.spawn(function()
                                                 CommandRemotes.ServerBringNotice:FireClient(player)
+                                                task.wait(2)
                                                 local ok_, err_ = pcall(function()
                                                         if destPsCode then
                                                                 TeleportService:TeleportToPrivateServer(game.PlaceId, destPsCode, { player })
