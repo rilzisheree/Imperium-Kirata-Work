@@ -11,21 +11,21 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
 
 local function killCoreChat()
-	pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, false) end)
+        pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, false) end)
 end
 killCoreChat()
 task.delay(1, killCoreChat)
 
 task.spawn(function()
-	local TCS = game:GetService("TextChatService")
-	local function off(className)
-		local obj = TCS:FindFirstChildOfClass(className)
-		if not obj then obj = TCS:WaitForChild(className, 5) end
-		if obj then pcall(function() obj.Enabled = false end) end
-	end
-	off("ChatInputBarConfiguration")
-	off("ChatWindowConfiguration")
-	off("BubbleChatConfiguration")
+        local TCS = game:GetService("TextChatService")
+        local function off(className)
+                local obj = TCS:FindFirstChildOfClass(className)
+                if not obj then obj = TCS:WaitForChild(className, 5) end
+                if obj then pcall(function() obj.Enabled = false end) end
+        end
+        off("ChatInputBarConfiguration")
+        off("ChatWindowConfiguration")
+        off("BubbleChatConfiguration")
 end)
 
 local ChatRemotes    = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
@@ -51,9 +51,9 @@ local TEXT_COLOR   = Color3.fromRGB(25, 25, 25)
 
 local INAUDIBLE_TEXT = "[ Inaudible ]"
 local INAUDIBLE_PILL_W = math.min(
-	math.ceil(TextService:GetTextSize(INAUDIBLE_TEXT, TEXT_SIZE, FONT,
-		Vector2.new(math.huge, math.huge)).X) + PAD_H * 2 + 6,
-	MAX_BUBBLE_W
+        math.ceil(TextService:GetTextSize(INAUDIBLE_TEXT, TEXT_SIZE, FONT,
+                Vector2.new(math.huge, math.huge)).X) + PAD_H * 2 + 6,
+        MAX_BUBBLE_W
 )
 
 local BAR_H_MIN = 36    -- single-line height
@@ -76,10 +76,10 @@ inputFrame.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
 inputFrame.BackgroundTransparency = 0.25
 inputFrame.BorderSizePixel        = 0
 do
-	Instance.new("UICorner", inputFrame).CornerRadius = UDim.new(0, 7)
-	local s = Instance.new("UIStroke", inputFrame)
-	s.Color = Color3.fromRGB(35, 35, 35); s.Thickness = 1.5
-	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        Instance.new("UICorner", inputFrame).CornerRadius = UDim.new(0, 7)
+        local s = Instance.new("UIStroke", inputFrame)
+        s.Color = Color3.fromRGB(35, 35, 35); s.Thickness = 1.5
+        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 end
 
 local inputBox = Instance.new("TextBox", inputFrame)
@@ -112,14 +112,14 @@ sendBtn.TextSize               = 22
 sendBtn.TextColor3             = Color3.fromRGB(210, 210, 210)
 sendBtn.AutoButtonColor        = false
 do
-	Instance.new("UICorner", sendBtn).CornerRadius = UDim.new(0, 5)
-	local s = Instance.new("UIStroke", sendBtn)
-	s.Color = Color3.fromRGB(35, 35, 35); s.Thickness = 1
-	s.Transparency = 0.3; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        Instance.new("UICorner", sendBtn).CornerRadius = UDim.new(0, 5)
+        local s = Instance.new("UIStroke", sendBtn)
+        s.Color = Color3.fromRGB(35, 35, 35); s.Thickness = 1
+        s.Transparency = 0.3; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 end
 
 local function measureWidth()
-	return math.max(1, inputFrame.AbsoluteSize.X - (BTN_W + 18))
+        return math.max(1, inputFrame.AbsoluteSize.X - (BTN_W + 18))
 end
 
 local measureLabel = Instance.new("TextLabel", inputGui)
@@ -137,20 +137,20 @@ measureLabel.Text                   = ""
 measureLabel.ZIndex                 = 1
 
 inputFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-	measureLabel.Size = UDim2.fromOffset(measureWidth(), 0)
+        measureLabel.Size = UDim2.fromOffset(measureWidth(), 0)
 end)
 
 local function updateBarHeight()
-	local textH = math.max(measureLabel.TextBounds.Y, LINE_H)
-	local newH  = math.clamp(textH + 12, BAR_H_MIN, BAR_H_MAX)
+        local textH = math.max(measureLabel.TextBounds.Y, LINE_H)
+        local newH  = math.clamp(textH + 12, BAR_H_MIN, BAR_H_MAX)
 
-	inputFrame.Size = UDim2.new(0.20, 0, 0, newH)
+        inputFrame.Size = UDim2.new(0.20, 0, 0, newH)
 
-	-- Vertically center on a single line; top-align when text spans multiple.
-	local innerH  = newH - 12
-	local yOffset = math.max(0, math.floor((innerH - textH) / 2))
-	inputBox.Position = UDim2.new(0, 14, 0, 6 + yOffset)
-	inputBox.Size     = UDim2.new(1, -(BTN_W + 18), 0, innerH - yOffset)
+        -- Vertically center on a single line; top-align when text spans multiple.
+        local innerH  = newH - 12
+        local yOffset = math.max(0, math.floor((innerH - textH) / 2))
+        inputBox.Position = UDim2.new(0, 14, 0, 6 + yOffset)
+        inputBox.Size     = UDim2.new(1, -(BTN_W + 18), 0, innerH - yOffset)
 end
 
 measureLabel:GetPropertyChangedSignal("TextBounds"):Connect(updateBarHeight)
@@ -158,278 +158,294 @@ measureLabel:GetPropertyChangedSignal("TextBounds"):Connect(updateBarHeight)
 local speakers = {}
 
 local function getOrMakeSpeaker(character)
-	local head = character:FindFirstChild("Head")
-	if not head then return nil end
-	local pname = character.Name
+        local head = character:FindFirstChild("Head")
+        if not head then return nil end
+        local pname = character.Name
 
-	local existing = speakers[pname]
-	if existing and existing.gui and existing.gui.Parent == head then
-		return existing
-	end
-	if existing then pcall(function() existing.gui:Destroy() end) end
+        local existing = speakers[pname]
+        if existing and existing.gui and existing.gui.Parent == head then
+                return existing
+        end
+        if existing then pcall(function() existing.gui:Destroy() end) end
 
-	local gui = Instance.new("BillboardGui")
-	gui.Name                  = "ChatBubbles"
-	gui.Size                  = UDim2.fromOffset(MAX_BUBBLE_W, BILLBOARD_H)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, STUD_ABOVE, 0)
-	gui.AlwaysOnTop           = false
-	gui.LightInfluence        = 0
-	gui.ClipsDescendants      = false
-	gui.Enabled               = true
-	gui.Parent                = head
+        local gui = Instance.new("BillboardGui")
+        gui.Name                  = "ChatBubbles"
+        gui.Size                  = UDim2.fromOffset(MAX_BUBBLE_W, BILLBOARD_H)
+        gui.StudsOffsetWorldSpace = Vector3.new(0, STUD_ABOVE, 0)
+        gui.AlwaysOnTop           = false
+        gui.LightInfluence        = 0
+        gui.ClipsDescendants      = false
+        gui.Enabled               = true
+        gui.Parent                = head
 
-	local container = Instance.new("Frame", gui)
-	container.AnchorPoint            = Vector2.new(0.5, 1)
-	container.Size                   = UDim2.fromOffset(MAX_BUBBLE_W, BILLBOARD_H / 2)
-	container.Position               = UDim2.fromOffset(MAX_BUBBLE_W / 2, BILLBOARD_H / 2)
-	container.BackgroundTransparency = 1
-	container.BorderSizePixel        = 0
-	container.Active                 = false
+        local container = Instance.new("Frame", gui)
+        container.AnchorPoint            = Vector2.new(0.5, 1)
+        container.Size                   = UDim2.fromOffset(MAX_BUBBLE_W, BILLBOARD_H / 2)
+        container.Position               = UDim2.fromOffset(MAX_BUBBLE_W / 2, BILLBOARD_H / 2)
+        container.BackgroundTransparency = 1
+        container.BorderSizePixel        = 0
+        container.Active                 = false
 
-	local layout = Instance.new("UIListLayout", container)
-	layout.FillDirection       = Enum.FillDirection.Vertical
-	layout.VerticalAlignment   = Enum.VerticalAlignment.Bottom
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.SortOrder           = Enum.SortOrder.LayoutOrder
-	layout.Padding             = UDim.new(0, 3)
+        local layout = Instance.new("UIListLayout", container)
+        layout.FillDirection       = Enum.FillDirection.Vertical
+        layout.VerticalAlignment   = Enum.VerticalAlignment.Bottom
+        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        layout.SortOrder           = Enum.SortOrder.LayoutOrder
+        layout.Padding             = UDim.new(0, 3)
 
-	local data = { gui = gui, container = container, count = 0, bubbles = {} }
-	speakers[pname] = data
-	return data
+        local data = { gui = gui, container = container, count = 0, bubbles = {} }
+        speakers[pname] = data
+        return data
 end
 
 RunService.Heartbeat:Connect(function()
-	local localChar = LocalPlayer.Character
-	local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
+        local localChar = LocalPlayer.Character
+        local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
 
-	for pname, data in pairs(speakers) do
-		local gui = data.gui
-		if not gui or not gui.Parent then
-			speakers[pname] = nil
-			continue
-		end
+        for pname, data in pairs(speakers) do
+                local gui = data.gui
+                if not gui or not gui.Parent then
+                        speakers[pname] = nil
+                        continue
+                end
 
-		local head    = gui.Parent
-		local isLocal = (pname == LocalPlayer.Name)
-		local showFull = isLocal
+                local head    = gui.Parent
+                local isLocal = (pname == LocalPlayer.Name)
+                local showFull = isLocal
 
-		if not isLocal then
-			if not localRoot then
-				gui.Enabled = false
-				continue
-			end
-			local char = head and head.Parent
-			local root = char and char:FindFirstChild("HumanoidRootPart")
-			if root and root.Parent then
-				local dist = (localRoot.Position - root.Position).Magnitude
-				gui.Enabled = dist <= MUFFLED_DISTANCE
-				showFull    = dist <= FULL_DISTANCE
-			else
-				gui.Enabled = false
-				continue
-			end
-		end
+                if not isLocal then
+                        if not localRoot then
+                                gui.Enabled = false
+                                continue
+                        end
+                        local char = head and head.Parent
+                        local root = char and char:FindFirstChild("HumanoidRootPart")
+                        if root and root.Parent then
+                                local dist = (localRoot.Position - root.Position).Magnitude
+                                gui.Enabled = dist <= MUFFLED_DISTANCE
+                                showFull    = dist <= FULL_DISTANCE
+                        else
+                                gui.Enabled = false
+                                continue
+                        end
+                end
 
-		for _, b in ipairs(data.bubbles) do
-			if b.label and b.label.Parent then
-				-- once locked inaudible it stays that way, moving closer won't reveal the text
-				if not showFull and not b.lockedInaudible then
-					b.lockedInaudible = true
-					b.bubble.Size = UDim2.fromOffset(INAUDIBLE_PILL_W, 0)
-				end
-				local want = b.lockedInaudible and INAUDIBLE_TEXT or b.richText
-				if b.label.Text ~= want then b.label.Text = want end
-			end
-		end
-	end
+                for _, b in ipairs(data.bubbles) do
+                        if b.label and b.label.Parent then
+                                -- once locked inaudible it stays that way, moving closer won't reveal the text
+                                if not showFull and not b.lockedInaudible then
+                                        b.lockedInaudible = true
+                                        b.bubble.Size = UDim2.fromOffset(INAUDIBLE_PILL_W, 0)
+                                end
+                                local want = b.lockedInaudible and INAUDIBLE_TEXT or b.richText
+                                if b.label.Text ~= want then b.label.Text = want end
+                        end
+                end
+        end
 end)
 
 local function createBubble(character, text)
-	local data = getOrMakeSpeaker(character)
-	if not data then return end
+        local data = getOrMakeSpeaker(character)
+        if not data then return end
 
-	data.count += 1
+        data.count += 1
 
-	local lockedInaudible = false
-	if character.Name ~= LocalPlayer.Name then
-		local localRoot  = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-		local senderRoot = character:FindFirstChild("HumanoidRootPart")
-		if localRoot and senderRoot then
-			lockedInaudible = (localRoot.Position - senderRoot.Position).Magnitude > FULL_DISTANCE
-		end
-	end
-	local measureText = lockedInaudible and INAUDIBLE_TEXT or MarkdownParser.stripMarkers(text)
+        local lockedInaudible = false
+        if character.Name ~= LocalPlayer.Name then
+                local localRoot  = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local senderRoot = character:FindFirstChild("HumanoidRootPart")
+                if localRoot and senderRoot then
+                        lockedInaudible = (localRoot.Position - senderRoot.Position).Magnitude > FULL_DISTANCE
+                end
+        end
+        local measureText = lockedInaudible and INAUDIBLE_TEXT or MarkdownParser.stripMarkers(text)
 
-	local INF2  = Vector2.new(math.huge, math.huge)
-	local pillW = math.min(math.ceil(TextService:GetTextSize(measureText, TEXT_SIZE, FONT, INF2).X) + PAD_H * 2 + 6, MAX_BUBBLE_W)
+        local INF2  = Vector2.new(math.huge, math.huge)
+        local pillW = math.min(math.ceil(TextService:GetTextSize(measureText, TEXT_SIZE, FONT, INF2).X) + PAD_H * 2 + 6, MAX_BUBBLE_W)
 
-	local bubble = Instance.new("Frame", data.container)
-	bubble.LayoutOrder            = data.count
-	bubble.AutomaticSize          = Enum.AutomaticSize.Y
-	bubble.Size                   = UDim2.fromOffset(pillW, 0)
-	bubble.BackgroundColor3       = BG_COLOR
-	bubble.BackgroundTransparency = 1
-	bubble.BorderSizePixel        = 0
-	bubble.Active                 = false
-	Instance.new("UICorner", bubble).CornerRadius = UDim.new(0, CORNER)
+        local bubble = Instance.new("Frame", data.container)
+        bubble.LayoutOrder            = data.count
+        bubble.AutomaticSize          = Enum.AutomaticSize.Y
+        bubble.Size                   = UDim2.fromOffset(pillW, 0)
+        bubble.BackgroundColor3       = BG_COLOR
+        bubble.BackgroundTransparency = 1
+        bubble.BorderSizePixel        = 0
+        bubble.Active                 = false
+        Instance.new("UICorner", bubble).CornerRadius = UDim.new(0, CORNER)
 
-	local pad = Instance.new("UIPadding", bubble)
-	pad.PaddingLeft   = UDim.new(0, PAD_H)
-	pad.PaddingRight  = UDim.new(0, PAD_H)
-	pad.PaddingTop    = UDim.new(0, PAD_V)
-	pad.PaddingBottom = UDim.new(0, PAD_V)
+        local pad = Instance.new("UIPadding", bubble)
+        pad.PaddingLeft   = UDim.new(0, PAD_H)
+        pad.PaddingRight  = UDim.new(0, PAD_H)
+        pad.PaddingTop    = UDim.new(0, PAD_V)
+        pad.PaddingBottom = UDim.new(0, PAD_V)
 
-	local label = Instance.new("TextLabel", bubble)
-	label.BackgroundTransparency = 1
-	label.AutomaticSize          = Enum.AutomaticSize.Y
-	label.Size                   = UDim2.new(1, 0, 0, 0)
-	label.Font                   = FONT
-	label.TextSize               = TEXT_SIZE
-	label.TextColor3             = TEXT_COLOR
-	label.TextXAlignment         = Enum.TextXAlignment.Center
-	label.TextWrapped            = true
-	label.RichText               = true
-	label.TextTransparency       = 1
-	label.TextStrokeTransparency = 1
-	label.Text                   = lockedInaudible and INAUDIBLE_TEXT or MarkdownParser.toRichText(text)
+        local label = Instance.new("TextLabel", bubble)
+        label.BackgroundTransparency = 1
+        label.AutomaticSize          = Enum.AutomaticSize.Y
+        label.Size                   = UDim2.new(1, 0, 0, 0)
+        label.Font                   = FONT
+        label.TextSize               = TEXT_SIZE
+        label.TextColor3             = TEXT_COLOR
+        label.TextXAlignment         = Enum.TextXAlignment.Center
+        label.TextWrapped            = true
+        label.RichText               = true
+        label.TextTransparency       = 1
+        label.TextStrokeTransparency = 1
+        label.Text                   = lockedInaudible and INAUDIBLE_TEXT or MarkdownParser.toRichText(text)
 
-	local fadeIn = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	TweenService:Create(bubble, fadeIn, { BackgroundTransparency = BG_TRANS }):Play()
-	TweenService:Create(label,  fadeIn, { TextTransparency = 0 }):Play()
+        local fadeIn = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        TweenService:Create(bubble, fadeIn, { BackgroundTransparency = BG_TRANS }):Play()
+        TweenService:Create(label,  fadeIn, { TextTransparency = 0 }):Play()
 
-	local entry = { label = label, bubble = bubble, originalText = text, richText = MarkdownParser.toRichText(text), lockedInaudible = lockedInaudible }
-	table.insert(data.bubbles, entry)
+        local entry = { label = label, bubble = bubble, originalText = text, richText = MarkdownParser.toRichText(text), lockedInaudible = lockedInaudible }
+        table.insert(data.bubbles, entry)
 
-	task.delay(HOLD_DURATION, function()
-		if bubble.Parent then
-			local fadeOut = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-			local t1 = TweenService:Create(bubble, fadeOut, { BackgroundTransparency = 1 })
-			local t2 = TweenService:Create(label,  fadeOut, { TextTransparency = 1 })
-			t1:Play(); t2:Play()
-			pcall(function() t1.Completed:Wait() end)
-		end
+        task.delay(HOLD_DURATION, function()
+                if bubble.Parent then
+                        local fadeOut = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+                        local t1 = TweenService:Create(bubble, fadeOut, { BackgroundTransparency = 1 })
+                        local t2 = TweenService:Create(label,  fadeOut, { TextTransparency = 1 })
+                        t1:Play(); t2:Play()
+                        pcall(function() t1.Completed:Wait() end)
+                end
 
-		local idx = table.find(data.bubbles, entry)
-		if idx then table.remove(data.bubbles, idx) end
-		pcall(function() bubble:Destroy() end)
-		if #data.bubbles == 0 and speakers[character.Name] == data then
-			pcall(function() data.gui:Destroy() end)
-			speakers[character.Name] = nil
-		end
-	end)
+                local idx = table.find(data.bubbles, entry)
+                if idx then table.remove(data.bubbles, idx) end
+                pcall(function() bubble:Destroy() end)
+                if #data.bubbles == 0 and speakers[character.Name] == data then
+                        pcall(function() data.gui:Destroy() end)
+                        speakers[character.Name] = nil
+                end
+        end)
 end
 
 Players.PlayerRemoving:Connect(function(player)
-	local data = speakers[player.Name]
-	if data then
-		pcall(function() data.gui:Destroy() end)
-		speakers[player.Name] = nil
-	end
+        local data = speakers[player.Name]
+        if data then
+                pcall(function() data.gui:Destroy() end)
+                speakers[player.Name] = nil
+        end
 end)
 
 ChatRemotes.MessageReceived.OnClientEvent:Connect(function(payload)
-	if not payload or not payload.senderName then return end
-	local sender = Players:FindFirstChild(payload.senderName)
-	if not sender then return end
+        if not payload or not payload.senderName then return end
+        local sender = Players:FindFirstChild(payload.senderName)
+        if not sender then return end
 
-	local msg = payload.message or ""
-	if payload.isThought then
-		msg = "[THOUGHTS] " .. msg
-	elseif payload.isWhisper then
-		msg = "[WHISPER] " .. msg
-	end
-	local character = sender.Character
-	if character then
-		createBubble(character, msg)
-	else
-		task.spawn(function()
-			local done, conn = false, nil
-			conn = sender.CharacterAdded:Connect(function(char)
-				conn:Disconnect()
-				done = true
-				createBubble(char, msg)
-			end)
-			task.wait(3)
-			if not done then pcall(function() conn:Disconnect() end) end
-		end)
-	end
+        local msg = payload.message or ""
+        if payload.isThought then
+                msg = "[THOUGHTS] " .. msg
+        elseif payload.isWhisper then
+                msg = "[WHISPER] " .. msg
+        end
+        local character = sender.Character
+        if character then
+                createBubble(character, msg)
+        else
+                task.spawn(function()
+                        local done, conn = false, nil
+                        conn = sender.CharacterAdded:Connect(function(char)
+                                conn:Disconnect()
+                                done = true
+                                createBubble(char, msg)
+                        end)
+                        task.wait(3)
+                        if not done then pcall(function() conn:Disconnect() end) end
+                end)
+        end
 end)
 
 local submitting = false
 
 local function submitMessage()
-	if submitting then return end
-	submitting = true
-	task.defer(function() submitting = false end)
+        if submitting then return end
+        submitting = true
+        task.defer(function() submitting = false end)
 
-	local text = inputBox.Text:match("^%s*(.-)%s*$") or ""
-	if text ~= "" then
-		ChatRemotes.MessageSent:FireServer(text)
-	end
-	inputBox.Text     = ""
-	measureLabel.Text = ""
-	inputBox:ReleaseFocus()
-	inputFrame.Size   = UDim2.new(0.20, 0, 0, BAR_H_MIN)
-	inputBox.Position = UDim2.new(0, 14, 0, math.floor((BAR_H_MIN - LINE_H) / 2))
-	inputBox.Size     = UDim2.new(1, -(BTN_W + 18), 0, LINE_H)
+        local text = inputBox.Text:match("^%s*(.-)%s*$") or ""
+        if text ~= "" then
+                ChatRemotes.MessageSent:FireServer(text)
+        end
+        inputBox.Text     = ""
+        measureLabel.Text = ""
+        inputBox:ReleaseFocus()
+        inputFrame.Size   = UDim2.new(0.20, 0, 0, BAR_H_MIN)
+        inputBox.Position = UDim2.new(0, 14, 0, math.floor((BAR_H_MIN - LINE_H) / 2))
+        inputBox.Size     = UDim2.new(1, -(BTN_W + 18), 0, LINE_H)
 end
 
 inputBox:GetPropertyChangedSignal("Text"):Connect(function()
-	local dirty = inputBox.Text:find("[\n\r]")
-	if dirty then
-		local c = inputBox.Text:gsub("[\n\r]", "")
-		inputBox.Text = c
-		inputBox.CursorPosition = #c + 1
-		return
-	end
-	if #inputBox.Text > MAX_CHARS then
-		inputBox.Text = inputBox.Text:sub(1, MAX_CHARS)
-		return
-	end
-	measureLabel.Text = inputBox.Text ~= "" and inputBox.Text or " "
+        local dirty = inputBox.Text:find("[\n\r]")
+        if dirty then
+                local c = inputBox.Text:gsub("[\n\r]", "")
+                inputBox.Text = c
+                inputBox.CursorPosition = #c + 1
+                return
+        end
+        if #inputBox.Text > MAX_CHARS then
+                inputBox.Text = inputBox.Text:sub(1, MAX_CHARS)
+                return
+        end
+        measureLabel.Text = inputBox.Text ~= "" and inputBox.Text or " "
 end)
 
 sendBtn.MouseButton1Click:Connect(submitMessage)
 
 inputFrame.InputBegan:Connect(function(inp)
-	if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-		inputBox:CaptureFocus()
-	end
+        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                inputBox:CaptureFocus()
+        end
 end)
 
 inputBox.FocusLost:Connect(function(enterPressed)
-	if enterPressed then submitMessage() end
+        if enterPressed then submitMessage() end
+end)
+
+-- Roblox can replay the "/" keystroke that opened the chat box into the box
+-- itself once it gains focus, even though ChatOpenSlash sinks the input.
+-- Strip a lone leading "/" so the box always opens empty.
+inputBox.Focused:Connect(function()
+        if inputBox.Text == "/" then
+                inputBox.Text = ""
+        end
+        -- the replayed keystroke can land a frame after Focused fires, so
+        -- double-check once more on the next frame
+        task.defer(function()
+                if inputBox.Text == "/" then
+                        inputBox.Text = ""
+                end
+        end)
 end)
 
 ContextActionService:BindAction(
-	"ChatOpenSlash",
-	function(_, state, _)
-		if state ~= Enum.UserInputState.Begin then
-			return Enum.ContextActionResult.Pass
-		end
-		if UserInputService:GetFocusedTextBox() == inputBox then
-			return Enum.ContextActionResult.Pass
-		end
-		task.defer(function()
-			inputBox:CaptureFocus()
-		end)
-		return Enum.ContextActionResult.Sink
-	end,
-	false,
-	Enum.KeyCode.Slash
+        "ChatOpenSlash",
+        function(_, state, _)
+                if state ~= Enum.UserInputState.Begin then
+                        return Enum.ContextActionResult.Pass
+                end
+                if UserInputService:GetFocusedTextBox() == inputBox then
+                        return Enum.ContextActionResult.Pass
+                end
+                task.defer(function()
+                        inputBox:CaptureFocus()
+                end)
+                return Enum.ContextActionResult.Sink
+        end,
+        false,
+        Enum.KeyCode.Slash
 )
 
 UserInputService.InputBegan:Connect(function(inp, _gameProcessed)
-	if inp.KeyCode == Enum.KeyCode.Return or inp.KeyCode == Enum.KeyCode.KeypadEnter then
-		if UserInputService:GetFocusedTextBox() == inputBox then
-			submitMessage()
-		end
-		return
-	end
-	if inp.KeyCode == Enum.KeyCode.Escape then
-		if UserInputService:GetFocusedTextBox() == inputBox then
-			inputBox.Text = ""
-			inputBox:ReleaseFocus()
-		end
-	end
+        if inp.KeyCode == Enum.KeyCode.Return or inp.KeyCode == Enum.KeyCode.KeypadEnter then
+                if UserInputService:GetFocusedTextBox() == inputBox then
+                        submitMessage()
+                end
+                return
+        end
+        if inp.KeyCode == Enum.KeyCode.Escape then
+                if UserInputService:GetFocusedTextBox() == inputBox then
+                        inputBox.Text = ""
+                        inputBox:ReleaseFocus()
+                end
+        end
 end)
