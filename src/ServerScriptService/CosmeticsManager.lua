@@ -168,11 +168,22 @@ function CosmeticsManager.setHair(player: Player, assetId: number, permanent: bo
         return true, character and "equipped" or "saved (no character loaded)"
 end
 
+-- searches the full descendant tree, not just direct children, since catalog
+-- clothing assets loaded via InsertService can come back wrapped in an extra
+-- container Model rather than exposing the Shirt/Pants as a direct child
+local function findDescendantOfClass(root: Instance, className: string): Instance?
+        for _, inst in root:GetDescendants() do
+                if inst:IsA(className) then
+                        return inst
+                end
+        end
+        return nil
+end
+
 local function validateClothing(assetId: number, className: string, cache: { [string]: boolean }): (boolean, string?)
         local idStr = tostring(assetId)
-        if cache[idStr] ~= nil then
-                if cache[idStr] then return true, nil end
-                return false, "Asset " .. idStr .. " is not a " .. className .. " asset."
+        if cache[idStr] then
+                return true, nil
         end
 
         local model, err = loadAssetModel(assetId)
@@ -180,12 +191,16 @@ local function validateClothing(assetId: number, className: string, cache: { [st
                 return false, err
         end
 
-        local found = model:FindFirstChildOfClass(className) ~= nil
+        local found = findDescendantOfClass(model, className) ~= nil
         model:Destroy()
-        cache[idStr] = found
+
         if not found then
+                -- don't cache negatives: a transient load hiccup shouldn't permanently
+                -- brand a valid asset ID as invalid for the rest of the server's life
                 return false, "Asset " .. idStr .. " is not a " .. className .. " asset."
         end
+
+        cache[idStr] = true
         return true, nil
 end
 
