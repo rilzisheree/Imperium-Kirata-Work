@@ -1,0 +1,13 @@
+Before making any new changes, refactor the existing codebase to improve its overall quality and consistency. Use a single, consistent coding style throughout all scripts, including naming conventions, formatting, indentation, and file organization. Remove redundant comments, unused variables, dead code, and duplicated logic. Simplify overly verbose sections where appropriate while preserving readability. Keep comments concise and only where they provide meaningful context. Do not rewrite the architecture or change functionality unless necessary. The end result should feel like a clean, well-maintained project with a consistent style across every script.
+
+Add these to their genres in the Music menu, its listed as: ID | NAME
+
+Calm
+131663436896795 - Dr-Stone 0ST 01 74223976958523 - Dr-Stone OST 07 77528113627917 - Dr-Stone OST 14 81231077476265 - Dr-Stone OST 23 126321638662994 - Dr-Stone OST 32 99627506664097 - "Hīrō ni naru nda" MHA 75252809311040 - "Heiwa no shōchō" MHA 105659474170173 - "Mu kosei no kunō" MHA 114522608184310 - "Tsuppari hankō-ki" MHA 91439003360287 - K-on - Have some tea 100586849702964 - K-On! - Summer Ocean 127682939322771 - K-on - Genki 120226505866112 - Merrier Tamako 140002258083304 - Yattemiyou 74163496697693 - Food Court Dialogue 77446191745586 - My Universe (Instrumental) 89891313789297 - Living Room — Blue Lock [OST] 110395238223034 - Bedroom — Blue Lock [OST] 95497960463962 - ???
+
+Intense
+104073444477137 - Dr.Stone OST #10 - The Strongest Primate High Schooler 88748272922027 - Tokyo Ghoul OST - Verzerrte Welt 73016828165566 - "Villain" (Villian's Theme) MHA 71866511116940 - Body Motion - AoT OST 99418915964524 - Tokyo Ghoul OST Disc 1 - 05. Transplantation 136063864916383 - Black Clover OST - 05 - Pentagram 107888398080501 - Black Clover OST II - 30 - Unleashed Power
+
+Fighting
+111610037616781 - SAO II OST Track 28 - Drive your Way 85282093297000 - "Bōsō sentō" (Runaway Battle) 103132935432313 - Black Clover OST - 13 - Jet Black Sword
+

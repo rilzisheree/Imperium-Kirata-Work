@@ -15,7 +15,6 @@ local WIN_H   = 480
 local TITLE_H = 38
 local SRCH_H  = 34
 
--- Colour palette — dark, matches CommandBar aesthetic
 local C_BG      = Color3.fromRGB(12,  12,  18)
 local C_TITLE   = Color3.fromRGB(18,  18,  28)
 local C_BORDER  = Color3.fromRGB(80,  80, 110)
@@ -24,12 +23,9 @@ local C_DIM     = Color3.fromRGB(85,  85, 105)
 local C_SRCH    = Color3.fromRGB(20,  20,  32)
 local C_ROW     = Color3.fromRGB(16,  16,  24)
 local C_SEP     = Color3.fromRGB(45,  45,  65)
--- Thoughts messages are rendered in this purple so they stand out immediately.
 local C_THOUGHT  = "#a064ff"
--- Whisper messages are rendered in light gray to distinguish them from normal chat.
 local C_WHISPER  = "#b8b8c8"
 
--- Each entry:  { teamName, teamColor, senderName, message, row }
 local logEntries   = {}
 local currentQuery = ""
 local isOpen       = false
@@ -87,7 +83,6 @@ closeBtn.Text                   = "X"
 closeBtn.AutoButtonColor        = false
 Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 5)
 
--- Title / search separator
 local sep0 = Instance.new("Frame", win)
 sep0.Size             = UDim2.new(1, 0, 0, 1)
 sep0.Position         = UDim2.new(0, 0, 0, TITLE_H)
@@ -158,10 +153,6 @@ local function toHex(c)
 		math.clamp(math.floor(c.B * 255 + 0.5), 0, 255))
 end
 
--- Build the RichText string for one log entry.
--- Normal format:  {TeamName} [Username]: "Message"
--- Thought format: [THOUGHTS] [Username]: "Message"  (whole line in purple)
--- Whisper format: [WHISPER]  [Username]: "Message"  (whole line in light gray)
 local function buildText(entry)
 	if entry.isThought then
 		return string.format(
@@ -188,7 +179,6 @@ local function buildText(entry)
 	)
 end
 
--- Create a row Frame for one entry and return it (not yet parented).
 local function makeRow(entry, layoutOrder)
 	local row = Instance.new("Frame")
 	row.Name              = "Row"
@@ -205,8 +195,7 @@ local function makeRow(entry, layoutOrder)
 	pad.PaddingTop    = UDim.new(0, 5)
 	pad.PaddingBottom = UDim.new(0, 5)
 
-	-- Thin separator line at the bottom of every row
-	local sep = Instance.new("Frame", row)
+		local sep = Instance.new("Frame", row)
 	sep.Size             = UDim2.new(1, 0, 0, 1)
 	sep.AnchorPoint      = Vector2.new(0, 1)
 	sep.Position         = UDim2.new(0, 0, 1, 0)
@@ -347,4 +336,3 @@ ChatRemotes.MessageReceived.OnClientEvent:Connect(function(payload)
 	end
 end)
 
-print("[ChatLogs] Ready")

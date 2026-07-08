@@ -10,7 +10,6 @@ local UserInputService     = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui   = LocalPlayer:WaitForChild("PlayerGui")
 
--- kill default chat
 local function killCoreChat()
 	pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, false) end)
 end
@@ -32,14 +31,12 @@ end)
 local ChatRemotes    = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 local MarkdownParser = require(ReplicatedStorage:WaitForChild("MarkdownParser"))
 
--- distance tiers
 local FULL_DISTANCE    = 27   -- full message
 local MUFFLED_DISTANCE = 33   -- [Inaudible]
 
 local HOLD_DURATION = 7
 local MAX_CHARS     = 200
 
--- bubble visuals
 local MAX_BUBBLE_W = 360
 local BILLBOARD_H  = 500
 local STUD_ABOVE   = 1.4
@@ -53,14 +50,12 @@ local BG_TRANS     = 0.06
 local TEXT_COLOR   = Color3.fromRGB(25, 25, 25)
 
 local INAUDIBLE_TEXT = "[ Inaudible ]"
--- pre-measure so we're not calling GetTextSize every frame
 local INAUDIBLE_PILL_W = math.min(
 	math.ceil(TextService:GetTextSize(INAUDIBLE_TEXT, TEXT_SIZE, FONT,
 		Vector2.new(math.huge, math.huge)).X) + PAD_H * 2 + 6,
 	MAX_BUBBLE_W
 )
 
--- input bar
 local BAR_H_MIN = 36    -- single-line height
 local BAR_H_MAX = 110   -- cap at ~5 lines (TextBox scrolls natively beyond this)
 local LINE_H    = 18    -- approximate rendered height of one line at TextSize 14 GothamSemibold
@@ -123,14 +118,6 @@ do
 	s.Transparency = 0.3; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 end
 
--- Off-screen TextLabel that mirrors inputBox content.  TextLabel.TextBounds
--- correctly reports wrapped height; TextBox.TextBounds does not.
--- Must NOT be Visible=false: Roblox skips layout (including TextBounds) for
--- invisible elements, so the signal never fires and the bar never grows.
--- Instead we keep it rendered but fully transparent and positioned off-screen,
--- matching the same pattern used by CommandBar.client.lua.
--- inputBox width = parent width - (BTN_W + 18); no extra subtraction for
--- position because position does not reduce the rendered width.
 local function measureWidth()
 	return math.max(1, inputFrame.AbsoluteSize.X - (BTN_W + 18))
 end
@@ -149,7 +136,6 @@ measureLabel.TextYAlignment         = Enum.TextYAlignment.Top
 measureLabel.Text                   = ""
 measureLabel.ZIndex                 = 1
 
--- Keep the measurement label's width in sync with the input box's actual width.
 inputFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 	measureLabel.Size = UDim2.fromOffset(measureWidth(), 0)
 end)
@@ -169,7 +155,6 @@ end
 
 measureLabel:GetPropertyChangedSignal("TextBounds"):Connect(updateBarHeight)
 
--- bubble system
 local speakers = {}
 
 local function getOrMakeSpeaker(character)
@@ -213,7 +198,6 @@ local function getOrMakeSpeaker(character)
 	return data
 end
 
--- real-time distance check: show/hide bubbles and swap to [Inaudible] when out of full range
 RunService.Heartbeat:Connect(function()
 	local localChar = LocalPlayer.Character
 	local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
@@ -266,7 +250,6 @@ local function createBubble(character, text)
 
 	data.count += 1
 
-	-- lock inaudible state at creation time so latecomers always see [Inaudible]
 	local lockedInaudible = false
 	if character.Name ~= LocalPlayer.Name then
 		local localRoot  = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -275,8 +258,6 @@ local function createBubble(character, text)
 			lockedInaudible = (localRoot.Position - senderRoot.Position).Magnitude > FULL_DISTANCE
 		end
 	end
-	-- For width measurement use the stripped text (markers removed) so the pill
-	-- is sized to the visible content, not the raw markdown source.
 	local measureText = lockedInaudible and INAUDIBLE_TEXT or MarkdownParser.stripMarkers(text)
 
 	local INF2  = Vector2.new(math.huge, math.huge)
@@ -346,33 +327,27 @@ Players.PlayerRemoving:Connect(function(player)
 	end
 end)
 
--- receive messages from server
 ChatRemotes.MessageReceived.OnClientEvent:Connect(function(payload)
 	if not payload or not payload.senderName then return end
 	local sender = Players:FindFirstChild(payload.senderName)
 	if not sender then return end
 
-	-- The server already restricts delivery by role (thoughts) or distance
-	-- (whispers), so every payload received here is safe to display.
-	-- Prepend the appropriate label so it's visible in the bubble and feed.
 	local msg = payload.message or ""
 	if payload.isThought then
 		msg = "[THOUGHTS] " .. msg
 	elseif payload.isWhisper then
 		msg = "[WHISPER] " .. msg
 	end
-	local message = msg
-
 	local character = sender.Character
 	if character then
-		createBubble(character, message)
+		createBubble(character, msg)
 	else
 		task.spawn(function()
 			local done, conn = false, nil
 			conn = sender.CharacterAdded:Connect(function(char)
 				conn:Disconnect()
 				done = true
-				createBubble(char, message)
+				createBubble(char, msg)
 			end)
 			task.wait(3)
 			if not done then pcall(function() conn:Disconnect() end) end
@@ -380,7 +355,6 @@ ChatRemotes.MessageReceived.OnClientEvent:Connect(function(payload)
 	end
 end)
 
--- input handling
 local submitting = false
 
 local function submitMessage()
@@ -395,14 +369,12 @@ local function submitMessage()
 	inputBox.Text     = ""
 	measureLabel.Text = ""
 	inputBox:ReleaseFocus()
-	-- Reset bar to single-line height.
 	inputFrame.Size   = UDim2.new(0.20, 0, 0, BAR_H_MIN)
 	inputBox.Position = UDim2.new(0, 14, 0, math.floor((BAR_H_MIN - LINE_H) / 2))
 	inputBox.Size     = UDim2.new(1, -(BTN_W + 18), 0, LINE_H)
 end
 
 inputBox:GetPropertyChangedSignal("Text"):Connect(function()
-	-- Strip control characters (newlines inserted by MultiLine on Enter).
 	local dirty = inputBox.Text:find("[\n\r]")
 	if dirty then
 		local c = inputBox.Text:gsub("[\n\r]", "")
@@ -410,12 +382,10 @@ inputBox:GetPropertyChangedSignal("Text"):Connect(function()
 		inputBox.CursorPosition = #c + 1
 		return
 	end
-	-- Enforce character limit.
 	if #inputBox.Text > MAX_CHARS then
 		inputBox.Text = inputBox.Text:sub(1, MAX_CHARS)
 		return
 	end
-	-- Mirror into measurement label so TextBounds reflects wrapped height.
 	measureLabel.Text = inputBox.Text ~= "" and inputBox.Text or " "
 end)
 
@@ -431,7 +401,6 @@ inputBox.FocusLost:Connect(function(enterPressed)
 	if enterPressed then submitMessage() end
 end)
 
--- slash opens the chat bar (CAS so it beats TextChatService bindings)
 ContextActionService:BindAction(
 	"ChatOpenSlash",
 	function(_, state, _)
@@ -450,7 +419,6 @@ ContextActionService:BindAction(
 	Enum.KeyCode.Slash
 )
 
--- enter fallback (TextChatService can swallow it and send FocusLost with enterPressed=false)
 UserInputService.InputBegan:Connect(function(inp, _gameProcessed)
 	if inp.KeyCode == Enum.KeyCode.Return or inp.KeyCode == Enum.KeyCode.KeypadEnter then
 		if UserInputService:GetFocusedTextBox() == inputBox then

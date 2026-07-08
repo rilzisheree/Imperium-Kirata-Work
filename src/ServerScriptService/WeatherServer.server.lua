@@ -28,14 +28,12 @@ local function hasPermission(player, required)
 	return (TIER_ORDER[tier] or 0) >= (TIER_ORDER[required] or 99)
 end
 
--- Ensure Atmosphere exists in Lighting
 local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
 if not atmosphere then
 	atmosphere = Instance.new("Atmosphere")
 	atmosphere.Parent = Lighting
 end
 
--- Ensure Clouds exist in Terrain
 local terrain = Workspace:FindFirstChildOfClass("Terrain")
 local clouds  = terrain and terrain:FindFirstChildOfClass("Clouds")
 if terrain and not clouds then
@@ -43,7 +41,6 @@ if terrain and not clouds then
 	clouds.Parent = terrain
 end
 
--- Weather FX folder (holds emitter part + ambient sound)
 local fxFolder = Workspace:FindFirstChild("WeatherFX")
 if not fxFolder then
 	fxFolder        = Instance.new("Folder")
@@ -51,9 +48,6 @@ if not fxFolder then
 	fxFolder.Parent = Workspace
 end
 
--- Emitter part floats above the map centre. 1024×1024 covers a normal play
--- area without spreading particles too thin. y=200 gives enough fall height
--- (~2 seconds at average speed) for rain to look like it comes from the sky.
 local emitterPart = Instance.new("Part")
 emitterPart.Name         = "WeatherEmitter"
 emitterPart.Size         = Vector3.new(1024, 1, 1024)
@@ -64,17 +58,12 @@ emitterPart.Transparency = 1
 emitterPart.CastShadow   = false
 emitterPart.Parent       = fxFolder
 
--- Looped ambient sound; parented to Workspace so it replicates to all clients
 local weatherSound        = Instance.new("Sound")
 weatherSound.Name         = "WeatherAmbient"
 weatherSound.Looped       = true
 weatherSound.Volume       = 0.5
 weatherSound.RollOffMaxDistance = 1e6
 weatherSound.Parent       = fxFolder
-
---  soundId   = 0 means no sound; replace with a valid rbxassetid number.
---  particles = list of ParticleEmitter property tables; Texture accepts
---              an rbxassetid:// string — swap in owned assets for best visuals.
 
 local PRESETS = {
 	Clear = {

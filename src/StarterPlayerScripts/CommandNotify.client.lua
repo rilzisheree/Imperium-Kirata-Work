@@ -7,10 +7,8 @@ local PGui = LP:WaitForChild("PlayerGui")
 
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes") :: ModuleScript)
 
--- exact palette from CommandBar
 local C_BG   = Color3.fromRGB(12,  12,  18)
 local C_BOR  = Color3.fromRGB(90,  90, 120)
-local C_DIM  = Color3.fromRGB(80,  80, 100)
 local C_OK   = Color3.fromRGB(130, 160, 255)
 local C_FAIL = Color3.fromRGB(215,  75,  75)
 
@@ -32,9 +30,6 @@ local tweenIn     = TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirec
 local tweenOut    = TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
 local tweenReflow = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 
--- stack[i] = { card = Frame, activeTween = Tween? }
--- a card is removed from the stack the moment its dismiss begins,
--- so reflow never races with the slide-out tween
 local stack = {}
 
 local REST_X_SCALE  = 1
@@ -57,7 +52,6 @@ local function offPos(slot)
 	return UDim2.new(OFF_X_SCALE, OFF_X_OFFSET, ys, yo)
 end
 
--- cancel the current reflow tween (if any) and start a new one to the correct slot
 local function reflowStack()
 	for i, entry in ipairs(stack) do
 		local slot = i - 1
@@ -92,7 +86,6 @@ local function notify(success, msg)
 	stroke.Color           = C_BOR
 	stroke.Thickness       = 1.5
 
-	-- left accent bar
 	local accent = Instance.new("Frame", card)
 	accent.AnchorPoint      = Vector2.new(0, 0.5)
 	accent.Size             = UDim2.new(0, 3, 1, -14)
@@ -101,7 +94,6 @@ local function notify(success, msg)
 	accent.BorderSizePixel  = 0
 	Instance.new("UICorner", accent).CornerRadius = UDim.new(0, 2)
 
-	-- title
 	local title = Instance.new("TextLabel", card)
 	title.Size               = UDim2.new(1, -28, 0, 17)
 	title.Position           = UDim2.new(0, 22, 0, 8)
@@ -114,7 +106,6 @@ local function notify(success, msg)
 	title.TextWrapped        = false
 	title.Text               = success and "Command Executed" or "Command Failed"
 
-	-- subtitle (server feedback message)
 	local sub = Instance.new("TextLabel", card)
 	sub.Size               = UDim2.new(1, -28, 0, 14)
 	sub.Position           = UDim2.new(0, 22, 0, 27)
@@ -146,8 +137,7 @@ local function notify(success, msg)
 		-- cancel any reflow tween that was running on this card
 		if entry.activeTween then entry.activeTween:Cancel() end
 
-		-- slide out from its current visual slot
-		local tween = TweenService:Create(card, tweenOut, { Position = offPos(dismissSlot) })
+			local tween = TweenService:Create(card, tweenOut, { Position = offPos(dismissSlot) })
 		tween:Play()
 		tween.Completed:Connect(function() card:Destroy() end)
 

@@ -1,8 +1,3 @@
--- ;        → open/close
--- Escape   → close
--- Enter    → run
--- Tab      → accept suggestion
--- Up/Down  → move through suggestions
 
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,7 +10,6 @@ local CommandRegistry = require(ReplicatedStorage:WaitForChild("CommandRegistry"
 local LP   = Players.LocalPlayer
 local PGui = LP:WaitForChild("PlayerGui")
 
--- Mirror of the server's TIER_ORDER — used to filter commands by permission.
 local TIER_ORDER = { Everyone = 0, Helper = 1, Moderator = 2, Admin = 3, Owner = 4 }
 
 local COMMANDS = {}
@@ -28,8 +22,7 @@ CommandRemotes.Permissions.OnClientEvent:Connect(function(tier: string)
 
 	for k in pairs(COMMANDS) do COMMANDS[k] = nil end
 
-	-- chatlogs is Admin+ (local-only command, not in CommandRegistry)
-	if myLevel >= TIER_ORDER["Admin"] then
+		if myLevel >= TIER_ORDER["Admin"] then
 		COMMANDS["chatlogs"] = { args = {}, description = "Open / close chat logs" }
 	end
 

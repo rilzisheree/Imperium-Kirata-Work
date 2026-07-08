@@ -10,45 +10,51 @@ local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 local LP   = Players.LocalPlayer
 local PGui = LP:WaitForChild("PlayerGui")
 
--- Add new sections / tracks here; the menu builds itself from this table.
--- Keep IDs in sync with MUSIC_TRACK_IDS in CommandServer.server.lua.
 local SECTIONS = {
 	{
 		name   = "Calm",
 		tracks = {
-			{ id = "7029031068",      title = "Holy Eerie / Still Holy"               },
-			{ id = "1836102253",      title = "Calm Song"                             },
-			{ id = "1847107549",      title = "Fast Piano"                            },
-			{ id = "9046651755",      title = "Sort of Loud, Fast, Deep"              },
-			{ id = "1839806128",      title = "Calm Night Vibes"                      },
-			{ id = "1838853198",      title = "Night Calm Harry Potter Vibes"         },
-			{ id = "1841831379",      title = "Warm Atmosphere"                       },
-			{ id = "76350635489391",  title = "Calm Waves | Goated"                   },
-			{ id = "1847854017",      title = "Chill Flute Build Up"                  },
-			{ id = "118028992848427", title = "Chill Beat"                            },
-			{ id = "1839661340",      title = "Emotional Singing, Short String Guitar"},
-			{ id = "9048339210",      title = "Radio Vibes, Very Jumpy"               },
-			{ id = "1837065029",      title = "Female Speaking, Emotional"            },
-			{ id = "1844272332",      title = "Concentrated Calm"                     },
-			{ id = "9042437001",      title = "Reflection"                            },
-			{ id = "1838635121",      title = "SoL / Marriage / Funeral"              },
-			{ id = "9047885144",      title = "SoL / Marriage / Funeral 2"            },
-			{ id = "9041904416",      title = "Fantasy SoL Music"                     },
-			{ id = "1846115874",      title = "Angelic Voices"                        },
-			{ id = "1840524246",      title = "SoL / Funeral / Marriage PD Music"     },
-			{ id = "847732158",       title = "Eerie SoL Music"                       },
-			{ id = "114213622974713", title = "The Loneliest Hour"                    },
-			{ id = "1844634063",      title = "Sad Violin"                            },
-			{ id = "9046435309",      title = "Sad, Yet Calming (Favorite)"           },
-			{ id = "1840435172",      title = "Gamezone (A)"                          },
-			{ id = "1846486437",      title = "Japanese Breeze 1"                     },
-			{ id = "1846503445",      title = "Japanese Breeze 2"                     },
-			{ id = "9039953638",      title = "SoL | Elevator Music"                  },
-			{ id = "1848090455",      title = "Calm Set The Mood Music"               },
+			{ id = "131663436896795", title = "Dr-Stone OST 01"                          },
+			{ id = "74223976958523",  title = "Dr-Stone OST 07"                          },
+			{ id = "77528113627917",  title = "Dr-Stone OST 14"                          },
+			{ id = "81231077476265",  title = "Dr-Stone OST 23"                          },
+			{ id = "126321638662994", title = "Dr-Stone OST 32"                          },
+			{ id = "99627506664097",  title = "Hīrō ni naru nda — MHA"                  },
+			{ id = "75252809311040",  title = "Heiwa no shōchō — MHA"                   },
+			{ id = "105659474170173", title = "Mu kosei no kunō — MHA"                  },
+			{ id = "114522608184310", title = "Tsuppari hankō-ki — MHA"                 },
+			{ id = "91439003360287",  title = "Have Some Tea — K-On"                    },
+			{ id = "100586849702964", title = "Summer Ocean — K-On"                     },
+			{ id = "127682939322771", title = "Genki — K-On"                            },
+			{ id = "120226505866112", title = "Merrier Tamako"                           },
+			{ id = "140002258083304", title = "Yattemiyou"                               },
+			{ id = "74163496697693",  title = "Food Court Dialogue"                     },
+			{ id = "77446191745586",  title = "My Universe (Instrumental)"              },
+			{ id = "89891313789297",  title = "Living Room — Blue Lock OST"             },
+			{ id = "110395238223034", title = "Bedroom — Blue Lock OST"                 },
+			{ id = "95497960463962",  title = "???"                                      },
 		},
 	},
-	{ name = "Intense",  tracks = {} },
-	{ name = "Fighting", tracks = {} },
+	{
+		name   = "Intense",
+		tracks = {
+			{ id = "104073444477137", title = "The Strongest Primate High Schooler — Dr.Stone OST" },
+			{ id = "88748272922027",  title = "Verzerrte Welt — Tokyo Ghoul OST"                  },
+			{ id = "73016828165566",  title = "Villain's Theme — MHA"                            },
+			{ id = "71866511116940",  title = "Body Motion — AoT OST"                             },
+			{ id = "99418915964524",  title = "Transplantation — Tokyo Ghoul OST"                 },
+			{ id = "136063864916383", title = "Pentagram — Black Clover OST"                      },
+			{ id = "107888398080501", title = "Unleashed Power — Black Clover OST II"             },
+		},
+	},
+	{
+		name   = "Fighting",
+		tracks = {
+			{ id = "111610037616781", title = "Drive Your Way — SAO II OST"              },
+			{ id = "85282093297000",  title = "Bōsō sentō (Runaway Battle)"             },
+			{ id = "103132935432313", title = "Jet Black Sword — Black Clover OST"      },
+		},
+	},
 }
 
 local C_BG   = Color3.fromRGB( 12,  12,  18)
@@ -145,7 +151,6 @@ local function makeDivider(parent, yPos)
 	return d
 end
 
--- Shared slider-track builder: returns { track, fill, thumb }
 local function makeSliderTrack(parent, yAnchor)
 	local track = Instance.new("Frame", parent)
 	track.Size             = UDim2.new(1, -(PAD * 2), 0, 4)
@@ -266,7 +271,6 @@ local seekTrack, seekFill, seekThumb = makeSliderTrack(seekRow, 32)
 seekFill.Size      = UDim2.new(0, 0, 1, 0)
 seekThumb.Position = UDim2.new(0, 0, 0.5, 0)
 
--- disabled appearance when nothing is playing
 local function setSeekActive(active: boolean)
 	local col = active and C_ACT or C_DIM
 	seekFill.BackgroundColor3 = col
@@ -575,7 +579,6 @@ local allRows    = {}   -- { id, title, frame, accent, nameLbl }
 local sectionMeta = {}  -- { header, arrowLbl, rows, collapsed }
 local searchQuery = ""
 
--- Quick lookup: id → title
 local idToTitle = {}
 for _, sec in ipairs(SECTIONS) do
 	for _, t in ipairs(sec.tracks) do
@@ -783,7 +786,6 @@ end)
 
 UserInputService.InputEnded:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		-- commit final slider value on release
 		if activeSliderFn == applyVolX then
 			CommandRemotes.MusicCommand:FireServer("volume", currentVolume)
 		elseif activeSliderFn == applySeekX then
@@ -792,8 +794,7 @@ UserInputService.InputEnded:Connect(function(input)
 			if tl > 0 then
 				local abs = seekTrack.AbsolutePosition
 				local sz  = seekTrack.AbsoluteSize
-				-- use the thumb's current X position for the final commit
-				local ratio = math.clamp(seekThumb.Position.X.Scale, 0, 1)
+					local ratio = math.clamp(seekThumb.Position.X.Scale, 0, 1)
 				CommandRemotes.MusicCommand:FireServer("seek", ratio * tl)
 			end
 		end
