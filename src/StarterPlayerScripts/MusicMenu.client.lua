@@ -793,7 +793,7 @@ UserInputService.InputEnded:Connect(function(input)
 			if tl > 0 then
 				local abs = seekTrack.AbsolutePosition
 				local sz  = seekTrack.AbsoluteSize
-					local ratio = math.clamp(seekThumb.Position.X.Scale, 0, 1)
+				local ratio = math.clamp(seekThumb.Position.X.Scale, 0, 1)
 				CommandRemotes.MusicCommand:FireServer("seek", ratio * tl)
 			end
 		end

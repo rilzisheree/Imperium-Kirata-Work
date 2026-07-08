@@ -195,7 +195,7 @@ local function makeRow(entry, layoutOrder)
 	pad.PaddingTop    = UDim.new(0, 5)
 	pad.PaddingBottom = UDim.new(0, 5)
 
-		local sep = Instance.new("Frame", row)
+	local sep = Instance.new("Frame", row)
 	sep.Size             = UDim2.new(1, 0, 0, 1)
 	sep.AnchorPoint      = Vector2.new(0, 1)
 	sep.Position         = UDim2.new(0, 0, 1, 0)

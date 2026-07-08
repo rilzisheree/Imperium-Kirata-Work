@@ -195,7 +195,7 @@ local function processSmQueue()
         tw(smBody,   0.6, { TextTransparency = 0 })
 
         task.delay(0.6 + hold, function()
-                        if shutdownActive then return end
+                if shutdownActive then return end
                 if removeGlow then removeGlow() end
                 tw(blur,     0.5, { Size = 0 })
                 tw(smHeader, 0.5, { TextTransparency = 1 })
@@ -276,7 +276,7 @@ local function processNotifQueue()
         tw(notifSender, NOTIF_IN_T, { TextTransparency = 0 })
 
         task.delay(NOTIF_IN_T + hold, function()
-                        tw(notifMsg,    NOTIF_OUT_T, { TextTransparency = 1 })
+                tw(notifMsg,    NOTIF_OUT_T, { TextTransparency = 1 })
                 tw(notifSender, NOTIF_OUT_T, { TextTransparency = 1 })
 
                 task.delay(NOTIF_OUT_T + 0.05, function()
@@ -392,7 +392,7 @@ if CommandRemotes.Shutdown then
                 smBusy         = true
                 table.clear(smQueue)
 
-                        smHeader.Text             = "Server Shutting Down"
+                smHeader.Text             = "Server Shutting Down"
                 smBody.Text               = "A Staff Member has shut down this server,\nPlease rejoin shortly."
                 smHeader.TextColor3       = DEFAULT_COLOR
                 smBody.TextColor3         = DEFAULT_COLOR
@@ -406,7 +406,7 @@ if CommandRemotes.Shutdown then
                 tw(smHeader, 0.6, { TextTransparency = 0 })
                 tw(smBody,   0.6, { TextTransparency = 0 })
 
-                        local char = LocalPlayer.Character
+                local char = LocalPlayer.Character
                 if char then
                         local hum = char:FindFirstChildOfClass("Humanoid")
                         if hum then

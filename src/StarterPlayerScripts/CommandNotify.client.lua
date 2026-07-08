@@ -137,7 +137,7 @@ local function notify(success, msg)
 		-- cancel any reflow tween that was running on this card
 		if entry.activeTween then entry.activeTween:Cancel() end
 
-			local tween = TweenService:Create(card, tweenOut, { Position = offPos(dismissSlot) })
+		local tween = TweenService:Create(card, tweenOut, { Position = offPos(dismissSlot) })
 		tween:Play()
 		tween.Completed:Connect(function() card:Destroy() end)
 

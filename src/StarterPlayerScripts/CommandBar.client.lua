@@ -22,7 +22,7 @@ CommandRemotes.Permissions.OnClientEvent:Connect(function(tier: string)
 
 	for k in pairs(COMMANDS) do COMMANDS[k] = nil end
 
-		if myLevel >= TIER_ORDER["Admin"] then
+	if myLevel >= TIER_ORDER["Admin"] then
 		COMMANDS["chatlogs"] = { args = {}, description = "Open / close chat logs" }
 	end
 

@@ -423,11 +423,10 @@ ContextActionService:BindAction(
                 if UserInputService:GetFocusedTextBox() == inputBox then
                         return Enum.ContextActionResult.Pass
                 end
-                -- Wait for the key to be released before capturing focus. If we
-                -- capture focus while "/" is still physically held down, Roblox
-                -- replays that held keystroke into the freshly-focused TextBox,
-                -- which is what caused the stray "/" to appear.
-                if state ~= Enum.UserInputState.End then
+                -- Open immediately on key press. The Focused handler above strips
+                -- any stray "/" that Roblox may replay into the box on the same
+                -- or following frame.
+                if state ~= Enum.UserInputState.Begin then
                         return Enum.ContextActionResult.Sink
                 end
                 task.defer(function()
