@@ -82,8 +82,15 @@ smBody.ZIndex                 = 10
 smBody.Visible                = false
 smBody.Parent                 = gui
 
--- IM container: each message spawns its own label so multiple IMs can be
--- visible simultaneously, stacked vertically by arrival order.
+-- IM container lives in its own ScreenGui above the death scatter (DisplayOrder 98)
+-- so health IMs are always readable even when the scatter is active.
+local imGui = Instance.new("ScreenGui")
+imGui.Name           = "CommandEffectsIM"
+imGui.DisplayOrder   = 99
+imGui.ResetOnSpawn   = false
+imGui.IgnoreGuiInset = true
+imGui.Parent         = PlayerGui
+
 local imContainer = Instance.new("Frame")
 imContainer.Name                   = "IMContainer"
 imContainer.AnchorPoint            = Vector2.new(0.5, 0)
@@ -92,7 +99,7 @@ imContainer.Size                   = UDim2.new(0.50, 0, 0, 0)
 imContainer.AutomaticSize          = Enum.AutomaticSize.Y
 imContainer.BackgroundTransparency = 1
 imContainer.ZIndex                 = 10
-imContainer.Parent                 = gui
+imContainer.Parent                 = imGui
 
 local imLayout = Instance.new("UIListLayout")
 imLayout.FillDirection       = Enum.FillDirection.Vertical
@@ -579,7 +586,7 @@ local LOW_HEALTH_MESSAGES = {
 	"I'm barely standing...",
 }
 
-local LOW_HEALTH_THRESHOLD = 0.50  -- 50 % of max health fires the warning IM
+local LOW_HEALTH_THRESHOLD = 0.30  -- 30 % of max health fires the warning IM
 local LOW_CRITICAL_HEALTH  = 8     -- absolute HP at which the critical IM fires
 
 local function setupHealthMonitor(character: Model)
@@ -592,10 +599,6 @@ local function setupHealthMonitor(character: Model)
 	humanoid.HealthChanged:Connect(function(health: number)
 		local maxHealth = humanoid.MaxHealth
 		if maxHealth <= 0 then return end
-
-		-- Skip health = 0: the death scatter handles that moment.
-		-- We only fire IMs while the player is still alive.
-		if health <= 0 then return end
 
 		if health <= LOW_CRITICAL_HEALTH then
 			if state < 2 then
