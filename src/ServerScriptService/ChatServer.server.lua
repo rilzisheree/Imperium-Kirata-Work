@@ -4,7 +4,6 @@ local RunService      = game:GetService("RunService")
 local TextService     = game:GetService("TextService")
 local TextChatService = game:GetService("TextChatService")
 
--- kill default chat stuff
 pcall(function()
         TextChatService.CreateDefaultTextChannels   = false
         TextChatService.CreateDefaultSystemMessages = false

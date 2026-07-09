@@ -32,7 +32,7 @@ CommandRemotes.LanguageSelect.OnServerEvent:Connect(function(player: Player, lan
 	end
 
 	local grants = LanguageManager.getGrants(player.UserId)
-	local canonical = nil
+	local canonical
 	for _, g in ipairs(grants) do
 		if g:lower() == langName:lower() then
 			canonical = g

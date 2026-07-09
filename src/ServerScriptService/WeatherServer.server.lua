@@ -219,7 +219,7 @@ local PRESETS = {
 			Haze    = 45,
 		},
 		clouds    = { Cover = 0.55, Density = 0.5,  Color = Color3.fromRGB(210, 210, 210) },
-		soundId   = 0,  -- replace: eerie ambient
+		soundId   = 0,
 		particles = {},
 	},
 
@@ -241,7 +241,7 @@ local PRESETS = {
 			Haze    = 10,
 		},
 		clouds    = { Cover = 0.85, Density = 0.65, Color = Color3.fromRGB(225, 228, 238) },
-		soundId   = 0,  -- replace: winter wind
+		soundId   = 0,
 		particles = {
 			{
 				Color             = ColorSequence.new(Color3.fromRGB(240, 245, 255)),
@@ -283,7 +283,7 @@ local PRESETS = {
 			Haze    = 6,
 		},
 		clouds    = { Cover = 0.6,  Density = 0.5,  Color = Color3.fromRGB(205, 205, 208) },
-		soundId   = 0,  -- replace: wind sound
+		soundId   = 0,
 		particles = {
 			{
 				Color             = ColorSequence.new{

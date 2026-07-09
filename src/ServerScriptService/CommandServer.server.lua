@@ -97,12 +97,12 @@ local serverjoinCallbacks = {}
 local freezeData = {}
 
 -- low-health automatic IM state: [userId] = 0 (above 30%), 1 (30% IM fired),
--- 2 (15% IM also fired).  Reset to 0 on recovery above 30%, to 1 on recovery
--- above 15% (so the 15% IM can re-fire on the next dip), and to 0 on respawn.
+-- 2 (critical IM also fired).  Reset to 0 on recovery above 30%, to 1 on
+-- recovery above critical HP, and to 0 on respawn.
 local lowHealthState = {}
 
-local LOW_HEALTH_THRESHOLD    = 0.30
-local LOW_CRITICAL_THRESHOLD  = 0.15
+local LOW_HEALTH_THRESHOLD = 0.30   -- 30% of max health fires the warning IM
+local LOW_CRITICAL_HEALTH  = 3      -- absolute HP at which the critical IM fires
 
 local LOW_HEALTH_MESSAGES = {
         "Shit... I'm hurt...",
@@ -213,9 +213,9 @@ local function monitorCharacterHealth(player: Player, character: Model)
                 local pct   = health / maxHealth
                 local state = lowHealthState[player.UserId] or 0
 
-                if pct < LOW_CRITICAL_THRESHOLD then
-                        -- Below 15%: fire the critical IM once per dip below this line.
-                        -- If health jumped directly from above 30% to below 15% in one
+                if health <= LOW_CRITICAL_HEALTH then
+                        -- At or below critical HP: fire the critical IM once per dip.
+                        -- If health jumped directly from above 30% to critical in one
                         -- damage hit (state == 0), fire the 30% warning first so both
                         -- thresholds always produce an IM; they stack on the client.
                         if state < 2 then
@@ -235,8 +235,8 @@ local function monitorCharacterHealth(player: Player, character: Model)
                                 local msg = LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)]
                                 CommandRemotes.LowHealthIM:FireClient(player, msg, false)
                         elseif state == 2 then
-                                -- Recovered above 15% but still below 30%: allow the 15%
-                                -- IM to re-fire on the next dip without re-triggering the 30% one.
+                                -- Recovered above critical HP but still below 30%: allow the
+                                -- critical IM to re-fire next dip without re-triggering warning.
                                 lowHealthState[player.UserId] = 1
                         end
                 else

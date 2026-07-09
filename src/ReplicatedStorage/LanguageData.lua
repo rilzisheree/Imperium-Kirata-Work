@@ -1,6 +1,5 @@
--- all the languages players can be granted
--- to add one just throw a new entry in here, everything else derives from it
-
+-- All languages players can be granted.
+-- Add a new entry here and everything else derives from it automatically.
 local LanguageData = {}
 
 LanguageData.LANGUAGES = {
@@ -16,7 +15,6 @@ LanguageData.LANGUAGES = {
 	{ name = "Italian",    tag = "IT" },
 }
 
--- quick lookup by lowercase name
 LanguageData.BY_NAME = {}
 for _, lang in ipairs(LanguageData.LANGUAGES) do
 	LanguageData.BY_NAME[lang.name:lower()] = lang
