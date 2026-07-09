@@ -570,11 +570,10 @@ if CommandRemotes.Notif then
 end
 
 -- ────────────────────────────────────────────────────────────────────────────
--- Local health monitor — runs on the client so HealthChanged is always fired
--- regardless of how the server applies damage.
+-- Health IM: fires once per life when health first drops to 5 % of MaxHealth.
 -- ────────────────────────────────────────────────────────────────────────────
 
-local LOW_HEALTH_MESSAGES = {
+local HEALTH_IM_MESSAGES = {
 	"Shit... I'm hurt...",
 	"I don't think I can keep this up...",
 	"Everything hurts...",
@@ -586,57 +585,19 @@ local LOW_HEALTH_MESSAGES = {
 	"I'm barely standing...",
 }
 
-local LOW_HEALTH_THRESHOLD = 0.30  -- 30 % of max health fires the warning IM
-local LOW_CRITICAL_HEALTH  = 10    -- absolute HP at which the critical IM fires
-
 local function setupHealthMonitor(character: Model)
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-		or character:WaitForChild("Humanoid", 10) :: Humanoid?
-	if not humanoid then return end
-
-	local state      = 0    -- 0: healthy, 1: warning fired, 2: critical fired
-	local prevHealth = nil  -- nil until the first HealthChanged event (spawn)
+	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
+	local fired = false
 
 	humanoid.HealthChanged:Connect(function(health: number)
+		if fired then return end
 		local maxHealth = humanoid.MaxHealth
 		if maxHealth <= 0 then return end
-
-		local prev = prevHealth
-		prevHealth = health
-
-		-- Recovery: always run regardless of direction so state resets on healing.
-		local pct = health / maxHealth
-		if pct >= LOW_HEALTH_THRESHOLD then
-			state = 0
-		elseif health > LOW_CRITICAL_HEALTH and state == 2 then
-			state = 1  -- recovered above critical but still in warning zone
-		end
-
-		-- Only fire IMs when health is actively falling.
-		-- Skipping when prev == nil ignores the initial spawn event (full health),
-		-- which prevents state from being locked at 2 before combat even starts.
-		if prev == nil or health >= prev then return end
-
-		if health <= LOW_CRITICAL_HEALTH then
-			if state < 2 then
-				if state == 0 then
-					-- Jumped past warning on the way down — fire warning first.
-					showIM(LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)])
-					imHeartbeatSound:Play()
-					flashHealthEffect(false)
-				end
-				state = 2
-				showIM(LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)])
-				imHeartbeatSound:Play()
-				flashHealthEffect(true)
-			end
-		elseif pct < LOW_HEALTH_THRESHOLD then
-			if state == 0 then
-				state = 1
-				showIM(LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)])
-				imHeartbeatSound:Play()
-				flashHealthEffect(false)
-			end
+		if health / maxHealth <= 0.05 then
+			fired = true
+			showIM(HEALTH_IM_MESSAGES[math.random(1, #HEALTH_IM_MESSAGES)])
+			imHeartbeatSound:Play()
+			flashHealthEffect(true)
 		end
 	end)
 end
