@@ -4,118 +4,75 @@ local RunService        = game:GetService("RunService")
 local CommandRemotes = {}
 
 local function make(name)
-        local e = ReplicatedStorage:FindFirstChild(name)
-        if e and e:IsA("RemoteEvent") then return e end
-        e = Instance.new("RemoteEvent")
-        e.Name   = name
-        e.Parent = ReplicatedStorage
-        return e
+	local e = ReplicatedStorage:FindFirstChild(name)
+	if e and e:IsA("RemoteEvent") then return e end
+	e = Instance.new("RemoteEvent")
+	e.Name   = name
+	e.Parent = ReplicatedStorage
+	return e
 end
 
 local function get(name)
-        local r = ReplicatedStorage:WaitForChild(name, 15)
-        if not r then warn("CommandRemotes: timed out waiting for " .. name) end
-        return r :: RemoteEvent
+	local r = ReplicatedStorage:WaitForChild(name, 15)
+	if not r then warn("CommandRemotes: timed out waiting for " .. name) end
+	return r :: RemoteEvent
 end
 
-if RunService:IsServer() then
-        CommandRemotes.CommandExecuted = make("CmdExecuted")
-        CommandRemotes.CommandFeedback = make("CmdFeedback")
-        CommandRemotes.SM              = make("CmdSM")
-        CommandRemotes.IM              = make("CmdIM")
-        CommandRemotes.Anxiety         = make("CmdAnxiety")
-        CommandRemotes.Blind           = make("CmdBlind")
-        CommandRemotes.Unblind         = make("CmdUnblind")
-        CommandRemotes.HelpRequest     = make("CmdHelpRequest")
-        CommandRemotes.HelpUIToggle    = make("CmdHelpUIToggle")
-        CommandRemotes.Notif           = make("CmdNotif")
-        CommandRemotes.WeatherOpen        = make("CmdWeatherOpen")
-        CommandRemotes.WeatherApply       = make("CmdWeatherApply")
-        CommandRemotes.WeatherSync        = make("CmdWeatherSync")
-        CommandRemotes.WeatherSetProp     = make("CmdWeatherSetProp")
-        CommandRemotes.WeatherReset       = make("CmdWeatherReset")
-        CommandRemotes.WeatherToggleEffect  = make("CmdWeatherToggleEffect")
-        CommandRemotes.WeatherClientEffect  = make("CmdWeatherClientEffect")
-        CommandRemotes.CountdownStart       = make("CmdCountdownStart")
-        CommandRemotes.CountdownStop        = make("CmdCountdownStop")
-        CommandRemotes.LanguageOpen         = make("CmdLanguageOpen")
-        CommandRemotes.LanguageGrants       = make("CmdLanguageGrants")
-        CommandRemotes.LanguageSelect       = make("CmdLanguageSelect")
-        CommandRemotes.Permissions          = make("CmdPermissions")
-        CommandRemotes.WaypointSet          = make("CmdWaypointSet")
-        CommandRemotes.WaypointClear        = make("CmdWaypointClear")
-        CommandRemotes.FlyEnable            = make("CmdFlyEnable")
-        CommandRemotes.FlyDisable           = make("CmdFlyDisable")
-        CommandRemotes.WatchStart           = make("CmdWatchStart")
-        CommandRemotes.WatchStop            = make("CmdWatchStop")
-        CommandRemotes.Shutdown             = make("CmdShutdown")
-        CommandRemotes.MusicOpen            = make("CmdMusicOpen")
-        CommandRemotes.MusicPlay            = make("CmdMusicPlay")
-        CommandRemotes.MusicStop            = make("CmdMusicStop")
-        CommandRemotes.MusicSync            = make("CmdMusicSync")
-        CommandRemotes.MusicVolume          = make("CmdMusicVolume")
-        CommandRemotes.MusicCommand         = make("CmdMusicCommand")
-        CommandRemotes.MusicSeek            = make("CmdMusicSeek")
-        CommandRemotes.MusicCycleState      = make("CmdMusicCycleState")
-        CommandRemotes.EspToggle            = make("CmdEspToggle")
-        CommandRemotes.PrivateServerOpen    = make("CmdPSOpen")
-        CommandRemotes.PrivateServerReserve = make("CmdPSReserve")
-        CommandRemotes.PrivateServerStatus  = make("CmdPSStatus")
-        CommandRemotes.PrivateServerSend    = make("CmdPSSend")
-        CommandRemotes.PrivateServerCancel  = make("CmdPSCancel")
-        CommandRemotes.ServerBringNotice    = make("CmdServerBringNotice")
-        CommandRemotes.StaffMode            = make("CmdStaffMode")
-        CommandRemotes.LowHealthIM          = make("CmdLowHealthIM")
-        CommandRemotes.DeathIM              = make("CmdDeathIM")
-else
-        CommandRemotes.CommandExecuted = get("CmdExecuted")
-        CommandRemotes.CommandFeedback = get("CmdFeedback")
-        CommandRemotes.SM              = get("CmdSM")
-        CommandRemotes.IM              = get("CmdIM")
-        CommandRemotes.Anxiety         = get("CmdAnxiety")
-        CommandRemotes.Blind           = get("CmdBlind")
-        CommandRemotes.Unblind         = get("CmdUnblind")
-        CommandRemotes.HelpRequest     = get("CmdHelpRequest")
-        CommandRemotes.HelpUIToggle    = get("CmdHelpUIToggle")
-        CommandRemotes.Notif           = get("CmdNotif")
-        CommandRemotes.WeatherOpen        = get("CmdWeatherOpen")
-        CommandRemotes.WeatherApply       = get("CmdWeatherApply")
-        CommandRemotes.WeatherSync        = get("CmdWeatherSync")
-        CommandRemotes.WeatherSetProp     = get("CmdWeatherSetProp")
-        CommandRemotes.WeatherReset       = get("CmdWeatherReset")
-        CommandRemotes.WeatherToggleEffect  = get("CmdWeatherToggleEffect")
-        CommandRemotes.WeatherClientEffect  = get("CmdWeatherClientEffect")
-        CommandRemotes.CountdownStart       = get("CmdCountdownStart")
-        CommandRemotes.CountdownStop        = get("CmdCountdownStop")
-        CommandRemotes.LanguageOpen         = get("CmdLanguageOpen")
-        CommandRemotes.LanguageGrants       = get("CmdLanguageGrants")
-        CommandRemotes.LanguageSelect       = get("CmdLanguageSelect")
-        CommandRemotes.Permissions          = get("CmdPermissions")
-        CommandRemotes.WaypointSet          = get("CmdWaypointSet")
-        CommandRemotes.WaypointClear        = get("CmdWaypointClear")
-        CommandRemotes.FlyEnable            = get("CmdFlyEnable")
-        CommandRemotes.FlyDisable           = get("CmdFlyDisable")
-        CommandRemotes.WatchStart           = get("CmdWatchStart")
-        CommandRemotes.WatchStop            = get("CmdWatchStop")
-        CommandRemotes.Shutdown             = get("CmdShutdown")
-        CommandRemotes.MusicOpen            = get("CmdMusicOpen")
-        CommandRemotes.MusicPlay            = get("CmdMusicPlay")
-        CommandRemotes.MusicStop            = get("CmdMusicStop")
-        CommandRemotes.MusicSync            = get("CmdMusicSync")
-        CommandRemotes.MusicVolume          = get("CmdMusicVolume")
-        CommandRemotes.MusicCommand         = get("CmdMusicCommand")
-        CommandRemotes.MusicSeek            = get("CmdMusicSeek")
-        CommandRemotes.MusicCycleState      = get("CmdMusicCycleState")
-        CommandRemotes.EspToggle            = get("CmdEspToggle")
-        CommandRemotes.PrivateServerOpen    = get("CmdPSOpen")
-        CommandRemotes.PrivateServerReserve = get("CmdPSReserve")
-        CommandRemotes.PrivateServerStatus  = get("CmdPSStatus")
-        CommandRemotes.PrivateServerSend    = get("CmdPSSend")
-        CommandRemotes.PrivateServerCancel  = get("CmdPSCancel")
-        CommandRemotes.ServerBringNotice    = get("CmdServerBringNotice")
-        CommandRemotes.StaffMode            = get("CmdStaffMode")
-        CommandRemotes.LowHealthIM          = get("CmdLowHealthIM")
-        CommandRemotes.DeathIM              = get("CmdDeathIM")
+-- Canonical list of every remote: key on CommandRemotes → RemoteEvent name in ReplicatedStorage.
+local REMOTES = {
+	CommandExecuted      = "CmdExecuted",
+	CommandFeedback      = "CmdFeedback",
+	SM                   = "CmdSM",
+	IM                   = "CmdIM",
+	Anxiety              = "CmdAnxiety",
+	Blind                = "CmdBlind",
+	Unblind              = "CmdUnblind",
+	HelpRequest          = "CmdHelpRequest",
+	HelpUIToggle         = "CmdHelpUIToggle",
+	Notif                = "CmdNotif",
+	WeatherOpen          = "CmdWeatherOpen",
+	WeatherApply         = "CmdWeatherApply",
+	WeatherSync          = "CmdWeatherSync",
+	WeatherSetProp       = "CmdWeatherSetProp",
+	WeatherReset         = "CmdWeatherReset",
+	WeatherToggleEffect  = "CmdWeatherToggleEffect",
+	WeatherClientEffect  = "CmdWeatherClientEffect",
+	CountdownStart       = "CmdCountdownStart",
+	CountdownStop        = "CmdCountdownStop",
+	LanguageOpen         = "CmdLanguageOpen",
+	LanguageGrants       = "CmdLanguageGrants",
+	LanguageSelect       = "CmdLanguageSelect",
+	Permissions          = "CmdPermissions",
+	WaypointSet          = "CmdWaypointSet",
+	WaypointClear        = "CmdWaypointClear",
+	FlyEnable            = "CmdFlyEnable",
+	FlyDisable           = "CmdFlyDisable",
+	WatchStart           = "CmdWatchStart",
+	WatchStop            = "CmdWatchStop",
+	Shutdown             = "CmdShutdown",
+	MusicOpen            = "CmdMusicOpen",
+	MusicPlay            = "CmdMusicPlay",
+	MusicStop            = "CmdMusicStop",
+	MusicSync            = "CmdMusicSync",
+	MusicVolume          = "CmdMusicVolume",
+	MusicCommand         = "CmdMusicCommand",
+	MusicSeek            = "CmdMusicSeek",
+	MusicCycleState      = "CmdMusicCycleState",
+	EspToggle            = "CmdEspToggle",
+	PrivateServerOpen    = "CmdPSOpen",
+	PrivateServerReserve = "CmdPSReserve",
+	PrivateServerStatus  = "CmdPSStatus",
+	PrivateServerSend    = "CmdPSSend",
+	PrivateServerCancel  = "CmdPSCancel",
+	ServerBringNotice    = "CmdServerBringNotice",
+	StaffMode            = "CmdStaffMode",
+	LowHealthIM          = "CmdLowHealthIM",
+	DeathIM              = "CmdDeathIM",
+}
+
+local fn = RunService:IsServer() and make or get
+for key, name in REMOTES do
+	CommandRemotes[key] = fn(name)
 end
 
 return CommandRemotes

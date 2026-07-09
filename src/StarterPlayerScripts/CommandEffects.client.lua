@@ -270,6 +270,38 @@ local function showIM(text: string, colorName: string?)
         end)
 end
 
+-- Shared four-frame vignette layout: gradient panels that form a dark border around the screen edges.
+local VIG_LAYOUT = {
+	{ UDim2.new(1, 0, 0.42, 0), UDim2.new(0, 0, 0,    0), 90  },
+	{ UDim2.new(1, 0, 0.42, 0), UDim2.new(0, 0, 0.58, 0), 270 },
+	{ UDim2.new(0.38, 0, 1, 0), UDim2.new(0, 0, 0,    0), 0   },
+	{ UDim2.new(0.38, 0, 1, 0), UDim2.new(0.62, 0, 0, 0), 180 },
+}
+
+local function buildVignette(parent: Instance, color: Color3): { Frame }
+	local frames = {}
+	for _, data in VIG_LAYOUT do
+		local f = Instance.new("Frame")
+		f.Size                   = data[1]
+		f.Position               = data[2]
+		f.BackgroundColor3       = color
+		f.BackgroundTransparency = 1
+		f.BorderSizePixel        = 0
+		f.ZIndex                 = 2
+		f.Parent                 = parent
+		local g = Instance.new("UIGradient")
+		g.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0,    0),
+			NumberSequenceKeypoint.new(0.55, 0.5),
+			NumberSequenceKeypoint.new(1,    1),
+		})
+		g.Rotation = data[3]
+		g.Parent   = f
+		table.insert(frames, f)
+	end
+	return frames
+end
+
 -- One-shot screen flash: vignette darkening + red tint + brief shake.
 -- isCritical = true for the critical HP trigger (stronger), false for the warning.
 local function flashHealthEffect(isCritical: boolean)
@@ -289,33 +321,7 @@ local function flashHealthEffect(isCritical: boolean)
 	flashGui.IgnoreGuiInset = true
 	flashGui.Parent         = PlayerGui
 
-	-- Same four-frame vignette layout used by the anxiety system
-	local vigFrames = {}
-	local vigData = {
-		{ UDim2.new(1, 0, 0.42, 0), UDim2.new(0, 0, 0,    0), 90  },
-		{ UDim2.new(1, 0, 0.42, 0), UDim2.new(0, 0, 0.58, 0), 270 },
-		{ UDim2.new(0.38, 0, 1, 0), UDim2.new(0, 0, 0,    0), 0   },
-		{ UDim2.new(0.38, 0, 1, 0), UDim2.new(0.62, 0, 0, 0), 180 },
-	}
-	for _, data in vigData do
-		local f = Instance.new("Frame")
-		f.Size                   = data[1]
-		f.Position               = data[2]
-		f.BackgroundColor3       = Color3.new(0, 0, 0)
-		f.BackgroundTransparency = 1
-		f.BorderSizePixel        = 0
-		f.ZIndex                 = 2
-		f.Parent                 = flashGui
-		local g = Instance.new("UIGradient")
-		g.Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0,    0),
-			NumberSequenceKeypoint.new(0.55, 0.5),
-			NumberSequenceKeypoint.new(1,    1),
-		})
-		g.Rotation = data[3]
-		g.Parent   = f
-		table.insert(vigFrames, f)
-	end
+	local vigFrames = buildVignette(flashGui, Color3.new(0, 0, 0))
 
 	local colorCorrection = Instance.new("ColorCorrectionEffect")
 	colorCorrection.TintColor = Color3.new(1, 1, 1)
@@ -373,9 +379,8 @@ imHeartbeatSound.Parent  = gui
 local notifQueue: { { message: string, sender: string } } = {}
 local notifBusy = false
 
-local NOTIF_IN_T   = 0.6
-local NOTIF_OUT_T  = 0.5
-local NOTIF_REST_Y = 0.80 -- bottom of container sits 20% above the bottom edge
+local NOTIF_IN_T  = 0.6
+local NOTIF_OUT_T = 0.5
 
 local function processNotifQueue()
         if notifBusy or #notifQueue == 0 then return end
@@ -415,6 +420,10 @@ local function showNotif(message: string, sender: string)
         processNotifQueue()
 end
 
+-- Tracks whether the death scatter has already been shown for the current life.
+-- Reset on CharacterAdded so each life starts clean.
+local deathShownThisLife = false
+
 local DEATH_MESSAGE = "Is this.. The end of me.. The end of my.. Story. .?"
 local DEATH_RED     = Color3.fromRGB(255, 80, 80)
 
@@ -430,33 +439,7 @@ local function showDeathScatter()
 	scatterGui.IgnoreGuiInset = true
 	scatterGui.Parent         = PlayerGui
 
-	-- Four-frame red vignette (BackgroundColor3 is deep red instead of black)
-	local vigFrames = {}
-	local vigData = {
-		{ UDim2.new(1, 0, 0.42, 0), UDim2.new(0, 0, 0,    0), 90  },
-		{ UDim2.new(1, 0, 0.42, 0), UDim2.new(0, 0, 0.58, 0), 270 },
-		{ UDim2.new(0.38, 0, 1, 0), UDim2.new(0, 0, 0,    0), 0   },
-		{ UDim2.new(0.38, 0, 1, 0), UDim2.new(0.62, 0, 0, 0), 180 },
-	}
-	for _, data in vigData do
-		local f = Instance.new("Frame")
-		f.Size                   = data[1]
-		f.Position               = data[2]
-		f.BackgroundColor3       = Color3.fromRGB(160, 0, 0)
-		f.BackgroundTransparency = 1
-		f.BorderSizePixel        = 0
-		f.ZIndex                 = 2
-		f.Parent                 = scatterGui
-		local g = Instance.new("UIGradient")
-		g.Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0,    0),
-			NumberSequenceKeypoint.new(0.55, 0.5),
-			NumberSequenceKeypoint.new(1,    1),
-		})
-		g.Rotation = data[3]
-		g.Parent   = f
-		table.insert(vigFrames, f)
-	end
+	local vigFrames = buildVignette(scatterGui, Color3.fromRGB(160, 0, 0))
 
 	local colorCorrection = Instance.new("ColorCorrectionEffect")
 	colorCorrection.TintColor = Color3.new(1, 1, 1)
@@ -556,6 +539,8 @@ end
 
 if CommandRemotes.DeathIM then
         CommandRemotes.DeathIM.OnClientEvent:Connect(function()
+                if deathShownThisLife then return end
+                deathShownThisLife = true
                 showDeathScatter()
         end)
 end
@@ -587,22 +572,35 @@ local HEALTH_IM_MESSAGES = {
 
 local function setupHealthMonitor(character: Model)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
-	local fired = false
+	local lowHealthFired = false
 
+	-- health > 0 guard excludes instant kills; those go straight to the Died handler below.
 	humanoid.HealthChanged:Connect(function(health: number)
-		if fired then return end
+		if lowHealthFired then return end
 		local maxHealth = humanoid.MaxHealth
 		if maxHealth <= 0 then return end
-		if health / maxHealth <= 0.05 then
-			fired = true
+		if health > 0 and health / maxHealth <= 0.05 then
+			lowHealthFired = true
 			showIM(HEALTH_IM_MESSAGES[math.random(1, #HEALTH_IM_MESSAGES)])
 			imHeartbeatSound:Play()
 			flashHealthEffect(true)
 		end
 	end)
+
+	-- Primary death trigger: fires directly from the local Humanoid without relying on
+	-- a server remote. The DeathIM remote acts as a secondary fallback; deathShownThisLife
+	-- ensures only one of the two paths ever calls showDeathScatter per life.
+	humanoid.Died:Connect(function()
+		if deathShownThisLife then return end
+		deathShownThisLife = true
+		showDeathScatter()
+	end)
 end
 
-LocalPlayer.CharacterAdded:Connect(setupHealthMonitor)
+LocalPlayer.CharacterAdded:Connect(function(character)
+	deathShownThisLife = false
+	setupHealthMonitor(character)
+end)
 if LocalPlayer.Character then
 	task.spawn(setupHealthMonitor, LocalPlayer.Character)
 end
