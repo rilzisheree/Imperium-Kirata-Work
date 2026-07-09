@@ -7,20 +7,15 @@ local CosmeticsManager = {}
 local DS_KEY_PREFIX = "player_"
 local ds = DataStoreService:GetDataStore("PlayerCosmetics_v1")
 
--- In-memory cache keyed by userId (number).
--- shirt/pants store template URLs (rbxassetid://...) so onCharacterAdded can
--- apply them instantly without an InsertService round-trip on every respawn.
--- Legacy DataStore values that are plain numeric strings (catalog IDs) are
--- resolved once on first use and then upgraded to template URLs automatically.
+-- In-memory cache keyed by userId.
+-- shirt/pants store resolved template URLs so onCharacterAdded never needs an
+-- InsertService call on respawn. Legacy DataStore entries with plain numeric
+-- catalog IDs are upgraded automatically on first use.
 local playerData = {}
 
--- Catalog ID → resolved template URL, so InsertService is only called once per
--- unique clothing asset per server lifetime.
 local shirtTemplateCache = {}  -- [catalogIdStr] = "rbxassetid://..."
 local pantsTemplateCache = {}  -- [catalogIdStr] = "rbxassetid://..."
-
--- Catalog ID → unparented Accessory/Hat clone, reused across respawns.
-local accessoryTemplateCache = {}  -- [catalogIdStr] = Instance
+local accessoryTemplateCache = {}  -- [catalogIdStr] = unparented Accessory/Hat
 
 local function defaultData()
 	return { accessories = {}, shirt = nil, pants = nil }
@@ -41,18 +36,12 @@ local function loadData(userId: number)
 					end
 				end
 			end
-			-- Accept both legacy numeric catalog IDs and new template URL strings.
-			if type(decoded.shirt) == "string" then
-				local v = decoded.shirt
-				if v:match("^%d+$") or v:match("^rbxassetid://") then
-					clean.shirt = v
-				end
+			-- Accept catalog IDs (digits only) and any URL format (rbxassetid://, http://, etc.)
+			if type(decoded.shirt) == "string" and #decoded.shirt > 0 then
+				clean.shirt = decoded.shirt
 			end
-			if type(decoded.pants) == "string" then
-				local v = decoded.pants
-				if v:match("^%d+$") or v:match("^rbxassetid://") then
-					clean.pants = v
-				end
+			if type(decoded.pants) == "string" and #decoded.pants > 0 then
+				clean.pants = decoded.pants
 			end
 			return clean
 		end
@@ -100,8 +89,6 @@ local function findAccessoryIn(model: Instance): Instance?
 	return nil
 end
 
--- Returns a reusable (unparented) Accessory/Hat template for the given catalog
--- asset ID, validating that it is actually a hair/accessory. Caches on success.
 local function getAccessoryTemplate(assetId: number): (Instance?, string?)
 	local idStr = tostring(assetId)
 	if accessoryTemplateCache[idStr] then
@@ -125,11 +112,9 @@ local function getAccessoryTemplate(assetId: number): (Instance?, string?)
 	return accessory, nil
 end
 
--- Loads a clothing catalog asset via InsertService and extracts the actual
--- ShirtTemplate / PantsTemplate URL from the clothing instance inside it.
--- The catalog asset ID differs from the texture template ID, so we must resolve
--- it before use. Negatives are not cached so a transient load failure can be
--- retried without restarting the server.
+-- Resolves a clothing catalog asset to its actual ShirtTemplate/PantsTemplate
+-- URL. The catalog ID differs from the texture template ID, so we must load
+-- the asset and read the property. Negatives are not cached.
 local function resolveClothingTemplate(
 	assetId: number,
 	className: string,
@@ -200,22 +185,58 @@ local function equipAccessory(character: Model, template: Instance, idStr: strin
 	return true, nil
 end
 
-local function applyShirtToCharacter(character: Model, templateUrl: string)
-	local shirt = character:FindFirstChildOfClass("Shirt")
-	if not shirt then
-		shirt = Instance.new("Shirt")
-		shirt.Parent = character
+-- Applies a template URL to a Shirt or Pants instance and locks the property
+-- against Roblox's async HumanoidDescription loading for `duration` seconds.
+-- Roblox's loader modifies ShirtTemplate/PantsTemplate in-place on the existing
+-- instance rather than creating new ones, so ChildAdded alone is not enough —
+-- we use GetPropertyChangedSignal to immediately restore our value if it changes,
+-- then release the lock once loading is guaranteed to have settled.
+local function applyAndLock(
+	character: Model,
+	className: string,
+	propName: string,
+	templateUrl: string,
+	duration: number
+)
+	local protected = true
+	task.delay(duration, function()
+		protected = false
+	end)
+
+	local function lockInst(inst: Instance)
+		(inst :: any)[propName] = templateUrl
+		inst:GetPropertyChangedSignal(propName):Connect(function()
+			if protected and (inst :: any)[propName] ~= templateUrl then
+				(inst :: any)[propName] = templateUrl
+			end
+		end)
 	end
-	shirt.ShirtTemplate = templateUrl
+
+	-- Apply to the existing instance, or create one if absent.
+	local existing = character:FindFirstChildOfClass(className)
+	if existing then
+		lockInst(existing)
+	else
+		local newInst = Instance.new(className)
+		newInst.Parent = character
+		lockInst(newInst)
+	end
+
+	-- Handle the case where Roblox's loader creates a brand-new instance
+	-- (destroys the old one and parents a fresh one) during the lock window.
+	character.ChildAdded:Connect(function(child)
+		if protected and child:IsA(className) then
+			lockInst(child)
+		end
+	end)
+end
+
+local function applyShirtToCharacter(character: Model, templateUrl: string)
+	applyAndLock(character, "Shirt", "ShirtTemplate", templateUrl, 5)
 end
 
 local function applyPantsToCharacter(character: Model, templateUrl: string)
-	local pants = character:FindFirstChildOfClass("Pants")
-	if not pants then
-		pants = Instance.new("Pants")
-		pants.Parent = character
-	end
-	pants.PantsTemplate = templateUrl
+	applyAndLock(character, "Pants", "PantsTemplate", templateUrl, 5)
 end
 
 -- sethair <target> <assetId> <permanent>
@@ -246,8 +267,6 @@ function CosmeticsManager.setHair(player: Player, assetId: number, permanent: bo
 end
 
 -- setshirt <target> <assetId> <permanent>
--- Resolves the catalog asset to its actual ShirtTemplate URL and stores that
--- URL directly so onCharacterAdded can apply it without an InsertService call.
 function CosmeticsManager.setShirt(player: Player, assetId: number, permanent: boolean): (boolean, string)
 	local templateUrl, err = resolveClothingTemplate(assetId, "Shirt", shirtTemplateCache)
 	if not templateUrl then
@@ -267,8 +286,6 @@ function CosmeticsManager.setShirt(player: Player, assetId: number, permanent: b
 end
 
 -- setpants <target> <assetId> <permanent>
--- Resolves the catalog asset to its actual PantsTemplate URL and stores that
--- URL directly so onCharacterAdded can apply it without an InsertService call.
 function CosmeticsManager.setPants(player: Player, assetId: number, permanent: boolean): (boolean, string)
 	local templateUrl, err = resolveClothingTemplate(assetId, "Pants", pantsTemplateCache)
 	if not templateUrl then
@@ -311,8 +328,7 @@ function CosmeticsManager.removePermanentAccessories(player: Player): boolean
 end
 
 -- clearhats <target>: removes every accessory currently on the character
--- (temporary or permanent) without touching the saved permanent data, so
--- permanent accessories return automatically on the next respawn.
+-- without touching the saved permanent data.
 function CosmeticsManager.clearCurrentAccessories(player: Player): number
 	local character = player.Character
 	if not character then
@@ -331,85 +347,77 @@ end
 
 -- Re-applies every permanently saved cosmetic to a freshly spawned character.
 --
--- Roblox's character appearance loading fires CharacterAdded early, then
--- continues applying the player's HumanoidDescription asynchronously — creating
--- or replacing Shirt/Pants instances AFTER our handler runs. To survive this:
---   1. Apply our custom template to any already-existing instance immediately.
---   2. Install a ChildAdded listener on the character (set up before any yields)
---      that re-applies our template the moment Roblox creates a new instance.
+-- Problem: Roblox's CharacterAdded fires before HumanoidDescription is fully
+-- applied. The appearance loader then modifies ShirtTemplate/PantsTemplate
+-- in-place on the existing Shirt/Pants instances, overwriting any templates
+-- we set immediately in CharacterAdded. ChildAdded alone doesn't help because
+-- no new instances are created — only properties change.
 --
--- The mutable shirtUrl/pantsUrl locals are captured by the listener closure and
--- populated synchronously for saved template URLs (no yield) or after an
--- InsertService resolution for legacy numeric catalog IDs.
+-- Solution: resolve shirt/pants URLs first (synchronous for stored URLs, one
+-- InsertService yield for legacy catalog IDs), then call applyAndLock which:
+--   1. Sets the template immediately on the existing or newly-created instance.
+--   2. Installs a GetPropertyChangedSignal listener that restores our value the
+--      instant Roblox's loader overwrites it.
+--   3. Installs a ChildAdded listener in case Roblox does replace the instance.
+--   4. Releases all locks after 5 seconds (well past appearance-load completion).
 function CosmeticsManager.onCharacterAdded(player: Player, character: Model)
 	local data = playerData[player.UserId]
 	if not data then return end
 
-	-- These are written before any yield so the ChildAdded listener below
-	-- always has the right URL by the time Roblox's loading fires ChildAdded.
+	-- Resolve shirt URL. If stored value is a plain number it's a legacy catalog
+	-- ID that needs InsertService resolution; anything else is a template URL.
 	local shirtUrl: string? = nil
-	local pantsUrl: string? = nil
-
-	-- Install the listener immediately (before yields) so it catches instances
-	-- created by Roblox's appearance loader even mid-resolution.
-	character.ChildAdded:Connect(function(child)
-		if shirtUrl and child:IsA("Shirt") then
-			(child :: Shirt).ShirtTemplate = shirtUrl
-		elseif pantsUrl and child:IsA("Pants") then
-			(child :: Pants).PantsTemplate = pantsUrl
-		end
-	end)
-
-	-- Resolve shirt URL (synchronous for new-format; yields for legacy IDs).
 	if data.shirt then
-		if data.shirt:match("^rbxassetid://") then
-			shirtUrl = data.shirt
-		else
+		if data.shirt:match("^%d+$") then
 			local assetId = tonumber(data.shirt)
 			if assetId then
-				local url, err = resolveClothingTemplate(assetId, "Shirt", shirtTemplateCache)
+				local url, resolveErr = resolveClothingTemplate(assetId, "Shirt", shirtTemplateCache)
 				if url then
 					shirtUrl = url
-					data.shirt = url  -- upgrade to URL format for instant future respawns
+					data.shirt = url  -- upgrade so future respawns skip this yield
 					task.spawn(saveData, player.UserId, data)
 				else
-					warn("[CosmeticsManager] failed to reapply shirt " .. data.shirt .. ": " .. tostring(err))
+					warn("[CosmeticsManager] failed to reapply shirt " .. data.shirt .. ": " .. tostring(resolveErr))
 				end
 			end
+		else
+			shirtUrl = data.shirt  -- already a template URL
 		end
 	end
 
-	-- Resolve pants URL (synchronous for new-format; yields for legacy IDs).
+	-- Resolve pants URL (same logic).
+	local pantsUrl: string? = nil
 	if data.pants then
-		if data.pants:match("^rbxassetid://") then
-			pantsUrl = data.pants
-		else
+		if data.pants:match("^%d+$") then
 			local assetId = tonumber(data.pants)
 			if assetId then
-				local url, err = resolveClothingTemplate(assetId, "Pants", pantsTemplateCache)
+				local url, resolveErr = resolveClothingTemplate(assetId, "Pants", pantsTemplateCache)
 				if url then
 					pantsUrl = url
-					data.pants = url  -- upgrade to URL format for instant future respawns
+					data.pants = url
 					task.spawn(saveData, player.UserId, data)
 				else
-					warn("[CosmeticsManager] failed to reapply pants " .. data.pants .. ": " .. tostring(err))
+					warn("[CosmeticsManager] failed to reapply pants " .. data.pants .. ": " .. tostring(resolveErr))
 				end
 			end
+		else
+			pantsUrl = data.pants
 		end
 	end
 
-	-- Apply to any instances already present on the character.
+	if not character.Parent then return end
+
 	if shirtUrl then applyShirtToCharacter(character, shirtUrl) end
 	if pantsUrl then applyPantsToCharacter(character, pantsUrl) end
 
 	for idStr in pairs(data.accessories) do
 		local assetId = tonumber(idStr)
 		if assetId then
-			local template, err = getAccessoryTemplate(assetId)
+			local template, accessoryErr = getAccessoryTemplate(assetId)
 			if template then
 				equipAccessory(character, template, idStr)
 			else
-				warn("[CosmeticsManager] failed to reapply accessory " .. idStr .. ": " .. tostring(err))
+				warn("[CosmeticsManager] failed to reapply accessory " .. idStr .. ": " .. tostring(accessoryErr))
 			end
 		end
 	end
