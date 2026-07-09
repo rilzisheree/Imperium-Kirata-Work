@@ -591,12 +591,12 @@ local function setupHealthMonitor(character: Model)
 
 		-- Check most-critical first so a large single hit fires the right tier
 		-- and marks the lesser tiers as done (no catch-up spam on recovery).
-		if not t3Fired and pct <= 0.05 then
+		if not t3Fired and pct <= 0.10 then
 			t1Fired = true ; t2Fired = true ; t3Fired = true
 			showIM(HEALTH_IM_T3[math.random(1, #HEALTH_IM_T3)])
 			imHeartbeatSound:Play()
 			flashHealthEffect(true)
-		elseif not t2Fired and pct <= 0.15 then
+		elseif not t2Fired and pct <= 0.20 then
 			t1Fired = true ; t2Fired = true
 			showIM(HEALTH_IM_T2[math.random(1, #HEALTH_IM_T2)])
 			imHeartbeatSound:Play()
@@ -612,7 +612,14 @@ local function setupHealthMonitor(character: Model)
 	-- Primary death trigger: fires directly from the local Humanoid without relying on
 	-- a server remote. The DeathIM remote acts as a secondary fallback; deathShownThisLife
 	-- ensures only one of the two paths ever calls showDeathScatter per life.
+	-- If health skipped past the 10 % threshold (instant kill from above), fire t3 now
+	-- so the player always sees it — the IM queues before the scatter plays.
 	humanoid.Died:Connect(function()
+		if not t3Fired then
+			t3Fired = true
+			showIM(HEALTH_IM_T3[math.random(1, #HEALTH_IM_T3)])
+			imHeartbeatSound:Play()
+		end
 		if deathShownThisLife then return end
 		deathShownThisLife = true
 		showDeathScatter()
