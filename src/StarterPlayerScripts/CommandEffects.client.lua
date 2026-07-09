@@ -555,35 +555,57 @@ if CommandRemotes.Notif then
 end
 
 -- ────────────────────────────────────────────────────────────────────────────
--- Health IM: fires once per life when health first drops to 5 % of MaxHealth.
+-- Health IM: fires at three thresholds per life (30 %, 15 %, 5 %).
 -- ────────────────────────────────────────────────────────────────────────────
 
-local HEALTH_IM_MESSAGES = {
+-- Messages for each escalating tier.
+local HEALTH_IM_T1 = {   -- 30 % — first warning
 	"Shit... I'm hurt...",
-	"I don't think I can keep this up...",
-	"Everything hurts...",
 	"Fuck.. I need to be more careful..",
-	"I can't take much more...",
-	"I have to survive.. I can't fall here..",
 	"This isn't good..",
 	"Stay focused...",
+}
+local HEALTH_IM_T2 = {   -- 15 % — second warning
+	"I don't think I can keep this up...",
+	"Everything hurts...",
+	"I can't take much more...",
+}
+local HEALTH_IM_T3 = {   -- 5 % — critical
+	"I have to survive.. I can't fall here..",
 	"I'm barely standing...",
+	"I can't fall here.. Not now..",
 }
 
 local function setupHealthMonitor(character: Model)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
-	local lowHealthFired = false
+	local t1Fired = false
+	local t2Fired = false
+	local t3Fired = false
 
 	-- health > 0 guard excludes instant kills; those go straight to the Died handler below.
 	humanoid.HealthChanged:Connect(function(health: number)
-		if lowHealthFired then return end
+		if health <= 0 then return end
 		local maxHealth = humanoid.MaxHealth
 		if maxHealth <= 0 then return end
-		if health > 0 and health / maxHealth <= 0.05 then
-			lowHealthFired = true
-			showIM(HEALTH_IM_MESSAGES[math.random(1, #HEALTH_IM_MESSAGES)])
+		local pct = health / maxHealth
+
+		-- Check most-critical first so a large single hit fires the right tier
+		-- and marks the lesser tiers as done (no catch-up spam on recovery).
+		if not t3Fired and pct <= 0.05 then
+			t1Fired = true ; t2Fired = true ; t3Fired = true
+			showIM(HEALTH_IM_T3[math.random(1, #HEALTH_IM_T3)])
 			imHeartbeatSound:Play()
 			flashHealthEffect(true)
+		elseif not t2Fired and pct <= 0.15 then
+			t1Fired = true ; t2Fired = true
+			showIM(HEALTH_IM_T2[math.random(1, #HEALTH_IM_T2)])
+			imHeartbeatSound:Play()
+			flashHealthEffect(false)
+		elseif not t1Fired and pct <= 0.30 then
+			t1Fired = true
+			showIM(HEALTH_IM_T1[math.random(1, #HEALTH_IM_T1)])
+			imHeartbeatSound:Play()
+			flashHealthEffect(false)
 		end
 	end)
 
