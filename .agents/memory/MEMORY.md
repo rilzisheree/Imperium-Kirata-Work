@@ -1,2 +1,3 @@
 - [Roblox clothing template IDs](roblox-clothing-templates.md) — never build rbxassetid://<userInputId> for Shirt/Pants; resolve the real template from the loaded asset instance instead.
 - [Roblox TextBox key-replay on focus](roblox-textbox-focus-keystroke-replay.md) — capturing TextBox focus while a hotkey is still held replays that key into the box; capture on key release instead.
+- [Roblox per-player master volume](roblox-per-player-master-volume.md) — scale a client-side SoundGroup, not individual Sound.Volume, for independent per-player audio control.

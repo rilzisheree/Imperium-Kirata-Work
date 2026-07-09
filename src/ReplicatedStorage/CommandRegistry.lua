@@ -206,6 +206,11 @@ CommandRegistry.COMMANDS = {
                 args        = {},
                 permission  = "Admin",
         },
+        volume = {
+                description = "Set your personal game volume (0-100)",
+                args        = { "0-100" },
+                permission  = "Everyone",
+        },
 }
 
 return CommandRegistry

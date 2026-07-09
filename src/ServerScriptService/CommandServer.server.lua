@@ -7,6 +7,7 @@ local CommandRemotes    = require(ReplicatedStorage:WaitForChild("CommandRemotes
 local CommandRegistry   = require(ReplicatedStorage:WaitForChild("CommandRegistry") :: ModuleScript)
 local CorpseFactory     = require(script.Parent:WaitForChild("CorpseFactory")       :: ModuleScript)
 local LanguageManager   = require(script.Parent:WaitForChild("LanguageManager")     :: ModuleScript)
+local VolumeManager     = require(script.Parent:WaitForChild("VolumeManager")       :: ModuleScript)
 local LanguageData      = require(ReplicatedStorage:WaitForChild("LanguageData")    :: ModuleScript)
 local Workspace          = game:GetService("Workspace")
 local TeleportService    = game:GetService("TeleportService")
@@ -174,6 +175,7 @@ Players.PlayerRemoving:Connect(function(player)
                 freezeData[player.UserId] = nil
         end
         staffModeActive[player.UserId] = nil
+        VolumeManager.onPlayerRemoving(player)
 end)
 
 -- Connects the death IM to a single character instance.
@@ -210,8 +212,16 @@ local function pushPermissions(player: Player)
         CommandRemotes.Permissions:FireClient(player, tier)
 end
 
+-- push the player's saved (or default) volume so their client applies it
+-- immediately on join, without needing to run the command themselves
+local function pushVolume(player: Player)
+        CommandRemotes.VolumeSet:FireClient(player, VolumeManager.getVolume(player.UserId))
+end
+
 Players.PlayerAdded:Connect(function(player)
         pushPermissions(player)
+        VolumeManager.onPlayerAdded(player)
+        pushVolume(player)
 
         -- detect whether this server instance is a reserved private server by reading
         -- the teleport data stamped by PrivateServerSend; only needs to happen once
@@ -246,6 +256,12 @@ Players.PlayerAdded:Connect(function(player)
                 invisData[player.UserId] = nil
         end)
 
+        -- re-apply the player's volume on every respawn too, in case the client's
+        -- master volume group was reset alongside the character
+        player.CharacterAdded:Connect(function()
+                pushVolume(player)
+        end)
+
         -- if a world spawn has been set, override respawn position for this player;
         -- re/respawn commands skip this by setting skipWorldSpawnNext before LoadCharacter
         player.CharacterAdded:Connect(function(character)
@@ -272,6 +288,11 @@ end)
 -- handle players already connected when this script loads (Studio edge case)
 for _, player in Players:GetPlayers() do
         task.spawn(pushPermissions, player)
+        VolumeManager.onPlayerAdded(player)
+        task.spawn(pushVolume, player)
+        player.CharacterAdded:Connect(function()
+                pushVolume(player)
+        end)
         -- attach world-spawn hook for any player already in the server
         player.CharacterAdded:Connect(function(character)
                 if skipWorldSpawnNext[player.UserId] then
@@ -878,6 +899,28 @@ HANDLERS["helpui"] = function(executor, args)
 
         CommandRemotes.HelpUIToggle:FireClient(executor, newState)
         ok(executor, "Help request notifications " .. (newState and "enabled" or "disabled") .. ".")
+end
+
+HANDLERS["volume"] = function(executor, args)
+        if #args < 1 then fail(executor, "Usage: volume <0-100>") return end
+        local raw = tonumber(args[1])
+        if not raw then
+                fail(executor, "Volume must be a number between 0 and 100.")
+                return
+        end
+        if raw < 0 or raw > 100 then
+                fail(executor, "Volume must be between 0 and 100.")
+                return
+        end
+
+        local success, volume = VolumeManager.setVolume(executor.UserId, raw)
+        if not success then
+                fail(executor, tostring(volume))
+                return
+        end
+
+        CommandRemotes.VolumeSet:FireClient(executor, volume)
+        ok(executor, "Volume set to " .. volume .. "%.")
 end
 
 HANDLERS["staffmode"] = function(executor, args)

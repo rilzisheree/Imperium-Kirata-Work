@@ -68,6 +68,7 @@ local REMOTES = {
 	StaffMode            = "CmdStaffMode",
 	LowHealthIM          = "CmdLowHealthIM",
 	DeathIM              = "CmdDeathIM",
+	VolumeSet            = "CmdVolumeSet",
 }
 
 local fn = RunService:IsServer() and make or get
