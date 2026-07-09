@@ -244,6 +244,14 @@ local function monitorCharacterHealth(player: Player, character: Model)
                         lowHealthState[player.UserId] = 0
                 end
         end)
+
+        -- Fire the death IM the instant the character's health reaches zero.
+        -- Humanoid.Died fires exactly once per Humanoid instance so no extra
+        -- dedup guard is needed; the connection is gone when the character is removed.
+        humanoid.Died:Connect(function()
+                if not player.Parent then return end
+                CommandRemotes.DeathIM:FireClient(player)
+        end)
 end
 
 -- Attaches health monitoring to a player for their current character (if any)

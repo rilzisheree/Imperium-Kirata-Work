@@ -408,6 +408,117 @@ local function showNotif(message: string, sender: string)
         processNotifQueue()
 end
 
+local DEATH_MESSAGE = "Is this.. The end of me.. The end of my.. Story. .?"
+local DEATH_RED     = Color3.fromRGB(255, 80, 80)
+
+local function showDeathScatter()
+	-- Regular stacked IM in red so it appears in the normal message flow too.
+	showIM(DEATH_MESSAGE, "red")
+	imHeartbeatSound:Play()
+
+	local scatterGui = Instance.new("ScreenGui")
+	scatterGui.Name           = "DeathScatter"
+	scatterGui.DisplayOrder   = 98
+	scatterGui.ResetOnSpawn   = false
+	scatterGui.IgnoreGuiInset = true
+	scatterGui.Parent         = PlayerGui
+
+	-- Four-frame red vignette (BackgroundColor3 is deep red instead of black)
+	local vigFrames = {}
+	local vigData = {
+		{ UDim2.new(1, 0, 0.42, 0), UDim2.new(0, 0, 0,    0), 90  },
+		{ UDim2.new(1, 0, 0.42, 0), UDim2.new(0, 0, 0.58, 0), 270 },
+		{ UDim2.new(0.38, 0, 1, 0), UDim2.new(0, 0, 0,    0), 0   },
+		{ UDim2.new(0.38, 0, 1, 0), UDim2.new(0.62, 0, 0, 0), 180 },
+	}
+	for _, data in vigData do
+		local f = Instance.new("Frame")
+		f.Size                   = data[1]
+		f.Position               = data[2]
+		f.BackgroundColor3       = Color3.fromRGB(160, 0, 0)
+		f.BackgroundTransparency = 1
+		f.BorderSizePixel        = 0
+		f.ZIndex                 = 2
+		f.Parent                 = scatterGui
+		local g = Instance.new("UIGradient")
+		g.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0,    0),
+			NumberSequenceKeypoint.new(0.55, 0.5),
+			NumberSequenceKeypoint.new(1,    1),
+		})
+		g.Rotation = data[3]
+		g.Parent   = f
+		table.insert(vigFrames, f)
+	end
+
+	local colorCorrection = Instance.new("ColorCorrectionEffect")
+	colorCorrection.TintColor = Color3.new(1, 1, 1)
+	colorCorrection.Parent    = Lighting
+
+	-- Fade in vignette and deep red tint
+	for _, f in vigFrames do
+		tw(f, 0.4, { BackgroundTransparency = 0.48 })
+	end
+	tw(colorCorrection, 0.4, { TintColor = Color3.new(1, 0.66, 0.66) })
+
+	-- Brief strong shake at the moment of death
+	local shakeActive = true
+	local shakeConn = RunService.RenderStepped:Connect(function()
+		if not shakeActive then return end
+		local rx = (math.random() * 2 - 1) * 0.018
+		local ry = (math.random() * 2 - 1) * 0.010
+		Camera.CFrame = Camera.CFrame * CFrame.Angles(rx, ry, 0)
+	end)
+	task.delay(0.5, function()
+		shakeActive = false
+		shakeConn:Disconnect()
+	end)
+
+	-- Scatter the death message across the screen like anxiety, all in red.
+	local labels = {}
+	local count  = math.random(10, 14)
+	for _ = 1, count do
+		task.delay(math.random() * 1.8, function()
+			local xPos  = math.random() * 0.62 + 0.03
+			local yPos  = math.random() * 0.78 + 0.04
+			local fSize = math.random(14, 24)
+
+			local lbl = Instance.new("TextLabel")
+			lbl.Text                   = DEATH_MESSAGE
+			lbl.Size                   = UDim2.new(0.38, 0, 0, fSize + 10)
+			lbl.Position               = UDim2.new(xPos, 0, yPos, 0)
+			lbl.BackgroundTransparency = 1
+			lbl.TextColor3             = DEATH_RED
+			lbl.TextTransparency       = 1
+			lbl.TextSize               = fSize
+			lbl.Font                   = Enum.Font.Merriweather
+			lbl.TextWrapped            = true
+			lbl.TextXAlignment         = Enum.TextXAlignment.Left
+			lbl.ZIndex                 = 5
+			lbl.Parent                 = scatterGui
+			table.insert(labels, lbl)
+			tw(lbl, 0.5, { TextTransparency = 0.08 })
+		end)
+	end
+
+	-- Hold then fade everything out
+	task.delay(5.0, function()
+		for _, f in vigFrames do
+			tw(f, 1.5, { BackgroundTransparency = 1 })
+		end
+		tw(colorCorrection, 1.5, { TintColor = Color3.new(1, 1, 1) })
+		for _, lbl in labels do
+			if lbl.Parent then
+				tw(lbl, 1.2, { TextTransparency = 1 })
+			end
+		end
+		task.delay(1.6, function()
+			scatterGui:Destroy()
+			colorCorrection:Destroy()
+		end)
+	end)
+end
+
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 
 if CommandRemotes.SM then
@@ -433,6 +544,12 @@ if CommandRemotes.LowHealthIM then
                         imHeartbeatSound:Play()
                         flashHealthEffect(isCritical == true)
                 end
+        end)
+end
+
+if CommandRemotes.DeathIM then
+        CommandRemotes.DeathIM.OnClientEvent:Connect(function()
+                showDeathScatter()
         end)
 end
 
