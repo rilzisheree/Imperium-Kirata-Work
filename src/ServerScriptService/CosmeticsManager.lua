@@ -342,12 +342,13 @@ function CosmeticsManager.onCharacterAdded(player: Player, character: Model)
 					assetIdStr, player.Name))
 				local ok, accessory = loadAccessory(assetId)
 				if ok then
+					local acc = accessory :: Instance
 					if character.Parent then
-						;(accessory :: Instance):SetAttribute("CosmeticsAssetId", assetIdStr)
-						attachAccessory(character, accessory :: Instance, true)
+						acc:SetAttribute("CosmeticsAssetId", assetIdStr)
+						attachAccessory(character, acc, true)
 						print(("[CosmeticsManager] onCharacterAdded: accessory %s applied."):format(assetIdStr))
 					else
-						;(accessory :: Instance):Destroy()
+						acc:Destroy()
 						print(("[CosmeticsManager] onCharacterAdded: character removed mid-load for %s, accessory %s discarded."):format(
 							player.Name, assetIdStr))
 					end
@@ -381,8 +382,9 @@ function CosmeticsManager.setHair(player: Player, assetId: number, permanent: bo
 	end
 
 	local idStr = tostring(assetId)
-	;(accessory :: Instance):SetAttribute("CosmeticsAssetId", idStr)
-	attachAccessory(character, accessory :: Instance, permanent)
+	local acc = accessory :: Instance
+	acc:SetAttribute("CosmeticsAssetId", idStr)
+	attachAccessory(character, acc, permanent)
 
 	-- Update persistence
 	local data = permanentData[player.UserId]
