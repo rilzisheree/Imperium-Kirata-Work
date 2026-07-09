@@ -8,6 +8,26 @@ local CommandRegistry   = require(ReplicatedStorage:WaitForChild("CommandRegistr
 local CorpseFactory     = require(script.Parent:WaitForChild("CorpseFactory")       :: ModuleScript)
 local LanguageManager   = require(script.Parent:WaitForChild("LanguageManager")     :: ModuleScript)
 local LanguageData      = require(ReplicatedStorage:WaitForChild("LanguageData")    :: ModuleScript)
+-- Cosmetics module is loaded with a pcall so any require-time error degrades
+-- gracefully: CosmeticsManager becomes a no-op table and CommandServer continues
+-- to start normally (commands still work; cosmetic features simply become unavailable).
+local _cosmeticsOk, _cosmeticsResult = pcall(function()
+        return require(script.Parent:WaitForChild("CosmeticsManager") :: ModuleScript)
+end)
+local noop = function() return false, "CosmeticsManager unavailable." end
+local CosmeticsManager = _cosmeticsOk and _cosmeticsResult or {
+        onPlayerAdded             = function() end,
+        onPlayerRemoving          = function() end,
+        onCharacterAdded          = function() end,
+        setHair                   = noop,
+        setShirt                  = noop,
+        setPants                  = noop,
+        removePermanentAccessories = function() return false end,
+        clearCurrentAccessories   = function() return 0 end,
+}
+if not _cosmeticsOk then
+        warn("[CommandServer] CosmeticsManager failed to load: " .. tostring(_cosmeticsResult))
+end
 local Workspace          = game:GetService("Workspace")
 local TeleportService    = game:GetService("TeleportService")
 local MessagingService   = game:GetService("MessagingService")
@@ -163,6 +183,7 @@ Players.PlayerRemoving:Connect(function(player)
                 for _, conn in fData.connections do conn:Disconnect() end
                 freezeData[player.UserId] = nil
         end
+        CosmeticsManager.onPlayerRemoving(player)
 end)
 
 -- push the player's permission tier to their client on join so CommandBar
@@ -174,6 +195,7 @@ end
 
 Players.PlayerAdded:Connect(function(player)
         pushPermissions(player)
+        CosmeticsManager.onPlayerAdded(player)
 
         -- detect whether this server instance is a reserved private server by reading
         -- the teleport data stamped by PrivateServerSend; only needs to happen once
@@ -208,6 +230,11 @@ Players.PlayerAdded:Connect(function(player)
                 invisData[player.UserId] = nil
         end)
 
+        -- reapply permanently saved cosmetics (hair, shirt, pants) on every spawn
+        player.CharacterAdded:Connect(function(character)
+                CosmeticsManager.onCharacterAdded(player, character)
+        end)
+
         -- if a world spawn has been set, override respawn position for this player;
         -- re/respawn commands skip this by setting skipWorldSpawnNext before LoadCharacter
         player.CharacterAdded:Connect(function(character)
@@ -232,6 +259,14 @@ end)
 -- handle players already connected when this script loads (Studio edge case)
 for _, player in Players:GetPlayers() do
         task.spawn(pushPermissions, player)
+        task.spawn(CosmeticsManager.onPlayerAdded, player)
+        -- reapply cosmetics for an already-spawned character
+        if player.Character then
+                task.spawn(CosmeticsManager.onCharacterAdded, player, player.Character)
+        end
+        player.CharacterAdded:Connect(function(character)
+                CosmeticsManager.onCharacterAdded(player, character)
+        end)
         -- attach world-spawn hook for any player already in the server
         player.CharacterAdded:Connect(function(character)
                 if skipWorldSpawnNext[player.UserId] then
@@ -1528,6 +1563,153 @@ local function parseAssetId(raw: string?): number?
         local id = tonumber(raw)
         if not id or id <= 0 then return nil end
         return id
+end
+
+HANDLERS["sethair"] = function(executor, args)
+        if #args < 3 then fail(executor, "Usage: sethair <player|all> <assetId> <true/false>") return end
+        local targets = resolveTargets(executor, args[1])
+        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+        local assetId = parseAssetId(args[2])
+        if not assetId then fail(executor, 'Invalid asset ID "' .. args[2] .. '".') return end
+        local permanent = parseBool(args[3])
+        if permanent == nil then fail(executor, "Usage: sethair <player|all> <assetId> <true/false>") return end
+
+        local succeeded, failures = {}, {}
+        for _, target in targets do
+                -- LoadAsset yields, so run each target in its own thread and collect results.
+                local success, result = CosmeticsManager.setHair(target, assetId, permanent)
+                if success then
+                        table.insert(succeeded, target.DisplayName)
+                else
+                        table.insert(failures, target.DisplayName .. " (" .. result .. ")")
+                end
+        end
+
+        if #succeeded == 0 then
+                fail(executor, "No hair applied: " .. table.concat(failures, "; ") .. ".")
+                return
+        end
+        local msg = "Hair " .. tostring(assetId) .. " applied to " .. table.concat(succeeded, ", ")
+                .. (permanent and " (permanent)." or " (temporary).")
+        if #failures > 0 then
+                msg = msg .. " Failed for: " .. table.concat(failures, "; ") .. "."
+        end
+        ok(executor, msg)
+end
+
+HANDLERS["setshirt"] = function(executor, args)
+        if #args < 3 then fail(executor, "Usage: setshirt <player|all> <assetId> <true/false>") return end
+        local targets = resolveTargets(executor, args[1])
+        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+        local assetId = parseAssetId(args[2])
+        if not assetId then fail(executor, 'Invalid asset ID "' .. args[2] .. '".') return end
+        local permanent = parseBool(args[3])
+        if permanent == nil then fail(executor, "Usage: setshirt <player|all> <assetId> <true/false>") return end
+
+        local succeeded, failures = {}, {}
+        for _, target in targets do
+                local success, result = CosmeticsManager.setShirt(target, assetId, permanent)
+                if success then
+                        table.insert(succeeded, target.DisplayName)
+                else
+                        table.insert(failures, target.DisplayName .. " (" .. result .. ")")
+                end
+        end
+
+        if #succeeded == 0 then
+                fail(executor, "No shirt applied: " .. table.concat(failures, "; ") .. ".")
+                return
+        end
+        local msg = "Shirt " .. tostring(assetId) .. " applied to " .. table.concat(succeeded, ", ")
+                .. (permanent and " (permanent)." or " (temporary).")
+        if #failures > 0 then
+                msg = msg .. " Failed for: " .. table.concat(failures, "; ") .. "."
+        end
+        ok(executor, msg)
+end
+
+HANDLERS["setpants"] = function(executor, args)
+        if #args < 3 then fail(executor, "Usage: setpants <player|all> <assetId> <true/false>") return end
+        local targets = resolveTargets(executor, args[1])
+        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+        local assetId = parseAssetId(args[2])
+        if not assetId then fail(executor, 'Invalid asset ID "' .. args[2] .. '".') return end
+        local permanent = parseBool(args[3])
+        if permanent == nil then fail(executor, "Usage: setpants <player|all> <assetId> <true/false>") return end
+
+        local succeeded, failures = {}, {}
+        for _, target in targets do
+                local success, result = CosmeticsManager.setPants(target, assetId, permanent)
+                if success then
+                        table.insert(succeeded, target.DisplayName)
+                else
+                        table.insert(failures, target.DisplayName .. " (" .. result .. ")")
+                end
+        end
+
+        if #succeeded == 0 then
+                fail(executor, "No pants applied: " .. table.concat(failures, "; ") .. ".")
+                return
+        end
+        local msg = "Pants " .. tostring(assetId) .. " applied to " .. table.concat(succeeded, ", ")
+                .. (permanent and " (permanent)." or " (temporary).")
+        if #failures > 0 then
+                msg = msg .. " Failed for: " .. table.concat(failures, "; ") .. "."
+        end
+        ok(executor, msg)
+end
+
+HANDLERS["removehat"] = function(executor, args)
+        if #args < 1 then fail(executor, "Usage: removehat <player|all>") return end
+        local targets = resolveTargets(executor, args[1])
+        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+        local cleared, untouched = {}, {}
+        for _, target in targets do
+                if CosmeticsManager.removePermanentAccessories(target) then
+                        table.insert(cleared, target.DisplayName)
+                else
+                        table.insert(untouched, target.DisplayName)
+                end
+        end
+
+        if #cleared == 0 then
+                local recipient = #targets == 1 and targets[1].DisplayName or "the targeted players"
+                ok(executor, recipient .. " had no permanent accessories.")
+                return
+        end
+        local msg = "Removed permanent accessories for " .. table.concat(cleared, ", ") .. "."
+        if #untouched > 0 then
+                msg = msg .. " (" .. table.concat(untouched, ", ") .. " had none)"
+        end
+        ok(executor, msg)
+end
+
+HANDLERS["clearhats"] = function(executor, args)
+        if #args < 1 then fail(executor, "Usage: clearhats <player|all>") return end
+        local targets = resolveTargets(executor, args[1])
+        if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+        local cleared, untouched = {}, {}
+        for _, target in targets do
+                local removed = CosmeticsManager.clearCurrentAccessories(target)
+                if removed > 0 then
+                        table.insert(cleared, target.DisplayName)
+                else
+                        table.insert(untouched, target.DisplayName)
+                end
+        end
+
+        if #cleared == 0 then
+                local recipient = #targets == 1 and targets[1].DisplayName or "the targeted players"
+                ok(executor, recipient .. " had no accessories equipped.")
+                return
+        end
+        local msg = "Cleared accessories for " .. table.concat(cleared, ", ") .. " (this life only)."
+        if #untouched > 0 then
+                msg = msg .. " (" .. table.concat(untouched, ", ") .. " had none)"
+        end
+        ok(executor, msg)
 end
 
 HANDLERS["music"] = function(executor, args)
