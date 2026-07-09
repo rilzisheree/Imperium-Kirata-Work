@@ -693,6 +693,28 @@ HANDLERS["createcorpse"] = function(executor, args)
         ok(executor, msg)
 end
 
+-- Player:LoadCharacter() reuses the HumanoidDescription cached at join time,
+-- so avatar changes made on Roblox mid-session (e.g. new hair) don't show up
+-- on re/respawn unless we explicitly re-fetch and apply the latest description.
+local function applyLatestAppearance(target: Player, character: Model)
+        local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 5)
+        if not humanoid or not humanoid:IsA("Humanoid") then return end
+
+        local fetchOk, description = pcall(function()
+                return Players:GetHumanoidDescriptionFromUserId(target.UserId)
+        end)
+        if fetchOk and description then
+                local applyOk, applyErr = pcall(function()
+                        humanoid:ApplyDescription(description)
+                end)
+                if not applyOk then
+                        warn("[CommandServer] failed to apply latest appearance for " .. target.Name .. ": " .. tostring(applyErr))
+                end
+        else
+                warn("[CommandServer] failed to fetch latest appearance for " .. target.Name .. ": " .. tostring(description))
+        end
+end
+
 -- reloads a single player's character in place, preserving their position,
 -- orientation, and health where possible
 local function refreshPlayer(target: Player): (boolean, string)
@@ -719,6 +741,8 @@ local function refreshPlayer(target: Player): (boolean, string)
         if not newRoot then
                 return false, target.DisplayName .. "'s character didn't finish loading in time"
         end
+
+        applyLatestAppearance(target, newCharacter)
 
         newCharacter:PivotTo(savedCFrame)
 
@@ -757,6 +781,8 @@ local function respawnPlayer(target: Player, spawn: BasePart?): (boolean, string
         if not newRoot then
                 return false, target.DisplayName .. "'s character didn't finish loading in time"
         end
+
+        applyLatestAppearance(target, newCharacter)
 
         if spawn then
                 newCharacter:PivotTo(spawn.CFrame + Vector3.new(0, 5, 0))
