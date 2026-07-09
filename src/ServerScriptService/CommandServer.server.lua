@@ -102,7 +102,7 @@ local freezeData = {}
 local lowHealthState = {}
 
 local LOW_HEALTH_THRESHOLD = 0.30   -- 30% of max health fires the warning IM
-local LOW_CRITICAL_HEALTH  = 3      -- absolute HP at which the critical IM fires
+local LOW_CRITICAL_HEALTH  = 5      -- absolute HP at which the critical IM fires
 
 local LOW_HEALTH_MESSAGES = {
         "Shit... I'm hurt...",
