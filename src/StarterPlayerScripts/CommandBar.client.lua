@@ -10,9 +10,13 @@ local CommandRegistry = require(ReplicatedStorage:WaitForChild("CommandRegistry"
 local LP   = Players.LocalPlayer
 local PGui = LP:WaitForChild("PlayerGui")
 
-local TIER_ORDER = { Everyone = 0, Helper = 1, Moderator = 2, Admin = 3, Owner = 4 }
+local TIER_ORDER = { Everyone = 0, Helper = 1, Moderator = 2, Admin = 3, Owner = 4, Staff = 99 }
 
 local COMMANDS = {}
+
+-- Tracks whether Staff Mode is currently active for this client.  Set by the
+-- StaffMode remote; used to reapply Staff commands if Permissions fires again.
+local staffModeEnabled = false
 
 CommandRemotes.Permissions.OnClientEvent:Connect(function(tier: string)
 	if typeof(tier) ~= "string" then return end
@@ -27,7 +31,7 @@ CommandRemotes.Permissions.OnClientEvent:Connect(function(tier: string)
 	end
 
 	for name, def in pairs(CommandRegistry.COMMANDS) do
-		if name ~= "language" then
+		if name ~= "language" and def.permission ~= "Staff" then
 			local required = TIER_ORDER[def.permission] or 0
 			if myLevel >= required then
 				COMMANDS[name] = { args = def.args, description = def.description }
@@ -38,6 +42,16 @@ CommandRemotes.Permissions.OnClientEvent:Connect(function(tier: string)
 	if keepLanguage then
 		COMMANDS["language"] = keepLanguage
 	end
+
+	-- If Staff Mode is active, re-add Staff commands so a mid-session
+	-- Permissions push does not silently wipe them from the list.
+	if staffModeEnabled then
+		for name, def in pairs(CommandRegistry.COMMANDS) do
+			if def.permission == "Staff" then
+				COMMANDS[name] = { args = def.args, description = def.description }
+			end
+		end
+	end
 end)
 
 CommandRemotes.LanguageGrants.OnClientEvent:Connect(function(grants: { string })
@@ -46,6 +60,21 @@ CommandRemotes.LanguageGrants.OnClientEvent:Connect(function(grants: { string })
 		COMMANDS["language"] = { args = {}, description = "Open language selection menu" }
 	else
 		COMMANDS["language"] = nil
+	end
+end)
+
+CommandRemotes.StaffMode.OnClientEvent:Connect(function(enabled: boolean)
+	staffModeEnabled = enabled
+	-- Add or remove every Staff-permission command from the active COMMANDS table
+	-- so autocomplete and access reflect the new state immediately.
+	for name, def in pairs(CommandRegistry.COMMANDS) do
+		if def.permission == "Staff" then
+			if enabled then
+				COMMANDS[name] = { args = def.args, description = def.description }
+			else
+				COMMANDS[name] = nil
+			end
+		end
 	end
 end)
 

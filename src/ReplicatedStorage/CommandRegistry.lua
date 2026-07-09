@@ -201,6 +201,11 @@ CommandRegistry.COMMANDS = {
                 args        = { "player" },
                 permission  = "Admin",
         },
+        staffmode = {
+                description = "Toggle Staff Mode, enabling or disabling access to staff-only commands for this session",
+                args        = {},
+                permission  = "Admin",
+        },
 }
 
 return CommandRegistry

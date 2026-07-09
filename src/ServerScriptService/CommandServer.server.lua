@@ -22,7 +22,7 @@ local STAFF_IDS = {
         [1872507151] = "Owner",
 }
 
-local TIER_ORDER = { Helper = 1, Moderator = 2, Admin = 3, Owner = 4 }
+local TIER_ORDER = { Helper = 1, Moderator = 2, Admin = 3, Owner = 4, Staff = 99 }
 
 local function getTier(player: Player): string?
         if IS_STUDIO then return "Owner" end
@@ -32,8 +32,17 @@ local function getTier(player: Player): string?
         return STAFF_IDS[player.UserId]
 end
 
+-- Declared here, before hasPermission, so the function can close over it as an
+-- upvalue.  Populated by HANDLERS["staffmode"].
+local staffModeActive = {}  -- [userId] = true while Staff Mode is on for that player
+
 local function hasPermission(player: Player, required: string): boolean
         if required == "Everyone" then return true end
+        -- "Staff" is a capability gate, not a tier level.  It is satisfied only
+        -- when the player has explicitly activated Staff Mode this session.
+        if required == "Staff" then
+                return staffModeActive[player.UserId] == true
+        end
         local tier = getTier(player)
         if not tier then return false end
         return (TIER_ORDER[tier] or 0) >= (TIER_ORDER[required] or 99)
@@ -163,6 +172,7 @@ Players.PlayerRemoving:Connect(function(player)
                 for _, conn in fData.connections do conn:Disconnect() end
                 freezeData[player.UserId] = nil
         end
+        staffModeActive[player.UserId] = nil
 end)
 
 -- push the player's permission tier to their client on join so CommandBar
@@ -837,6 +847,16 @@ HANDLERS["helpui"] = function(executor, args)
 
         CommandRemotes.HelpUIToggle:FireClient(executor, newState)
         ok(executor, "Help request notifications " .. (newState and "enabled" or "disabled") .. ".")
+end
+
+HANDLERS["staffmode"] = function(executor, args)
+        local newState = not staffModeActive[executor.UserId]
+        -- Store true when active, nil (not false) when inactive so pairs()
+        -- over staffModeActive never iterates stale false entries.
+        staffModeActive[executor.UserId] = newState or nil
+        -- Tell the client to add or remove Staff-permission commands immediately.
+        CommandRemotes.StaffMode:FireClient(executor, newState)
+        ok(executor, "Staff Mode " .. (newState and "enabled" or "disabled") .. ".")
 end
 
 HANDLERS["countdown"] = function(executor, args)
