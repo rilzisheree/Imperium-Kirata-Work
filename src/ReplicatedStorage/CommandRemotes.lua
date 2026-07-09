@@ -65,6 +65,7 @@ if RunService:IsServer() then
         CommandRemotes.PrivateServerCancel  = getOrCreate("CmdPSCancel")
         CommandRemotes.ServerBringNotice    = getOrCreate("CmdServerBringNotice")
         CommandRemotes.StaffMode            = getOrCreate("CmdStaffMode")
+        CommandRemotes.LowHealthIM          = getOrCreate("CmdLowHealthIM")
 else
         CommandRemotes.CommandExecuted = waitFor("CmdExecuted")
         CommandRemotes.CommandFeedback = waitFor("CmdFeedback")
@@ -112,6 +113,7 @@ else
         CommandRemotes.PrivateServerCancel  = waitFor("CmdPSCancel")
         CommandRemotes.ServerBringNotice    = waitFor("CmdServerBringNotice")
         CommandRemotes.StaffMode            = waitFor("CmdStaffMode")
+        CommandRemotes.LowHealthIM          = waitFor("CmdLowHealthIM")
 end
 
 return CommandRemotes

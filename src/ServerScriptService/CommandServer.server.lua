@@ -96,12 +96,13 @@ local serverjoinCallbacks = {}
 -- freeze state: [userId] = { character, frozenParts, walkSpeed, jumpPower, connections }
 local freezeData = {}
 
--- low-health automatic IM: [userId] = true once the IM has fired for the
--- current dip; reset to false when health recovers above the threshold or
--- the character changes so the next dip can trigger again
-local lowHealthTriggered = {}
+-- low-health automatic IM state: [userId] = 0 (above 30%), 1 (30% IM fired),
+-- 2 (15% IM also fired).  Reset to 0 on recovery above 30%, to 1 on recovery
+-- above 15% (so the 15% IM can re-fire on the next dip), and to 0 on respawn.
+local lowHealthState = {}
 
-local LOW_HEALTH_THRESHOLD = 0.30
+local LOW_HEALTH_THRESHOLD    = 0.30
+local LOW_CRITICAL_THRESHOLD  = 0.15
 
 local LOW_HEALTH_MESSAGES = {
         "Shit... I'm hurt...",
@@ -191,15 +192,15 @@ Players.PlayerRemoving:Connect(function(player)
                 for _, conn in fData.connections do conn:Disconnect() end
                 freezeData[player.UserId] = nil
         end
-        staffModeActive[player.UserId]    = nil
-        lowHealthTriggered[player.UserId] = nil
+        staffModeActive[player.UserId] = nil
+        lowHealthState[player.UserId]  = nil
 end)
 
 -- Attaches health monitoring to a single character instance.  Extracted so it
 -- can be called for both an already-loaded character and each future respawn.
 local function monitorCharacterHealth(player: Player, character: Model)
-        -- Each new character resets the trigger so the first dip fires fresh.
-        lowHealthTriggered[player.UserId] = false
+        -- Each new character resets state so all thresholds can fire fresh.
+        lowHealthState[player.UserId] = 0
 
         local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
         if not humanoid then return end
@@ -209,15 +210,37 @@ local function monitorCharacterHealth(player: Player, character: Model)
                 local maxHealth = humanoid.MaxHealth
                 if maxHealth <= 0 then return end
 
-                if health / maxHealth < LOW_HEALTH_THRESHOLD then
-                        if not lowHealthTriggered[player.UserId] then
-                                lowHealthTriggered[player.UserId] = true
+                local pct   = health / maxHealth
+                local state = lowHealthState[player.UserId] or 0
+
+                if pct < LOW_CRITICAL_THRESHOLD then
+                        -- Below 15%: fire the critical IM once per dip below this line.
+                        -- If health jumped directly from above 30% to below 15% in one
+                        -- damage hit (state == 0), fire the 30% warning first so both
+                        -- thresholds always produce an IM; they stack on the client.
+                        if state < 2 then
+                                if state == 0 then
+                                        local warn = LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)]
+                                        CommandRemotes.LowHealthIM:FireClient(player, warn)
+                                end
+                                lowHealthState[player.UserId] = 2
+                                local crit = LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)]
+                                CommandRemotes.LowHealthIM:FireClient(player, crit)
+                        end
+                elseif pct < LOW_HEALTH_THRESHOLD then
+                        if state == 0 then
+                                -- Freshly crossed 30%: fire the warning IM.
+                                lowHealthState[player.UserId] = 1
                                 local msg = LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)]
-                                CommandRemotes.IM:FireClient(player, msg)
+                                CommandRemotes.LowHealthIM:FireClient(player, msg)
+                        elseif state == 2 then
+                                -- Recovered above 15% but still below 30%: allow the 15%
+                                -- IM to re-fire on the next dip without re-triggering the 30% one.
+                                lowHealthState[player.UserId] = 1
                         end
                 else
-                        -- Health recovered above threshold: allow the next dip to fire.
-                        lowHealthTriggered[player.UserId] = false
+                        -- Recovered above 30%: fully reset so both IMs can fire again.
+                        lowHealthState[player.UserId] = 0
                 end
         end)
 end

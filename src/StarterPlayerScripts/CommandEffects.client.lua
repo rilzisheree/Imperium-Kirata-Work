@@ -80,25 +80,27 @@ smBody.ZIndex                 = 10
 smBody.Visible                = false
 smBody.Parent                 = gui
 
-local imLabel = Instance.new("TextLabel")
-imLabel.Name                   = "IMLabel"
-imLabel.AnchorPoint            = Vector2.new(0.5, 0.5)
-imLabel.Position               = UDim2.new(0.5, 0, 0.66, 0)
-imLabel.Size                   = UDim2.new(0.50, 0, 0, 0)
-imLabel.AutomaticSize          = Enum.AutomaticSize.Y
-imLabel.BackgroundTransparency = 1
-imLabel.TextColor3             = DEFAULT_COLOR
-imLabel.TextTransparency       = 0
-imLabel.TextSize               = 25
-imLabel.Font                   = Enum.Font.Merriweather
-imLabel.Text                   = ""
-imLabel.TextWrapped            = true
-imLabel.RichText               = true
-imLabel.TextXAlignment         = Enum.TextXAlignment.Center
-imLabel.TextYAlignment         = Enum.TextYAlignment.Center
-imLabel.ZIndex                 = 10
-imLabel.Visible                = false
-imLabel.Parent                 = gui
+-- IM container: each message spawns its own label so multiple IMs can be
+-- visible simultaneously, stacked vertically by arrival order.
+local imContainer = Instance.new("Frame")
+imContainer.Name                   = "IMContainer"
+imContainer.AnchorPoint            = Vector2.new(0.5, 0)
+imContainer.Position               = UDim2.new(0.5, 0, 0.60, 0)
+imContainer.Size                   = UDim2.new(0.50, 0, 0, 0)
+imContainer.AutomaticSize          = Enum.AutomaticSize.Y
+imContainer.BackgroundTransparency = 1
+imContainer.ZIndex                 = 10
+imContainer.Parent                 = gui
+
+local imLayout = Instance.new("UIListLayout")
+imLayout.FillDirection       = Enum.FillDirection.Vertical
+imLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+imLayout.VerticalAlignment   = Enum.VerticalAlignment.Top
+imLayout.Padding             = UDim.new(0, 8)
+imLayout.SortOrder           = Enum.SortOrder.LayoutOrder
+imLayout.Parent              = imContainer
+
+local imLayoutOrder = 0
 
 local notifMsg = Instance.new("TextLabel")
 notifMsg.Name                   = "NotifMsg"
@@ -226,21 +228,35 @@ local function showIM(text: string, colorName: string?)
         local color = resolveColor(colorName)
         local hold  = calcHold(text)
 
-        imLabel.Text             = MarkdownParser.toRichText(text)
-        imLabel.TextColor3       = color
-        imLabel.TextTransparency = 1
-        imLabel.Visible          = true
+        -- Each call gets its own label; UIListLayout stacks them in arrival order.
+        imLayoutOrder += 1
+        local lbl = Instance.new("TextLabel")
+        lbl.Name                   = "IMLabel"
+        lbl.LayoutOrder            = imLayoutOrder
+        lbl.Size                   = UDim2.new(1, 0, 0, 0)
+        lbl.AutomaticSize          = Enum.AutomaticSize.Y
+        lbl.BackgroundTransparency = 1
+        lbl.TextColor3             = color
+        lbl.TextTransparency       = 1
+        lbl.TextSize               = 25
+        lbl.Font                   = Enum.Font.Merriweather
+        lbl.Text                   = MarkdownParser.toRichText(text)
+        lbl.TextWrapped            = true
+        lbl.RichText               = true
+        lbl.TextXAlignment         = Enum.TextXAlignment.Center
+        lbl.TextYAlignment         = Enum.TextYAlignment.Center
+        lbl.ZIndex                 = 10
+        lbl.Parent                 = imContainer
 
-        local removeGlow = colorName and applyGlow(color, { imLabel }) or nil
+        local removeGlow = colorName and applyGlow(color, { lbl }) or nil
 
-        tw(imLabel, 0.6, { TextTransparency = 0 })
+        tw(lbl, 0.6, { TextTransparency = 0 })
 
         task.delay(0.6 + hold, function()
                 if removeGlow then removeGlow() end
-                tw(imLabel, 0.5, { TextTransparency = 1 })
+                tw(lbl, 0.5, { TextTransparency = 1 })
                 task.delay(0.55, function()
-                        imLabel.Visible          = false
-                        imLabel.TextTransparency = 0
+                        lbl:Destroy()
                 end)
         end)
 end
@@ -249,6 +265,13 @@ local notifSound = Instance.new("Sound")
 notifSound.SoundId = "rbxassetid://131390520971848"
 notifSound.Volume  = 1
 notifSound.Parent  = gui
+
+-- Heartbeat sound played alongside automatic low-health IMs (same asset used
+-- by the anxiety system).
+local imHeartbeatSound = Instance.new("Sound")
+imHeartbeatSound.SoundId = "rbxassetid://7188240609"
+imHeartbeatSound.Volume  = 0.8
+imHeartbeatSound.Parent  = gui
 
 local notifQueue: { { message: string, sender: string } } = {}
 local notifBusy = false
@@ -309,6 +332,15 @@ if CommandRemotes.IM then
         CommandRemotes.IM.OnClientEvent:Connect(function(message: string, colorName: string?)
                 if typeof(message) == "string" and message ~= "" then
                         showIM(message, colorName)
+                end
+        end)
+end
+
+if CommandRemotes.LowHealthIM then
+        CommandRemotes.LowHealthIM.OnClientEvent:Connect(function(message: string, colorName: string?)
+                if typeof(message) == "string" and message ~= "" then
+                        showIM(message, colorName)
+                        imHeartbeatSound:Play()
                 end
         end)
 end
