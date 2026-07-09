@@ -330,44 +330,77 @@ function CosmeticsManager.clearCurrentAccessories(player: Player): number
 end
 
 -- Re-applies every permanently saved cosmetic to a freshly spawned character.
--- Shirt/pants template URLs are applied directly (no InsertService yield) so
--- they win the race against Roblox's default character appearance loading.
--- Legacy DataStore entries that still contain numeric catalog IDs are resolved
--- once via InsertService and then upgraded in memory for subsequent respawns.
+--
+-- Roblox's character appearance loading fires CharacterAdded early, then
+-- continues applying the player's HumanoidDescription asynchronously — creating
+-- or replacing Shirt/Pants instances AFTER our handler runs. To survive this:
+--   1. Apply our custom template to any already-existing instance immediately.
+--   2. Install a ChildAdded listener on the character (set up before any yields)
+--      that re-applies our template the moment Roblox creates a new instance.
+--
+-- The mutable shirtUrl/pantsUrl locals are captured by the listener closure and
+-- populated synchronously for saved template URLs (no yield) or after an
+-- InsertService resolution for legacy numeric catalog IDs.
 function CosmeticsManager.onCharacterAdded(player: Player, character: Model)
 	local data = playerData[player.UserId]
 	if not data then return end
 
-	local function applyClothing(
-		field: string,
-		className: string,
-		cache: { [string]: string },
-		applyFn: (Model, string) -> ()
-	)
-		local stored = (data :: any)[field]
-		if not stored then return end
+	-- These are written before any yield so the ChildAdded listener below
+	-- always has the right URL by the time Roblox's loading fires ChildAdded.
+	local shirtUrl: string? = nil
+	local pantsUrl: string? = nil
 
-		if stored:match("^rbxassetid://") then
-			-- Already a resolved template URL — apply immediately, no yield.
-			applyFn(character, stored)
+	-- Install the listener immediately (before yields) so it catches instances
+	-- created by Roblox's appearance loader even mid-resolution.
+	character.ChildAdded:Connect(function(child)
+		if shirtUrl and child:IsA("Shirt") then
+			(child :: Shirt).ShirtTemplate = shirtUrl
+		elseif pantsUrl and child:IsA("Pants") then
+			(child :: Pants).PantsTemplate = pantsUrl
+		end
+	end)
+
+	-- Resolve shirt URL (synchronous for new-format; yields for legacy IDs).
+	if data.shirt then
+		if data.shirt:match("^rbxassetid://") then
+			shirtUrl = data.shirt
 		else
-			-- Legacy catalog ID: resolve once and upgrade the stored value.
-			local assetId = tonumber(stored)
-			if not assetId then return end
-			local templateUrl, err = resolveClothingTemplate(assetId, className, cache)
-			if templateUrl then
-				applyFn(character, templateUrl)
-				-- Upgrade in memory so the next respawn is instant.
-				;(data :: any)[field] = templateUrl
-				task.spawn(saveData, player.UserId, data)
-			else
-				warn("[CosmeticsManager] failed to reapply " .. field .. " " .. stored .. ": " .. tostring(err))
+			local assetId = tonumber(data.shirt)
+			if assetId then
+				local url, err = resolveClothingTemplate(assetId, "Shirt", shirtTemplateCache)
+				if url then
+					shirtUrl = url
+					data.shirt = url  -- upgrade to URL format for instant future respawns
+					task.spawn(saveData, player.UserId, data)
+				else
+					warn("[CosmeticsManager] failed to reapply shirt " .. data.shirt .. ": " .. tostring(err))
+				end
 			end
 		end
 	end
 
-	applyClothing("shirt", "Shirt", shirtTemplateCache, applyShirtToCharacter)
-	applyClothing("pants", "Pants", pantsTemplateCache, applyPantsToCharacter)
+	-- Resolve pants URL (synchronous for new-format; yields for legacy IDs).
+	if data.pants then
+		if data.pants:match("^rbxassetid://") then
+			pantsUrl = data.pants
+		else
+			local assetId = tonumber(data.pants)
+			if assetId then
+				local url, err = resolveClothingTemplate(assetId, "Pants", pantsTemplateCache)
+				if url then
+					pantsUrl = url
+					data.pants = url  -- upgrade to URL format for instant future respawns
+					task.spawn(saveData, player.UserId, data)
+				else
+					warn("[CosmeticsManager] failed to reapply pants " .. data.pants .. ": " .. tostring(err))
+				end
+			end
+		end
+	end
+
+	-- Apply to any instances already present on the character.
+	if shirtUrl then applyShirtToCharacter(character, shirtUrl) end
+	if pantsUrl then applyPantsToCharacter(character, pantsUrl) end
 
 	for idStr in pairs(data.accessories) do
 		local assetId = tonumber(idStr)
