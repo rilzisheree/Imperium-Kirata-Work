@@ -230,8 +230,15 @@ Players.PlayerAdded:Connect(function(player)
                 invisData[player.UserId] = nil
         end)
 
-        -- reapply permanently saved cosmetics (hair, shirt, pants) on every spawn
-        player.CharacterAdded:Connect(function(character)
+        -- reapply permanently saved cosmetics (hair, shirt, pants) on every spawn.
+        -- CharacterAppearanceLoaded fires AFTER Roblox finishes applying the player's
+        -- HumanoidDescription (avatar shirt, pants, accessories).  Using CharacterAdded
+        -- here caused Roblox's own avatar loading to run after our applyShirt/applyPants
+        -- calls and silently overwrite them.  CharacterAppearanceLoaded guarantees we
+        -- always run last, so our permanent cosmetics are never clobbered.
+        player.CharacterAppearanceLoaded:Connect(function(character)
+                print(("[CommandServer] CharacterAppearanceLoaded for %s — triggering cosmetics reapplication."):format(
+                        player.Name))
                 CosmeticsManager.onCharacterAdded(player, character)
         end)
 
@@ -260,11 +267,40 @@ end)
 for _, player in Players:GetPlayers() do
         task.spawn(pushPermissions, player)
         task.spawn(CosmeticsManager.onPlayerAdded, player)
-        -- reapply cosmetics for an already-spawned character
+        -- Reapply cosmetics for an already-spawned character.
+        -- CharacterAppearanceLoaded may have already fired (character is stable), in
+        -- which case the event will NOT re-fire.  We connect for the event first so we
+        -- catch it if the character is still mid-load, then fall back with task.delay
+        -- after 1 s for characters whose appearance was already settled before this
+        -- script loaded.  The `applied` flag prevents a double call.
         if player.Character then
-                task.spawn(CosmeticsManager.onCharacterAdded, player, player.Character)
+                local character    = player.Character
+                local applied      = false
+                local appearConn
+                appearConn = player.CharacterAppearanceLoaded:Connect(function(loadedChar)
+                        if loadedChar ~= character then return end
+                        appearConn:Disconnect()
+                        if applied then return end
+                        applied = true
+                        print(("[CommandServer] CharacterAppearanceLoaded for %s (already-connected, mid-load path) — triggering cosmetics reapplication."):format(
+                                player.Name))
+                        CosmeticsManager.onCharacterAdded(player, loadedChar)
+                end)
+                task.delay(1, function()
+                        if applied then return end
+                        appearConn:Disconnect()
+                        if character.Parent then
+                                applied = true
+                                print(("[CommandServer] Appearance already settled for %s (already-connected path) — applying cosmetics directly."):format(
+                                        player.Name))
+                                CosmeticsManager.onCharacterAdded(player, character)
+                        end
+                end)
         end
-        player.CharacterAdded:Connect(function(character)
+        -- Same CharacterAppearanceLoaded rationale as the PlayerAdded block above.
+        player.CharacterAppearanceLoaded:Connect(function(character)
+                print(("[CommandServer] CharacterAppearanceLoaded for %s (already-connected, future spawn path) — triggering cosmetics reapplication."):format(
+                        player.Name))
                 CosmeticsManager.onCharacterAdded(player, character)
         end)
         -- attach world-spawn hook for any player already in the server

@@ -267,7 +267,12 @@ function CosmeticsManager.onPlayerRemoving(player: Player)
 		player.Name, player.UserId))
 end
 
--- Re-apply all permanent cosmetics when the character spawns.
+-- Re-apply all permanent cosmetics after the character's appearance has fully loaded.
+-- IMPORTANT: This must be called from a CharacterAppearanceLoaded connection, NOT from
+-- CharacterAdded.  CharacterAdded fires before Roblox finishes applying the player's
+-- HumanoidDescription (avatar shirt, pants, accessories).  If called from CharacterAdded,
+-- Roblox's own avatar loading will run after applyShirt/applyPants and silently overwrite
+-- the permanent cosmetics.  CharacterAppearanceLoaded guarantees the avatar is settled.
 function CosmeticsManager.onCharacterAdded(player: Player, character: Model)
 	task.spawn(function()
 		print(("[CosmeticsManager] onCharacterAdded: waiting for data for %s..."):format(player.Name))
