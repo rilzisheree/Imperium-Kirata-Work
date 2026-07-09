@@ -264,7 +264,7 @@ local function showIM(text: string, colorName: string?)
 end
 
 -- One-shot screen flash: vignette darkening + red tint + brief shake.
--- isCritical = true for the 15% trigger (stronger), false for the 30% one.
+-- isCritical = true for the critical HP trigger (stronger), false for the warning.
 local function flashHealthEffect(isCritical: boolean)
 	local shakeAmp  = isCritical and 0.010 or 0.005
 	local vigTarget = isCritical and 0.62  or 0.78
@@ -561,6 +561,72 @@ if CommandRemotes.Notif then
                 end
         end)
 end
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- Local health monitor — runs on the client so HealthChanged is always fired
+-- regardless of how the server applies damage.
+-- ────────────────────────────────────────────────────────────────────────────
+
+local LOW_HEALTH_MESSAGES = {
+	"Shit... I'm hurt...",
+	"I don't think I can keep this up...",
+	"Everything hurts...",
+	"Fuck.. I need to be more careful..",
+	"I can't take much more...",
+	"I have to survive.. I can't fall here..",
+	"This isn't good..",
+	"Stay focused...",
+	"I'm barely standing...",
+}
+
+local LOW_HEALTH_THRESHOLD = 0.30  -- 30 % of max health fires the warning IM
+local LOW_CRITICAL_HEALTH  = 5     -- absolute HP at which the critical IM fires
+
+local function setupHealthMonitor(character: Model)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+		or character:WaitForChild("Humanoid", 10) :: Humanoid?
+	if not humanoid then return end
+
+	local state = 0  -- 0: healthy, 1: warning fired, 2: critical fired
+
+	humanoid.HealthChanged:Connect(function(health: number)
+		local maxHealth = humanoid.MaxHealth
+		if maxHealth <= 0 then return end
+
+		if health <= LOW_CRITICAL_HEALTH then
+			if state < 2 then
+				if state == 0 then
+					-- Jumped past warning on the way down — fire warning first.
+					showIM(LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)])
+					imHeartbeatSound:Play()
+					flashHealthEffect(false)
+				end
+				state = 2
+				showIM(LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)])
+				imHeartbeatSound:Play()
+				flashHealthEffect(true)
+			end
+		elseif health / maxHealth < LOW_HEALTH_THRESHOLD then
+			if state == 0 then
+				state = 1
+				showIM(LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)])
+				imHeartbeatSound:Play()
+				flashHealthEffect(false)
+			elseif state == 2 then
+				state = 1  -- recovered above critical but still in warning zone
+			end
+		else
+			state = 0  -- fully recovered
+		end
+	end)
+end
+
+LocalPlayer.CharacterAdded:Connect(setupHealthMonitor)
+if LocalPlayer.Character then
+	task.spawn(setupHealthMonitor, LocalPlayer.Character)
+end
+
+-- ────────────────────────────────────────────────────────────────────────────
 
 local blindGui = Instance.new("ScreenGui")
 blindGui.Name           = "BlindEffect"

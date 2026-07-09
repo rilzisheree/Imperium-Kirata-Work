@@ -96,25 +96,6 @@ local serverjoinCallbacks = {}
 -- freeze state: [userId] = { character, frozenParts, walkSpeed, jumpPower, connections }
 local freezeData = {}
 
--- low-health automatic IM state: [userId] = 0 (above 30%), 1 (30% IM fired),
--- 2 (critical IM also fired).  Reset to 0 on recovery above 30%, to 1 on
--- recovery above critical HP, and to 0 on respawn.
-local lowHealthState = {}
-
-local LOW_HEALTH_THRESHOLD = 0.30   -- 30% of max health fires the warning IM
-local LOW_CRITICAL_HEALTH  = 5      -- absolute HP at which the critical IM fires
-
-local LOW_HEALTH_MESSAGES = {
-        "Shit... I'm hurt...",
-        "I don't think I can keep this up...",
-        "Everything hurts...",
-        "Fuck.. I need to be more careful..",
-        "I can't take much more...",
-        "I have to survive.. I can't fall here..",
-        "This isn't good..",
-        "Stay focused...",
-        "I'm barely standing...",
-}
 
 local activePrivateServerCode: string? = nil
 
@@ -193,61 +174,14 @@ Players.PlayerRemoving:Connect(function(player)
                 freezeData[player.UserId] = nil
         end
         staffModeActive[player.UserId] = nil
-        lowHealthState[player.UserId]  = nil
 end)
 
--- Attaches health monitoring to a single character instance.  Extracted so it
--- can be called for both an already-loaded character and each future respawn.
+-- Connects the death IM to a single character instance.
+-- Low-health IMs are handled client-side (CommandEffects) so HealthChanged
+-- is always read from the local Humanoid, which is more reliable.
 local function monitorCharacterHealth(player: Player, character: Model)
-        -- Each new character resets state so all thresholds can fire fresh.
-        lowHealthState[player.UserId] = 0
-
         local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
         if not humanoid then return end
-
-        humanoid.HealthChanged:Connect(function(health: number)
-                if not player.Parent then return end -- player left mid-callback
-                local maxHealth = humanoid.MaxHealth
-                if maxHealth <= 0 then return end
-
-                local pct   = health / maxHealth
-                local state = lowHealthState[player.UserId] or 0
-
-                if health <= LOW_CRITICAL_HEALTH then
-                        -- At or below critical HP: fire the critical IM once per dip.
-                        -- If health jumped directly from above 30% to critical in one
-                        -- damage hit (state == 0), fire the 30% warning first so both
-                        -- thresholds always produce an IM; they stack on the client.
-                        if state < 2 then
-                                if state == 0 then
-                                        -- Jumped past 30% on the way down — fire the warning first.
-                                        local warn = LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)]
-                                        CommandRemotes.LowHealthIM:FireClient(player, warn, false)
-                                end
-                                lowHealthState[player.UserId] = 2
-                                local crit = LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)]
-                                CommandRemotes.LowHealthIM:FireClient(player, crit, true)
-                        end
-                elseif pct < LOW_HEALTH_THRESHOLD then
-                        if state == 0 then
-                                -- Freshly crossed 30%: fire the warning IM.
-                                lowHealthState[player.UserId] = 1
-                                local msg = LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)]
-                                CommandRemotes.LowHealthIM:FireClient(player, msg, false)
-                        elseif state == 2 then
-                                -- Recovered above critical HP but still below 30%: allow the
-                                -- critical IM to re-fire next dip without re-triggering warning.
-                                lowHealthState[player.UserId] = 1
-                        end
-                else
-                        -- Recovered above 30%: fully reset so both IMs can fire again.
-                        lowHealthState[player.UserId] = 0
-                end
-        end)
-
-        -- Fire the death IM the instant the character's health reaches zero.
-        -- Humanoid.Died fires exactly once per Humanoid instance so no extra
-        -- dedup guard is needed; the connection is gone when the character is removed.
         humanoid.Died:Connect(function()
                 if not player.Parent then return end
                 CommandRemotes.DeathIM:FireClient(player)
