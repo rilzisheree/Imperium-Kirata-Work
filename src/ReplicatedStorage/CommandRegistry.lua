@@ -201,31 +201,6 @@ CommandRegistry.COMMANDS = {
                 args        = { "player" },
                 permission  = "Admin",
         },
-        sethair = {
-                description = "Give a player a hair/accessory, optionally saved permanently",
-                args        = { "player|all", "assetId", "true|false" },
-                permission  = "Admin",
-        },
-        setshirt = {
-                description = "Set a player's shirt, optionally saved permanently",
-                args        = { "player|all", "assetId", "true|false" },
-                permission  = "Admin",
-        },
-        setpants = {
-                description = "Set a player's pants, optionally saved permanently",
-                args        = { "player|all", "assetId", "true|false" },
-                permission  = "Admin",
-        },
-        removehat = {
-                description = "Permanently remove a player's saved accessories/hair",
-                args        = { "player|all" },
-                permission  = "Admin",
-        },
-        clearhats = {
-                description = "Temporarily remove all of a player's currently equipped accessories",
-                args        = { "player|all" },
-                permission  = "Admin",
-        },
 }
 
 return CommandRegistry
