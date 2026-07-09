@@ -96,6 +96,25 @@ local serverjoinCallbacks = {}
 -- freeze state: [userId] = { character, frozenParts, walkSpeed, jumpPower, connections }
 local freezeData = {}
 
+-- low-health automatic IM: [userId] = true once the IM has fired for the
+-- current dip; reset to false when health recovers above the threshold or
+-- the character changes so the next dip can trigger again
+local lowHealthTriggered = {}
+
+local LOW_HEALTH_THRESHOLD = 0.30
+
+local LOW_HEALTH_MESSAGES = {
+        "Shit... I'm hurt...",
+        "I don't think I can keep this up...",
+        "Everything hurts...",
+        "Fuck.. I need to be more careful..",
+        "I can't take much more...",
+        "I have to survive.. I can't fall here..",
+        "This isn't good..",
+        "Stay focused...",
+        "I'm barely standing...",
+}
+
 local activePrivateServerCode: string? = nil
 
 -- music state: the currently playing audio ID (or nil) and volume (0–1)
@@ -172,8 +191,51 @@ Players.PlayerRemoving:Connect(function(player)
                 for _, conn in fData.connections do conn:Disconnect() end
                 freezeData[player.UserId] = nil
         end
-        staffModeActive[player.UserId] = nil
+        staffModeActive[player.UserId]    = nil
+        lowHealthTriggered[player.UserId] = nil
 end)
+
+-- Attaches health monitoring to a single character instance.  Extracted so it
+-- can be called for both an already-loaded character and each future respawn.
+local function monitorCharacterHealth(player: Player, character: Model)
+        -- Each new character resets the trigger so the first dip fires fresh.
+        lowHealthTriggered[player.UserId] = false
+
+        local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
+        if not humanoid then return end
+
+        humanoid.HealthChanged:Connect(function(health: number)
+                if not player.Parent then return end -- player left mid-callback
+                local maxHealth = humanoid.MaxHealth
+                if maxHealth <= 0 then return end
+
+                if health / maxHealth < LOW_HEALTH_THRESHOLD then
+                        if not lowHealthTriggered[player.UserId] then
+                                lowHealthTriggered[player.UserId] = true
+                                local msg = LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)]
+                                CommandRemotes.IM:FireClient(player, msg)
+                        end
+                else
+                        -- Health recovered above threshold: allow the next dip to fire.
+                        lowHealthTriggered[player.UserId] = false
+                end
+        end)
+end
+
+-- Attaches health monitoring to a player for their current character (if any)
+-- and all future characters.  Called once per player on join and for players
+-- already connected when this script loads (Studio edge case).
+local function attachHealthMonitor(player: Player)
+        -- Bind immediately if the player already has a character (script may run
+        -- after the character has spawned, e.g. in Studio play mode).
+        if player.Character then
+                task.spawn(monitorCharacterHealth, player, player.Character)
+        end
+        -- Monitor every future character (respawns).
+        player.CharacterAdded:Connect(function(character)
+                monitorCharacterHealth(player, character)
+        end)
+end
 
 -- push the player's permission tier to their client on join so CommandBar
 -- knows which commands to show in autocomplete
@@ -237,6 +299,8 @@ Players.PlayerAdded:Connect(function(player)
                         end
                 end
         end)
+
+        attachHealthMonitor(player)
 end)
 
 -- handle players already connected when this script loads (Studio edge case)
@@ -260,6 +324,7 @@ for _, player in Players:GetPlayers() do
                         end
                 end
         end)
+        attachHealthMonitor(player)
 end
 
 -- Subscribe to serverbring requests from admins in other server instances.
