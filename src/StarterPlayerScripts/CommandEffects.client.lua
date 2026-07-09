@@ -579,8 +579,8 @@ local LOW_HEALTH_MESSAGES = {
 	"I'm barely standing...",
 }
 
-local LOW_HEALTH_THRESHOLD = 0.30  -- 30 % of max health fires the warning IM
-local LOW_CRITICAL_HEALTH  = 5     -- absolute HP at which the critical IM fires
+local LOW_HEALTH_THRESHOLD = 0.50  -- 50 % of max health fires the warning IM
+local LOW_CRITICAL_HEALTH  = 8     -- absolute HP at which the critical IM fires
 
 local function setupHealthMonitor(character: Model)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -592,6 +592,10 @@ local function setupHealthMonitor(character: Model)
 	humanoid.HealthChanged:Connect(function(health: number)
 		local maxHealth = humanoid.MaxHealth
 		if maxHealth <= 0 then return end
+
+		-- Skip health = 0: the death scatter handles that moment.
+		-- We only fire IMs while the player is still alive.
+		if health <= 0 then return end
 
 		if health <= LOW_CRITICAL_HEALTH then
 			if state < 2 then
