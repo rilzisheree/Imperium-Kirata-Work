@@ -3,7 +3,7 @@ local InsertService    = game:GetService("InsertService")
 
 local CosmeticsManager = {}
 
--- DataStore — resolved lazily on first use so no DataStore call ever runs at
+-- DataStore -- resolved lazily on first use so no DataStore call ever runs at
 -- module load time.  Studio without API access or any init error degrades to
 -- a nil store; all call sites already guard with `if not ds`.
 local ds = nil
@@ -33,9 +33,9 @@ local DS_KEY_PREFIX = "player_"
 local permanentData = {}  -- [userId] = { accessories, shirt, pants }
 local dataLoaded    = {}  -- [userId] = true when the DataStore load has finished
 
--- ─────────────────────────────────────────────────────────────────────────────
+-- ---------------------------------------------------------------------------
 -- DataStore helpers
--- ─────────────────────────────────────────────────────────────────────────────
+-- ---------------------------------------------------------------------------
 
 local function emptyData()
 	return { accessories = {}, shirt = nil, pants = nil }
@@ -44,8 +44,8 @@ end
 local function loadData(userId: number)
 	local store = getDs()
 	if not store then
-		warn(("[CosmeticsManager] loadData(%d): DataStore unavailable — returning empty data. " ..
-			"Enable Studio API access under Game Settings → Security if testing in Studio."):format(userId))
+		warn(("[CosmeticsManager] loadData(%d): DataStore unavailable -- returning empty data. " ..
+			"Enable Studio API access under Game Settings > Security if testing in Studio."):format(userId))
 		return emptyData()
 	end
 
@@ -61,7 +61,7 @@ local function loadData(userId: number)
 		if result == nil then
 			print(("[CosmeticsManager] loadData(%d): no saved data (first join or data was cleared)."):format(userId))
 		else
-			warn(("[CosmeticsManager] loadData(%d): unexpected saved type '%s' — using empty data."):format(
+			warn(("[CosmeticsManager] loadData(%d): unexpected saved type '%s' -- using empty data."):format(
 				userId, type(result)))
 		end
 		return emptyData()
@@ -85,7 +85,7 @@ local function loadData(userId: number)
 
 	local accCount = 0
 	for _ in pairs(clean.accessories) do accCount += 1 end
-	print(("[CosmeticsManager] loadData(%d): loaded — %d accessory(ies), shirt=%s, pants=%s"):format(
+	print(("[CosmeticsManager] loadData(%d): loaded -- %d accessory(ies), shirt=%s, pants=%s"):format(
 		userId, accCount, tostring(clean.shirt), tostring(clean.pants)))
 	return clean
 end
@@ -93,7 +93,7 @@ end
 local function saveData(userId: number, data)
 	local store = getDs()
 	if not store then
-		warn(("[CosmeticsManager] saveData(%d): DataStore unavailable — save skipped."):format(userId))
+		warn(("[CosmeticsManager] saveData(%d): DataStore unavailable -- save skipped."):format(userId))
 		return
 	end
 
@@ -111,18 +111,18 @@ local function saveData(userId: number, data)
 		store:SetAsync(DS_KEY_PREFIX .. userId, payload)
 	end)
 	if not ok then
-		warn(("[CosmeticsManager] saveData(%d): SetAsync FAILED — data was NOT persisted: %s"):format(
+		warn(("[CosmeticsManager] saveData(%d): SetAsync FAILED -- data was NOT persisted: %s"):format(
 			userId, tostring(err)))
 	else
-		print(("[CosmeticsManager] saveData(%d): saved — %d accessory(ies), shirt=%s, pants=%s"):format(
+		print(("[CosmeticsManager] saveData(%d): saved -- %d accessory(ies), shirt=%s, pants=%s"):format(
 			userId, #accessoriesList, tostring(data.shirt), tostring(data.pants)))
 	end
 end
 
--- ─────────────────────────────────────────────────────────────────────────────
--- Asset loading helpers (all yield — must be called inside task.spawn or
+-- ---------------------------------------------------------------------------
+-- Asset loading helpers (all yield -- must be called inside task.spawn or
 -- a coroutine, never at module top level)
--- ─────────────────────────────────────────────────────────────────────────────
+-- ---------------------------------------------------------------------------
 
 -- Load an Accessory from Roblox's asset catalogue.
 -- Returns (true, Accessory) on success, (false, errorMsg) on failure.
@@ -131,12 +131,16 @@ local function loadAccessory(assetId: number): (boolean, any)
 		return InsertService:LoadAsset(assetId)
 	end)
 	if not ok then
-		return false, "Failed to load asset " .. assetId .. ": " .. tostring(model)
+		local msg = "Failed to load asset " .. assetId .. ": " .. tostring(model)
+		warn("[CosmeticsManager] loadAccessory: " .. msg)
+		return false, msg
 	end
 	local accessory = model:FindFirstChildOfClass("Accessory")
 	if not accessory then
 		model:Destroy()
-		return false, "Asset " .. assetId .. " is not an Accessory."
+		local msg = "Asset " .. assetId .. " is not an Accessory."
+		warn("[CosmeticsManager] loadAccessory: " .. msg)
+		return false, msg
 	end
 	accessory.Parent = nil
 	model:Destroy()
@@ -151,12 +155,16 @@ local function resolveClothingTemplate(assetId: number, className: string): (boo
 		return InsertService:LoadAsset(assetId)
 	end)
 	if not ok then
-		return false, "Failed to load asset " .. assetId .. ": " .. tostring(model)
+		local msg = "Failed to load asset " .. assetId .. ": " .. tostring(model)
+		warn("[CosmeticsManager] resolveClothingTemplate: " .. msg)
+		return false, msg
 	end
 	local item = model:FindFirstChildOfClass(className)
 	if not item then
 		model:Destroy()
-		return false, "Asset " .. assetId .. " does not contain a " .. className .. "."
+		local msg = "Asset " .. assetId .. " does not contain a " .. className .. "."
+		warn("[CosmeticsManager] resolveClothingTemplate: " .. msg)
+		return false, msg
 	end
 	local rawTemplate: string = (className == "Shirt") and item.ShirtTemplate or item.PantsTemplate
 	model:Destroy()
@@ -165,9 +173,9 @@ local function resolveClothingTemplate(assetId: number, className: string): (boo
 	return true, numericId
 end
 
--- ─────────────────────────────────────────────────────────────────────────────
+-- ---------------------------------------------------------------------------
 -- Character application helpers
--- ─────────────────────────────────────────────────────────────────────────────
+-- ---------------------------------------------------------------------------
 
 local function applyShirt(character: Model, templateId: string)
 	local shirt = character:FindFirstChildOfClass("Shirt")
@@ -219,14 +227,14 @@ local function waitForData(userId: number, timeout: number?)
 		task.wait(0.1)
 	end
 	if not dataLoaded[userId] then
-		warn(("[CosmeticsManager] waitForData(%d): timed out after %ds — DataStore load may have failed."):format(
+		warn(("[CosmeticsManager] waitForData(%d): timed out after %ds -- DataStore load may have failed."):format(
 			userId, limit))
 	end
 end
 
--- ─────────────────────────────────────────────────────────────────────────────
+-- ---------------------------------------------------------------------------
 -- Lifecycle hooks (called from CommandServer)
--- ─────────────────────────────────────────────────────────────────────────────
+-- ---------------------------------------------------------------------------
 
 function CosmeticsManager.onPlayerAdded(player: Player)
 	task.spawn(function()
@@ -239,13 +247,9 @@ function CosmeticsManager.onPlayerAdded(player: Player)
 	end)
 end
 
--- Root cause fix: save to DataStore before clearing in-memory state.
--- Previously, onPlayerRemoving cleared permanentData without saving, meaning
--- any in-flight save that had silently failed would leave no safety-net copy.
--- Saving here guarantees at least one committed write per session on leave.
--- The saveData call is wrapped in pcall so that any unexpected error (e.g.
--- malformed in-memory data before SetAsync is reached) cannot prevent the
--- cleanup lines below from running.
+-- Save to DataStore before clearing in-memory state so any prior silent save
+-- failure has a safety-net write on leave.  Wrapped in pcall so an unexpected
+-- error inside saveData cannot block the cleanup lines below.
 function CosmeticsManager.onPlayerRemoving(player: Player)
 	local data = permanentData[player.UserId]
 	if data then
@@ -271,12 +275,12 @@ function CosmeticsManager.onCharacterAdded(player: Player, character: Model)
 
 		local data = permanentData[player.UserId]
 		if not data then
-			warn(("[CosmeticsManager] onCharacterAdded: permanentData missing for %s — skipping cosmetics."):format(
+			warn(("[CosmeticsManager] onCharacterAdded: permanentData missing for %s -- skipping cosmetics."):format(
 				player.Name))
 			return
 		end
 		if not character.Parent then
-			print(("[CosmeticsManager] onCharacterAdded: character already removed for %s — skipping."):format(
+			print(("[CosmeticsManager] onCharacterAdded: character already removed for %s -- skipping."):format(
 				player.Name))
 			return
 		end
@@ -291,14 +295,14 @@ function CosmeticsManager.onCharacterAdded(player: Player, character: Model)
 				if ok then
 					if character.Parent then
 						applyShirt(character, templateId :: string)
-						print(("[CosmeticsManager] onCharacterAdded: shirt %s applied ✓"):format(data.shirt))
+						print(("[CosmeticsManager] onCharacterAdded: shirt %s applied."):format(data.shirt))
 					else
 						print(("[CosmeticsManager] onCharacterAdded: character removed mid-load for %s, shirt skipped."):format(
 							player.Name))
 					end
 				else
-					warn(("[CosmeticsManager] onCharacterAdded: failed to resolve shirt %s: %s"):format(
-						data.shirt, tostring(templateId)))
+					warn(("[CosmeticsManager] onCharacterAdded: failed to apply shirt %s to %s: %s"):format(
+						data.shirt, player.Name, tostring(templateId)))
 				end
 			end
 		end
@@ -313,14 +317,14 @@ function CosmeticsManager.onCharacterAdded(player: Player, character: Model)
 				if ok then
 					if character.Parent then
 						applyPants(character, templateId :: string)
-						print(("[CosmeticsManager] onCharacterAdded: pants %s applied ✓"):format(data.pants))
+						print(("[CosmeticsManager] onCharacterAdded: pants %s applied."):format(data.pants))
 					else
 						print(("[CosmeticsManager] onCharacterAdded: character removed mid-load for %s, pants skipped."):format(
 							player.Name))
 					end
 				else
-					warn(("[CosmeticsManager] onCharacterAdded: failed to resolve pants %s: %s"):format(
-						data.pants, tostring(templateId)))
+					warn(("[CosmeticsManager] onCharacterAdded: failed to apply pants %s to %s: %s"):format(
+						data.pants, player.Name, tostring(templateId)))
 				end
 			end
 		end
@@ -341,33 +345,40 @@ function CosmeticsManager.onCharacterAdded(player: Player, character: Model)
 					if character.Parent then
 						;(accessory :: Instance):SetAttribute("CosmeticsAssetId", assetIdStr)
 						attachAccessory(character, accessory :: Instance, true)
-						print(("[CosmeticsManager] onCharacterAdded: accessory %s applied ✓"):format(assetIdStr))
+						print(("[CosmeticsManager] onCharacterAdded: accessory %s applied."):format(assetIdStr))
 					else
 						;(accessory :: Instance):Destroy()
 						print(("[CosmeticsManager] onCharacterAdded: character removed mid-load for %s, accessory %s discarded."):format(
 							player.Name, assetIdStr))
 					end
 				else
-					warn(("[CosmeticsManager] onCharacterAdded: failed to load accessory %s: %s"):format(
-						assetIdStr, tostring(accessory)))
+					warn(("[CosmeticsManager] onCharacterAdded: failed to apply accessory %s to %s: %s"):format(
+						assetIdStr, player.Name, tostring(accessory)))
 				end
 			end
 		end
 	end)
 end
 
--- ─────────────────────────────────────────────────────────────────────────────
+-- ---------------------------------------------------------------------------
 -- Command implementations (called from CommandServer handlers)
--- All yield — must be invoked inside task.spawn by the caller.
--- ─────────────────────────────────────────────────────────────────────────────
+-- All yield -- must be invoked inside task.spawn by the caller.
+-- ---------------------------------------------------------------------------
 
 -- Returns (success: boolean, message: string)
 function CosmeticsManager.setHair(player: Player, assetId: number, permanent: boolean): (boolean, string)
 	local character = player.Character
-	if not character then return false, "Character not loaded." end
+	if not character then
+		warn(("[CosmeticsManager] setHair(%d): character not loaded for %s."):format(assetId, player.Name))
+		return false, "Character not loaded."
+	end
 
 	local ok, accessory = loadAccessory(assetId)
-	if not ok then return false, accessory :: string end
+	if not ok then
+		warn(("[CosmeticsManager] setHair(%d): asset load failed for %s: %s"):format(
+			assetId, player.Name, tostring(accessory)))
+		return false, accessory :: string
+	end
 
 	local idStr = tostring(assetId)
 	;(accessory :: Instance):SetAttribute("CosmeticsAssetId", idStr)
@@ -386,7 +397,7 @@ function CosmeticsManager.setHair(player: Player, assetId: number, permanent: bo
 			print(("[CosmeticsManager] setHair: saving permanent accessory %s for %s"):format(idStr, player.Name))
 			task.spawn(saveData, player.UserId, data)
 		else
-			print(("[CosmeticsManager] setHair: accessory %s already permanent for %s — no save needed."):format(
+			print(("[CosmeticsManager] setHair: accessory %s already permanent for %s -- no save needed."):format(
 				idStr, player.Name))
 		end
 	else
@@ -404,10 +415,17 @@ end
 -- Returns (success: boolean, message: string)
 function CosmeticsManager.setShirt(player: Player, assetId: number, permanent: boolean): (boolean, string)
 	local character = player.Character
-	if not character then return false, "Character not loaded." end
+	if not character then
+		warn(("[CosmeticsManager] setShirt(%d): character not loaded for %s."):format(assetId, player.Name))
+		return false, "Character not loaded."
+	end
 
 	local ok, templateId = resolveClothingTemplate(assetId, "Shirt")
-	if not ok then return false, templateId :: string end
+	if not ok then
+		warn(("[CosmeticsManager] setShirt(%d): asset load failed for %s: %s"):format(
+			assetId, player.Name, tostring(templateId)))
+		return false, templateId :: string
+	end
 
 	applyShirt(character, templateId :: string)
 
@@ -436,10 +454,17 @@ end
 -- Returns (success: boolean, message: string)
 function CosmeticsManager.setPants(player: Player, assetId: number, permanent: boolean): (boolean, string)
 	local character = player.Character
-	if not character then return false, "Character not loaded." end
+	if not character then
+		warn(("[CosmeticsManager] setPants(%d): character not loaded for %s."):format(assetId, player.Name))
+		return false, "Character not loaded."
+	end
 
 	local ok, templateId = resolveClothingTemplate(assetId, "Pants")
-	if not ok then return false, templateId :: string end
+	if not ok then
+		warn(("[CosmeticsManager] setPants(%d): asset load failed for %s: %s"):format(
+			assetId, player.Name, tostring(templateId)))
+		return false, templateId :: string
+	end
 
 	applyPants(character, templateId :: string)
 
@@ -491,7 +516,7 @@ function CosmeticsManager.removePermanentAccessories(player: Player): boolean
 end
 
 -- Temporarily remove every accessory from the player's current character.
--- Does NOT modify DataStore — permanent accessories will return on next respawn.
+-- Does NOT modify DataStore -- permanent accessories will return on next respawn.
 -- Returns the number of accessories removed.
 function CosmeticsManager.clearCurrentAccessories(player: Player): number
 	local character = player.Character
@@ -506,4 +531,5 @@ function CosmeticsManager.clearCurrentAccessories(player: Player): number
 	return count
 end
 
+print("[CosmeticsManager] module initialized.")
 return CosmeticsManager
