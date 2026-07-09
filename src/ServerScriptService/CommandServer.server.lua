@@ -8,26 +8,6 @@ local CommandRegistry   = require(ReplicatedStorage:WaitForChild("CommandRegistr
 local CorpseFactory     = require(script.Parent:WaitForChild("CorpseFactory")       :: ModuleScript)
 local LanguageManager   = require(script.Parent:WaitForChild("LanguageManager")     :: ModuleScript)
 local LanguageData      = require(ReplicatedStorage:WaitForChild("LanguageData")    :: ModuleScript)
--- Cosmetics module is loaded with a pcall so any require-time error degrades
--- gracefully: CosmeticsManager becomes a no-op table and CommandServer continues
--- to start normally (commands still work; cosmetic features simply become unavailable).
-local _cosmeticsOk, _cosmeticsResult = pcall(function()
-        return require(script.Parent:WaitForChild("CosmeticsManager") :: ModuleScript)
-end)
-local noop = function() return false, "CosmeticsManager unavailable." end
-local CosmeticsManager = _cosmeticsOk and _cosmeticsResult or {
-        onPlayerAdded             = function() end,
-        onPlayerRemoving          = function() end,
-        onCharacterAdded          = function() end,
-        setHair                   = noop,
-        setShirt                  = noop,
-        setPants                  = noop,
-        removePermanentAccessories = function() return false end,
-        clearCurrentAccessories   = function() return 0 end,
-}
-if not _cosmeticsOk then
-        warn("[CommandServer] CosmeticsManager failed to load: " .. tostring(_cosmeticsResult))
-end
 local Workspace          = game:GetService("Workspace")
 local TeleportService    = game:GetService("TeleportService")
 local MessagingService   = game:GetService("MessagingService")
@@ -183,7 +163,6 @@ Players.PlayerRemoving:Connect(function(player)
                 for _, conn in fData.connections do conn:Disconnect() end
                 freezeData[player.UserId] = nil
         end
-        CosmeticsManager.onPlayerRemoving(player)
 end)
 
 -- push the player's permission tier to their client on join so CommandBar
@@ -195,7 +174,6 @@ end
 
 Players.PlayerAdded:Connect(function(player)
         pushPermissions(player)
-        CosmeticsManager.onPlayerAdded(player)
 
         -- detect whether this server instance is a reserved private server by reading
         -- the teleport data stamped by PrivateServerSend; only needs to happen once
@@ -230,18 +208,6 @@ Players.PlayerAdded:Connect(function(player)
                 invisData[player.UserId] = nil
         end)
 
-        -- reapply permanently saved cosmetics (hair, shirt, pants) on every spawn.
-        -- CharacterAppearanceLoaded fires AFTER Roblox finishes applying the player's
-        -- HumanoidDescription (avatar shirt, pants, accessories).  Using CharacterAdded
-        -- here caused Roblox's own avatar loading to run after our applyShirt/applyPants
-        -- calls and silently overwrite them.  CharacterAppearanceLoaded guarantees we
-        -- always run last, so our permanent cosmetics are never clobbered.
-        player.CharacterAppearanceLoaded:Connect(function(character)
-                print(("[CommandServer] CharacterAppearanceLoaded for %s — triggering cosmetics reapplication."):format(
-                        player.Name))
-                CosmeticsManager.onCharacterAdded(player, character)
-        end)
-
         -- if a world spawn has been set, override respawn position for this player;
         -- re/respawn commands skip this by setting skipWorldSpawnNext before LoadCharacter
         player.CharacterAdded:Connect(function(character)
@@ -266,43 +232,6 @@ end)
 -- handle players already connected when this script loads (Studio edge case)
 for _, player in Players:GetPlayers() do
         task.spawn(pushPermissions, player)
-        task.spawn(CosmeticsManager.onPlayerAdded, player)
-        -- Reapply cosmetics for an already-spawned character.
-        -- CharacterAppearanceLoaded may have already fired (character is stable), in
-        -- which case the event will NOT re-fire.  We connect for the event first so we
-        -- catch it if the character is still mid-load, then fall back with task.delay
-        -- after 1 s for characters whose appearance was already settled before this
-        -- script loaded.  The `applied` flag prevents a double call.
-        if player.Character then
-                local character    = player.Character
-                local applied      = false
-                local appearConn
-                appearConn = player.CharacterAppearanceLoaded:Connect(function(loadedChar)
-                        if loadedChar ~= character then return end
-                        appearConn:Disconnect()
-                        if applied then return end
-                        applied = true
-                        print(("[CommandServer] CharacterAppearanceLoaded for %s (already-connected, mid-load path) — triggering cosmetics reapplication."):format(
-                                player.Name))
-                        CosmeticsManager.onCharacterAdded(player, loadedChar)
-                end)
-                task.delay(1, function()
-                        if applied then return end
-                        appearConn:Disconnect()
-                        if character.Parent then
-                                applied = true
-                                print(("[CommandServer] Appearance already settled for %s (already-connected path) — applying cosmetics directly."):format(
-                                        player.Name))
-                                CosmeticsManager.onCharacterAdded(player, character)
-                        end
-                end)
-        end
-        -- Same CharacterAppearanceLoaded rationale as the PlayerAdded block above.
-        player.CharacterAppearanceLoaded:Connect(function(character)
-                print(("[CommandServer] CharacterAppearanceLoaded for %s (already-connected, future spawn path) — triggering cosmetics reapplication."):format(
-                        player.Name))
-                CosmeticsManager.onCharacterAdded(player, character)
-        end)
         -- attach world-spawn hook for any player already in the server
         player.CharacterAdded:Connect(function(character)
                 if skipWorldSpawnNext[player.UserId] then
