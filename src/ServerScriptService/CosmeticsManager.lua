@@ -8,15 +8,19 @@ local DS_KEY_PREFIX = "player_"
 local ds = DataStoreService:GetDataStore("PlayerCosmetics_v1")
 
 -- In-memory cache keyed by userId (number).
--- { accessories = { [assetIdString] = true, ... }, shirt = assetIdString?, pants = assetIdString? }
+-- shirt/pants store template URLs (rbxassetid://...) so onCharacterAdded can
+-- apply them instantly without an InsertService round-trip on every respawn.
+-- Legacy DataStore values that are plain numeric strings (catalog IDs) are
+-- resolved once on first use and then upgraded to template URLs automatically.
 local playerData = {}
 
--- Caches so repeated sethair/respawns don't hit InsertService every time.
--- Accessory cache holds the unparented Instance; clothing caches hold the
--- resolved template URL because the catalog asset ID ≠ the texture template ID.
-local accessoryTemplateCache = {}  -- [assetIdStr] = Accessory/Hat instance
-local shirtTemplateCache     = {}  -- [assetIdStr] = ShirtTemplate URL string
-local pantsTemplateCache     = {}  -- [assetIdStr] = PantsTemplate URL string
+-- Catalog ID → resolved template URL, so InsertService is only called once per
+-- unique clothing asset per server lifetime.
+local shirtTemplateCache = {}  -- [catalogIdStr] = "rbxassetid://..."
+local pantsTemplateCache = {}  -- [catalogIdStr] = "rbxassetid://..."
+
+-- Catalog ID → unparented Accessory/Hat clone, reused across respawns.
+local accessoryTemplateCache = {}  -- [catalogIdStr] = Instance
 
 local function defaultData()
 	return { accessories = {}, shirt = nil, pants = nil }
@@ -37,11 +41,18 @@ local function loadData(userId: number)
 					end
 				end
 			end
-			if type(decoded.shirt) == "string" and decoded.shirt:match("^%d+$") then
-				clean.shirt = decoded.shirt
+			-- Accept both legacy numeric catalog IDs and new template URL strings.
+			if type(decoded.shirt) == "string" then
+				local v = decoded.shirt
+				if v:match("^%d+$") or v:match("^rbxassetid://") then
+					clean.shirt = v
+				end
 			end
-			if type(decoded.pants) == "string" and decoded.pants:match("^%d+$") then
-				clean.pants = decoded.pants
+			if type(decoded.pants) == "string" then
+				local v = decoded.pants
+				if v:match("^%d+$") or v:match("^rbxassetid://") then
+					clean.pants = v
+				end
 			end
 			return clean
 		end
@@ -89,8 +100,8 @@ local function findAccessoryIn(model: Instance): Instance?
 	return nil
 end
 
--- Returns a reusable (unparented) Accessory/Hat template for the given asset ID,
--- validating that the asset is actually a hair/accessory. Caches on success.
+-- Returns a reusable (unparented) Accessory/Hat template for the given catalog
+-- asset ID, validating that it is actually a hair/accessory. Caches on success.
 local function getAccessoryTemplate(assetId: number): (Instance?, string?)
 	local idStr = tostring(assetId)
 	if accessoryTemplateCache[idStr] then
@@ -114,11 +125,11 @@ local function getAccessoryTemplate(assetId: number): (Instance?, string?)
 	return accessory, nil
 end
 
--- Loads the catalog asset and extracts the actual ShirtTemplate/PantsTemplate URL
--- from the clothing instance inside it. The catalog asset ID is not the same as the
--- template texture ID, so building rbxassetid://<catalogId> directly produces a
--- broken texture. Caches the resolved URL on success; negative results are not
--- cached so a transient load failure doesn't permanently brand a valid asset.
+-- Loads a clothing catalog asset via InsertService and extracts the actual
+-- ShirtTemplate / PantsTemplate URL from the clothing instance inside it.
+-- The catalog asset ID differs from the texture template ID, so we must resolve
+-- it before use. Negatives are not cached so a transient load failure can be
+-- retried without restarting the server.
 local function resolveClothingTemplate(
 	assetId: number,
 	className: string,
@@ -235,6 +246,8 @@ function CosmeticsManager.setHair(player: Player, assetId: number, permanent: bo
 end
 
 -- setshirt <target> <assetId> <permanent>
+-- Resolves the catalog asset to its actual ShirtTemplate URL and stores that
+-- URL directly so onCharacterAdded can apply it without an InsertService call.
 function CosmeticsManager.setShirt(player: Player, assetId: number, permanent: boolean): (boolean, string)
 	local templateUrl, err = resolveClothingTemplate(assetId, "Shirt", shirtTemplateCache)
 	if not templateUrl then
@@ -247,13 +260,15 @@ function CosmeticsManager.setShirt(player: Player, assetId: number, permanent: b
 	end
 
 	local data = getData(player.UserId)
-	data.shirt = permanent and tostring(assetId) or nil
+	data.shirt = permanent and templateUrl or nil
 	task.spawn(saveData, player.UserId, data)
 
 	return true, character and "applied" or "saved (no character loaded)"
 end
 
 -- setpants <target> <assetId> <permanent>
+-- Resolves the catalog asset to its actual PantsTemplate URL and stores that
+-- URL directly so onCharacterAdded can apply it without an InsertService call.
 function CosmeticsManager.setPants(player: Player, assetId: number, permanent: boolean): (boolean, string)
 	local templateUrl, err = resolveClothingTemplate(assetId, "Pants", pantsTemplateCache)
 	if not templateUrl then
@@ -266,7 +281,7 @@ function CosmeticsManager.setPants(player: Player, assetId: number, permanent: b
 	end
 
 	local data = getData(player.UserId)
-	data.pants = permanent and tostring(assetId) or nil
+	data.pants = permanent and templateUrl or nil
 	task.spawn(saveData, player.UserId, data)
 
 	return true, character and "applied" or "saved (no character loaded)"
@@ -315,34 +330,44 @@ function CosmeticsManager.clearCurrentAccessories(player: Player): number
 end
 
 -- Re-applies every permanently saved cosmetic to a freshly spawned character.
--- Called from CharacterAdded so cosmetics persist across respawns and rejoins.
+-- Shirt/pants template URLs are applied directly (no InsertService yield) so
+-- they win the race against Roblox's default character appearance loading.
+-- Legacy DataStore entries that still contain numeric catalog IDs are resolved
+-- once via InsertService and then upgraded in memory for subsequent respawns.
 function CosmeticsManager.onCharacterAdded(player: Player, character: Model)
 	local data = playerData[player.UserId]
 	if not data then return end
 
-	if data.shirt then
-		local assetId = tonumber(data.shirt)
-		if assetId then
-			local templateUrl, err = resolveClothingTemplate(assetId, "Shirt", shirtTemplateCache)
+	local function applyClothing(
+		field: string,
+		className: string,
+		cache: { [string]: string },
+		applyFn: (Model, string) -> ()
+	)
+		local stored = (data :: any)[field]
+		if not stored then return end
+
+		if stored:match("^rbxassetid://") then
+			-- Already a resolved template URL — apply immediately, no yield.
+			applyFn(character, stored)
+		else
+			-- Legacy catalog ID: resolve once and upgrade the stored value.
+			local assetId = tonumber(stored)
+			if not assetId then return end
+			local templateUrl, err = resolveClothingTemplate(assetId, className, cache)
 			if templateUrl then
-				applyShirtToCharacter(character, templateUrl)
+				applyFn(character, templateUrl)
+				-- Upgrade in memory so the next respawn is instant.
+				;(data :: any)[field] = templateUrl
+				task.spawn(saveData, player.UserId, data)
 			else
-				warn("[CosmeticsManager] failed to reapply shirt " .. data.shirt .. ": " .. tostring(err))
+				warn("[CosmeticsManager] failed to reapply " .. field .. " " .. stored .. ": " .. tostring(err))
 			end
 		end
 	end
 
-	if data.pants then
-		local assetId = tonumber(data.pants)
-		if assetId then
-			local templateUrl, err = resolveClothingTemplate(assetId, "Pants", pantsTemplateCache)
-			if templateUrl then
-				applyPantsToCharacter(character, templateUrl)
-			else
-				warn("[CosmeticsManager] failed to reapply pants " .. data.pants .. ": " .. tostring(err))
-			end
-		end
-	end
+	applyClothing("shirt", "Shirt", shirtTemplateCache, applyShirtToCharacter)
+	applyClothing("pants", "Pants", pantsTemplateCache, applyPantsToCharacter)
 
 	for idStr in pairs(data.accessories) do
 		local assetId = tonumber(idStr)
