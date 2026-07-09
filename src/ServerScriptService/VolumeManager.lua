@@ -33,23 +33,17 @@ function VolumeManager.onPlayerRemoving(player: Player)
 	playerVolumes[player.UserId] = nil
 end
 
--- Returns the player's current volume percent (0-100), defaulting to 100
--- if they haven't joined yet / have never set one.
 function VolumeManager.getVolume(userId: number): number
 	return playerVolumes[userId] or DEFAULT_VOLUME
 end
 
--- Validates, clamps, stores, and persists a new volume percent for the player.
--- Returns (true, clampedVolume) on success, (false, errorMessage) on failure.
-function VolumeManager.setVolume(userId: number, rawVolume: number?): (boolean, number | string)
-	if typeof(rawVolume) ~= "number" or rawVolume ~= rawVolume then
-		return false, "Volume must be a number between 0 and 100."
-	end
-
+-- Command handler already checks the range; this clamp/round is just the
+-- same safety net loadVolume applies to whatever DataStore hands back.
+function VolumeManager.setVolume(userId: number, rawVolume: number): number
 	local volume = math.clamp(math.round(rawVolume), 0, 100)
 	playerVolumes[userId] = volume
 	task.spawn(saveVolume, userId, volume)
-	return true, volume
+	return volume
 end
 
 return VolumeManager
