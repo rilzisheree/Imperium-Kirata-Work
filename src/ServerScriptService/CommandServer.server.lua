@@ -220,19 +220,20 @@ local function monitorCharacterHealth(player: Player, character: Model)
                         -- thresholds always produce an IM; they stack on the client.
                         if state < 2 then
                                 if state == 0 then
+                                        -- Jumped past 30% on the way down — fire the warning first.
                                         local warn = LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)]
-                                        CommandRemotes.LowHealthIM:FireClient(player, warn)
+                                        CommandRemotes.LowHealthIM:FireClient(player, warn, false)
                                 end
                                 lowHealthState[player.UserId] = 2
                                 local crit = LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)]
-                                CommandRemotes.LowHealthIM:FireClient(player, crit)
+                                CommandRemotes.LowHealthIM:FireClient(player, crit, true)
                         end
                 elseif pct < LOW_HEALTH_THRESHOLD then
                         if state == 0 then
                                 -- Freshly crossed 30%: fire the warning IM.
                                 lowHealthState[player.UserId] = 1
                                 local msg = LOW_HEALTH_MESSAGES[math.random(1, #LOW_HEALTH_MESSAGES)]
-                                CommandRemotes.LowHealthIM:FireClient(player, msg)
+                                CommandRemotes.LowHealthIM:FireClient(player, msg, false)
                         elseif state == 2 then
                                 -- Recovered above 15% but still below 30%: allow the 15%
                                 -- IM to re-fire on the next dip without re-triggering the 30% one.

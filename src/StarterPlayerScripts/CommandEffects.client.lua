@@ -2,9 +2,11 @@ local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService      = game:GetService("TweenService")
 local Lighting          = game:GetService("Lighting")
+local RunService        = game:GetService("RunService")
 
 local LocalPlayer    = Players.LocalPlayer
 local PlayerGui      = LocalPlayer:WaitForChild("PlayerGui")
+local Camera         = workspace.CurrentCamera
 local MarkdownParser = require(ReplicatedStorage:WaitForChild("MarkdownParser"))
 
 local COLOR_MAP = {
@@ -261,6 +263,94 @@ local function showIM(text: string, colorName: string?)
         end)
 end
 
+-- One-shot screen flash: vignette darkening + red tint + brief shake.
+-- isCritical = true for the 15% trigger (stronger), false for the 30% one.
+local function flashHealthEffect(isCritical: boolean)
+	local shakeAmp  = isCritical and 0.010 or 0.005
+	local vigTarget = isCritical and 0.62  or 0.78
+	local tint      = isCritical and Color3.new(1, 0.80, 0.80) or Color3.new(1, 0.90, 0.90)
+	local blurSize  = isCritical and 4     or 0
+	local fadeIn    = 0.12
+	local hold      = isCritical and 0.20  or 0.12
+	local fadeOut   = isCritical and 0.50  or 0.35
+
+	-- Temporary GUI that lives only for the duration of this flash
+	local flashGui = Instance.new("ScreenGui")
+	flashGui.Name           = "LowHealthFlash"
+	flashGui.DisplayOrder   = 95
+	flashGui.ResetOnSpawn   = false
+	flashGui.IgnoreGuiInset = true
+	flashGui.Parent         = PlayerGui
+
+	-- Same four-frame vignette layout used by the anxiety system
+	local vigFrames = {}
+	local vigData = {
+		{ UDim2.new(1, 0, 0.42, 0), UDim2.new(0, 0, 0,    0), 90  },
+		{ UDim2.new(1, 0, 0.42, 0), UDim2.new(0, 0, 0.58, 0), 270 },
+		{ UDim2.new(0.38, 0, 1, 0), UDim2.new(0, 0, 0,    0), 0   },
+		{ UDim2.new(0.38, 0, 1, 0), UDim2.new(0.62, 0, 0, 0), 180 },
+	}
+	for _, data in vigData do
+		local f = Instance.new("Frame")
+		f.Size                   = data[1]
+		f.Position               = data[2]
+		f.BackgroundColor3       = Color3.new(0, 0, 0)
+		f.BackgroundTransparency = 1
+		f.BorderSizePixel        = 0
+		f.ZIndex                 = 2
+		f.Parent                 = flashGui
+		local g = Instance.new("UIGradient")
+		g.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0,    0),
+			NumberSequenceKeypoint.new(0.55, 0.5),
+			NumberSequenceKeypoint.new(1,    1),
+		})
+		g.Rotation = data[3]
+		g.Parent   = f
+		table.insert(vigFrames, f)
+	end
+
+	local colorCorrection = Instance.new("ColorCorrectionEffect")
+	colorCorrection.TintColor = Color3.new(1, 1, 1)
+	colorCorrection.Parent    = Lighting
+
+	local blurEffect = nil
+	if blurSize > 0 then
+		blurEffect = Instance.new("BlurEffect")
+		blurEffect.Size   = 0
+		blurEffect.Parent = Lighting
+	end
+
+	-- Fade in
+	for _, f in vigFrames do tw(f, fadeIn, { BackgroundTransparency = vigTarget }) end
+	tw(colorCorrection, fadeIn, { TintColor = tint })
+	if blurEffect then tw(blurEffect, fadeIn, { Size = blurSize }) end
+
+	-- Camera shake for the duration
+	local shakeActive = true
+	local shakeConn = RunService.RenderStepped:Connect(function()
+		if not shakeActive then return end
+		local rx = (math.random() * 2 - 1) * shakeAmp
+		local ry = (math.random() * 2 - 1) * shakeAmp * 0.6
+		Camera.CFrame = Camera.CFrame * CFrame.Angles(rx, ry, 0)
+	end)
+
+	task.delay(fadeIn + hold, function()
+		shakeActive = false
+		shakeConn:Disconnect()
+
+		for _, f in vigFrames do tw(f, fadeOut, { BackgroundTransparency = 1 }) end
+		tw(colorCorrection, fadeOut, { TintColor = Color3.new(1, 1, 1) })
+		if blurEffect then tw(blurEffect, fadeOut, { Size = 0 }) end
+
+		task.delay(fadeOut + 0.1, function()
+			flashGui:Destroy()
+			colorCorrection:Destroy()
+			if blurEffect then blurEffect:Destroy() end
+		end)
+	end)
+end
+
 local notifSound = Instance.new("Sound")
 notifSound.SoundId = "rbxassetid://131390520971848"
 notifSound.Volume  = 1
@@ -337,10 +427,11 @@ if CommandRemotes.IM then
 end
 
 if CommandRemotes.LowHealthIM then
-        CommandRemotes.LowHealthIM.OnClientEvent:Connect(function(message: string, colorName: string?)
+        CommandRemotes.LowHealthIM.OnClientEvent:Connect(function(message: string, isCritical: boolean?)
                 if typeof(message) == "string" and message ~= "" then
-                        showIM(message, colorName)
+                        showIM(message)
                         imHeartbeatSound:Play()
+                        flashHealthEffect(isCritical == true)
                 end
         end)
 end
