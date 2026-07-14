@@ -14,7 +14,6 @@ pcall(function()
 end)
 
 local ChatRemotes     = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
-local CommandRemotes  = require(ReplicatedStorage:WaitForChild("CommandRemotes") :: ModuleScript)
 local LanguageManager = require(script.Parent:WaitForChild("LanguageManager") :: ModuleScript)
 local LanguageData    = require(ReplicatedStorage:WaitForChild("LanguageData") :: ModuleScript)
 local FilterState     = require(script.Parent:WaitForChild("FilterState") :: ModuleScript)
@@ -54,29 +53,18 @@ local function getNameColor(player: Player): Color3
 	return NAME_COLORS[(player.UserId % #NAME_COLORS) + 1]
 end
 
--- Filters text for broadcast.
--- Returns the filtered string on success.
--- Returns nil only when the filter call succeeded but the content was entirely
--- removed (genuine content violation) — the caller should drop that message.
--- Falls back to the raw text when the service call itself fails (network error,
--- Studio environment, etc.) so a service hiccup never silently kills chat.
-local function filterMessage(sender: Player, text: string): string?
+-- Applies Roblox's text filter for broadcast. Always returns a string —
+-- falls back to the raw text if the service call fails for any reason
+-- (network error, Studio, empty result, etc.) so chat is never silently broken.
+local function filterMessage(sender: Player, text: string): string
 	local ok2, result = pcall(function()
 		local filterResult = TextService:FilterStringAsync(text, sender.UserId)
 		return filterResult:GetNonChatStringForBroadcastAsync()
 	end)
-	if not ok2 then
-		-- Service / environment error — pass through unfiltered rather than
-		-- dropping every message when TextService is unavailable.
-		return text
+	if ok2 and type(result) == "string" and result ~= "" then
+		return result
 	end
-	if type(result) == "string" and result ~= "" then return result end
-	return nil  -- content was entirely filtered out; caller notifies sender
-end
-
--- Notify the sender that their message could not be delivered.
-local function notifyFilterFailure(sender: Player)
-	CommandRemotes.CommandFeedback:FireClient(sender, false, "Your message could not be delivered.")
+	return text
 end
 
 -- Capitalises the first letter and appends a period when the message has no ending punctuation.
@@ -116,16 +104,7 @@ local function broadcastProximity(sender: Player, rawText: string)
 	end
 	text = formatText(text)
 
-	local filtered
-	if FilterState.filterBypass[sender.UserId] then
-		filtered = text
-	else
-		filtered = filterMessage(sender, text)
-		if not filtered then
-			notifyFilterFailure(sender)
-			return
-		end
-	end
+	local filtered = FilterState.filterBypass[sender.UserId] and text or filterMessage(sender, text)
 
 	local base         = makeBase(sender)
 	local selectedLang = LanguageManager.getSelected(sender.UserId)
@@ -161,16 +140,7 @@ local function broadcastThought(sender: Player, rawText: string)
 	end
 	text = formatText(text)
 
-	local filtered
-	if FilterState.filterBypass[sender.UserId] then
-		filtered = text
-	else
-		filtered = filterMessage(sender, text)
-		if not filtered then
-			notifyFilterFailure(sender)
-			return
-		end
-	end
+	local filtered = FilterState.filterBypass[sender.UserId] and text or filterMessage(sender, text)
 
 	local base         = makeBase(sender)
 	base.isThought     = true
@@ -210,16 +180,7 @@ local function broadcastWhisper(sender: Player, rawText: string)
 	end
 	text = formatText(text)
 
-	local filtered
-	if FilterState.filterBypass[sender.UserId] then
-		filtered = text
-	else
-		filtered = filterMessage(sender, text)
-		if not filtered then
-			notifyFilterFailure(sender)
-			return
-		end
-	end
+	local filtered = FilterState.filterBypass[sender.UserId] and text or filterMessage(sender, text)
 
 	local base         = makeBase(sender)
 	base.isWhisper     = true
