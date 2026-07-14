@@ -1,0 +1,55 @@
+Before making any changes, thoroughly read and understand my existing Custom Chat system, message pipeline, permissions, commands, RemoteEvents, and coding style. Reuse the current architecture and integrate the functionality below without rewriting the chat system.
+
+Implement a Roblox-style Chat Filter for my Custom Chat.
+
+Requirements:
+- Every normal player chat message must be filtered before it is sent.
+- Use Roblox's official TextService filtering APIs (TextService:FilterStringAsync / TextFilterResult).
+- Filter messages separately for each recipient using the appropriate Roblox filtering methods.
+- Do NOT use a custom profanity list.
+- Do NOT allow normal chat messages to bypass the filter.
+- Preserve my existing markdown formatting (*italic*, **bold**, ***bold italic***, __underline__, ~~strikethrough~~) whenever possible.
+- Preserve my existing language system and proximity chat behavior.
+- If filtering fails for any reason, do not send the message and instead notify the sender that it could not be delivered.
+- Integrate seamlessly into the existing Custom Chat system without changing its appearance or architecture.
+
+The following message types should NEVER be filtered:
+- SMs (Server Messages)
+- IMs (Inner Messages)
+- Admin notifications
+- System messages
+- Any server-generated text
+
+--------------------------------------------------
+FILTER COMMAND
+--------------------------------------------------
+
+Create a new Staff command:
+
+filter <target> <on/off>
+
+Examples:
+filter me on
+filter Kirata off
+filter all on
+
+Description:
+- Toggles the chat filter for the specified player(s).
+
+Requirements:
+- Staff+ only.
+- Support all existing target selectors (me, username, all, team selectors, etc.).
+- When the filter is ON for a player, all of their normal chat messages are filtered before being sent.
+- When the filter is OFF for a player, their normal chat messages bypass the filter.
+- This only affects normal player chat.
+- It must NOT affect SMs, IMs, notifications, or any server-generated messages.
+- The setting should take effect immediately without requiring a respawn or rejoin.
+- Display a confirmation notification to the staff member after changing the setting.
+- The player does not need to receive a notification unless my existing admin system already does so.
+- The filter state only needs to persist for the current server unless my existing settings system already supports persistence.
+
+General Requirements:
+- Keep the implementation efficient.
+- Integrate into the existing permission and command system.
+- Follow the existing project architecture and coding style.
+```

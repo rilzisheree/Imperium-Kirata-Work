@@ -14,8 +14,10 @@ pcall(function()
 end)
 
 local ChatRemotes     = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
+local CommandRemotes  = require(ReplicatedStorage:WaitForChild("CommandRemotes") :: ModuleScript)
 local LanguageManager = require(script.Parent:WaitForChild("LanguageManager") :: ModuleScript)
 local LanguageData    = require(ReplicatedStorage:WaitForChild("LanguageData") :: ModuleScript)
+local FilterState     = require(script.Parent:WaitForChild("FilterState") :: ModuleScript)
 
 local MAX_MESSAGE_LENGTH = 200
 
@@ -52,15 +54,26 @@ local function getNameColor(player: Player): Color3
 	return NAME_COLORS[(player.UserId % #NAME_COLORS) + 1]
 end
 
-local function filterMessage(sender: Player, text: string): string
-	local ok, result = pcall(function()
-		local filterResult = TextService:FilterStringAsync(text, sender.UserId)
-		return filterResult:GetNonChatStringForBroadcastAsync()
+-- Phase 1: get a TextFilterResult from Roblox (returns nil on failure).
+local function getFilterResult(sender: Player, text: string): any?
+	local ok2, result = pcall(function()
+		return TextService:FilterStringAsync(text, sender.UserId)
 	end)
-	if ok and type(result) == "string" and result ~= "" then
-		return result
-	end
-	return text
+	return ok2 and result or nil
+end
+
+-- Phase 2: get text filtered for one specific recipient (returns nil on failure).
+local function getFilteredForRecipient(filterResult: any, recipientUserId: number): string?
+	local ok2, result = pcall(function()
+		return filterResult:GetChatForUserAsync(recipientUserId)
+	end)
+	if ok2 and type(result) == "string" then return result end
+	return nil
+end
+
+-- Notify the sender that their message could not be delivered.
+local function notifyFilterFailure(sender: Player)
+	CommandRemotes.CommandFeedback:FireClient(sender, false, "Your message could not be delivered.")
 end
 
 -- Capitalises the first letter and appends a period when the message has no ending punctuation.
@@ -100,28 +113,42 @@ local function broadcastProximity(sender: Player, rawText: string)
 	end
 	text = formatText(text)
 
-	local filtered     = filterMessage(sender, text)
+	local bypass = FilterState.filterBypass[sender.UserId]
+	local filterResult = nil
+	if not bypass then
+		filterResult = getFilterResult(sender, text)
+		if not filterResult then
+			notifyFilterFailure(sender)
+			return
+		end
+	end
+
 	local base         = makeBase(sender)
 	local selectedLang = LanguageManager.getSelected(sender.UserId)
 	local langDef      = selectedLang and LanguageData.BY_NAME[selectedLang:lower()]
 
-	if not langDef then
-		base.message = filtered
-		for _, player in Players:GetPlayers() do
-			ChatRemotes.MessageReceived:FireClient(player, base)
-		end
-		return
-	end
-
-	local fictionalised  = LanguageManager.fictionalise(filtered, langDef.name)
-	local originalTagged = "[" .. langDef.tag .. "] " .. filtered
-
 	for _, player in Players:GetPlayers() do
-		local pSel        = LanguageManager.getSelected(player.UserId)
-		local understands = (pSel ~= nil and pSel:lower() == selectedLang:lower())
-		                    or LanguageManager.hasGrant(player.UserId, selectedLang)
-		local payload     = table.clone(base)
-		payload.message   = understands and originalTagged or fictionalised
+		local filteredText
+		if bypass then
+			filteredText = text
+		else
+			filteredText = getFilteredForRecipient(filterResult, player.UserId)
+			if not filteredText then continue end
+		end
+
+		local payload = table.clone(base)
+		if not langDef then
+			payload.message = filteredText
+		else
+			local pSel        = LanguageManager.getSelected(player.UserId)
+			local understands = (pSel ~= nil and pSel:lower() == selectedLang:lower())
+			                    or LanguageManager.hasGrant(player.UserId, selectedLang)
+			if understands then
+				payload.message = "[" .. langDef.tag .. "] " .. filteredText
+			else
+				payload.message = LanguageManager.fictionalise(filteredText, langDef.name)
+			end
+		end
 		ChatRemotes.MessageReceived:FireClient(player, payload)
 	end
 end
@@ -135,30 +162,44 @@ local function broadcastThought(sender: Player, rawText: string)
 	end
 	text = formatText(text)
 
-	local filtered     = filterMessage(sender, text)
+	local bypass = FilterState.filterBypass[sender.UserId]
+	local filterResult = nil
+	if not bypass then
+		filterResult = getFilterResult(sender, text)
+		if not filterResult then
+			notifyFilterFailure(sender)
+			return
+		end
+	end
+
 	local base         = makeBase(sender)
 	base.isThought     = true
 	local selectedLang = LanguageManager.getSelected(sender.UserId)
 	local langDef      = selectedLang and LanguageData.BY_NAME[selectedLang:lower()]
 
-	local fictionalised: string?
-	local originalTagged: string?
-	if langDef then
-		fictionalised  = LanguageManager.fictionalise(filtered, langDef.name)
-		originalTagged = "[" .. langDef.tag .. "] " .. filtered
-	end
-
 	for _, player in Players:GetPlayers() do
 		if player ~= sender and not isAdmin(player) then continue end
 
+		local filteredText
+		if bypass then
+			filteredText = text
+		else
+			filteredText = getFilteredForRecipient(filterResult, player.UserId)
+			if not filteredText then continue end
+		end
+
 		local payload = table.clone(base)
 		if not langDef then
-			payload.message = filtered
+			payload.message = filteredText
 		else
 			local pSel        = LanguageManager.getSelected(player.UserId)
 			local understands = (pSel ~= nil and pSel:lower() == selectedLang:lower())
 			                    or LanguageManager.hasGrant(player.UserId, selectedLang)
-			payload.message   = understands and originalTagged or fictionalised
+			if understands then
+				payload.message = "[" .. langDef.tag .. "] " .. filteredText
+			else
+				payload.message = LanguageManager.fictionalise(filteredText, langDef.name)
+			end
 		end
 		ChatRemotes.MessageReceived:FireClient(player, payload)
 	end
@@ -175,18 +216,20 @@ local function broadcastWhisper(sender: Player, rawText: string)
 	end
 	text = formatText(text)
 
-	local filtered     = filterMessage(sender, text)
+	local bypass = FilterState.filterBypass[sender.UserId]
+	local filterResult = nil
+	if not bypass then
+		filterResult = getFilterResult(sender, text)
+		if not filterResult then
+			notifyFilterFailure(sender)
+			return
+		end
+	end
+
 	local base         = makeBase(sender)
 	base.isWhisper     = true
 	local selectedLang = LanguageManager.getSelected(sender.UserId)
 	local langDef      = selectedLang and LanguageData.BY_NAME[selectedLang:lower()]
-
-	local fictionalised: string?
-	local originalTagged: string?
-	if langDef then
-		fictionalised  = LanguageManager.fictionalise(filtered, langDef.name)
-		originalTagged = "[" .. langDef.tag .. "] " .. filtered
-	end
 
 	local senderChar = sender.Character
 	local senderRoot = senderChar and senderChar:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -200,14 +243,26 @@ local function broadcastWhisper(sender: Player, rawText: string)
 			if (senderRoot.Position - pRoot.Position).Magnitude > WHISPER_DISTANCE then continue end
 		end
 
+		local filteredText
+		if bypass then
+			filteredText = text
+		else
+			filteredText = getFilteredForRecipient(filterResult, player.UserId)
+			if not filteredText then continue end
+		end
+
 		local payload = table.clone(base)
 		if not langDef then
-			payload.message = filtered
+			payload.message = filteredText
 		else
 			local pSel        = LanguageManager.getSelected(player.UserId)
 			local understands = (pSel ~= nil and pSel:lower() == selectedLang:lower())
 			                    or LanguageManager.hasGrant(player.UserId, selectedLang)
-			payload.message   = understands and originalTagged or fictionalised
+			if understands then
+				payload.message = "[" .. langDef.tag .. "] " .. filteredText
+			else
+				payload.message = LanguageManager.fictionalise(filteredText, langDef.name)
+			end
 		end
 		ChatRemotes.MessageReceived:FireClient(player, payload)
 	end
