@@ -408,9 +408,9 @@ inputBox.Focused:Connect(function()
         if inputBox.Text == "/" then
                 inputBox.Text = ""
         end
-        -- The replayed keystroke arrives up to one Heartbeat after focus is gained,
-        -- so task.delay(0) (next Heartbeat) is required — task.defer alone is too early.
-        task.delay(0, function()
+        -- the replayed keystroke can land a frame after Focused fires, so
+        -- double-check once more on the next frame
+        task.defer(function()
                 if inputBox.Text == "/" then
                         inputBox.Text = ""
                 end
