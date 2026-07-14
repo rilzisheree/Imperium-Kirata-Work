@@ -209,7 +209,7 @@ CommandRegistry.COMMANDS = {
 	filter = {
 		description = "toggle the chat filter on or off for a player",
 		args = { "player|all", "on/off" },
-		permission = "Staff",
+		permission = "Admin",
 	},
 	volume = {
 		description = "set your personal game volume (0-100)",
