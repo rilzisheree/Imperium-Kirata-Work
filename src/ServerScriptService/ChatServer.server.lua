@@ -54,14 +54,24 @@ local function getNameColor(player: Player): Color3
 	return NAME_COLORS[(player.UserId % #NAME_COLORS) + 1]
 end
 
--- Filters text for broadcast. Returns the filtered string, or nil on failure.
+-- Filters text for broadcast.
+-- Returns the filtered string on success.
+-- Returns nil only when the filter call succeeded but the content was entirely
+-- removed (genuine content violation) — the caller should drop that message.
+-- Falls back to the raw text when the service call itself fails (network error,
+-- Studio environment, etc.) so a service hiccup never silently kills chat.
 local function filterMessage(sender: Player, text: string): string?
 	local ok2, result = pcall(function()
 		local filterResult = TextService:FilterStringAsync(text, sender.UserId)
 		return filterResult:GetNonChatStringForBroadcastAsync()
 	end)
-	if ok2 and type(result) == "string" and result ~= "" then return result end
-	return nil
+	if not ok2 then
+		-- Service / environment error — pass through unfiltered rather than
+		-- dropping every message when TextService is unavailable.
+		return text
+	end
+	if type(result) == "string" and result ~= "" then return result end
+	return nil  -- content was entirely filtered out; caller notifies sender
 end
 
 -- Notify the sender that their message could not be delivered.
