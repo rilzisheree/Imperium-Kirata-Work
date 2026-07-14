@@ -8,7 +8,6 @@ local CommandRegistry   = require(ReplicatedStorage:WaitForChild("CommandRegistr
 local CorpseFactory     = require(script.Parent:WaitForChild("CorpseFactory")       :: ModuleScript)
 local LanguageManager   = require(script.Parent:WaitForChild("LanguageManager")     :: ModuleScript)
 local VolumeManager     = require(script.Parent:WaitForChild("VolumeManager")       :: ModuleScript)
-local FilterState       = require(script.Parent:WaitForChild("FilterState")         :: ModuleScript)
 local LanguageData      = require(ReplicatedStorage:WaitForChild("LanguageData")    :: ModuleScript)
 local Workspace          = game:GetService("Workspace")
 local TeleportService    = game:GetService("TeleportService")
@@ -176,7 +175,6 @@ Players.PlayerRemoving:Connect(function(player)
 		freezeData[player.UserId] = nil
 	end
 	staffModeActive[player.UserId] = nil
-	FilterState.filterBypass[player.UserId] = nil
 	VolumeManager.onPlayerRemoving(player)
 end)
 
@@ -953,25 +951,6 @@ HANDLERS["staffmode"] = function(executor, args)
 	-- Tell the client to add or remove Staff-permission commands immediately.
 	CommandRemotes.StaffMode:FireClient(executor, newState)
 	ok(executor, "Staff Mode " .. (newState and "enabled" or "disabled") .. ".")
-end
-
-HANDLERS["filter"] = function(executor, args)
-	if #args < 2 then fail(executor, "Usage: filter <player|all> <on/off>") return end
-	local targets = resolveTargets(executor, args[1])
-	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
-	local toggle = args[2]:lower()
-	if toggle ~= "on" and toggle ~= "off" then
-		fail(executor, 'Second argument must be "on" or "off".')
-		return
-	end
-	-- "filter off" bypasses the filter; "filter on" restores it.
-	-- Store nil (not false) when filter is active so the table stays clean.
-	local filterOff = (toggle == "off")
-	for _, target in targets do
-		FilterState.filterBypass[target.UserId] = filterOff or nil
-	end
-	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
-	ok(executor, "Chat filter " .. toggle .. " for " .. recipient .. ".")
 end
 
 HANDLERS["countdown"] = function(executor, args)
