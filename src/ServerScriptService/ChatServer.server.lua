@@ -61,6 +61,13 @@ local function filterMessage(sender: Player, text: string): string
 		local filterResult = TextService:FilterStringAsync(text, sender.UserId)
 		return filterResult:GetNonChatStringForBroadcastAsync()
 	end)
+	if IS_STUDIO then
+		if not ok2 then
+			warn("[ChatFilter] FilterStringAsync FAILED for", sender.Name, "| error:", tostring(result))
+		else
+			warn("[ChatFilter] FilterStringAsync OK for", sender.Name, "| input:", text, "| result:", tostring(result), "| type:", type(result), "| len:", type(result)=="string" and #result or "N/A")
+		end
+	end
 	if ok2 and type(result) == "string" and result ~= "" then
 		return result
 	end
