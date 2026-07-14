@@ -356,6 +356,9 @@ ChatRemotes.MessageReceived.OnClientEvent:Connect(function(payload)
 end)
 
 local submitting = false
+-- Set to true when the chat is opened via the "/" hotkey so the text-change
+-- handler can drop the replayed "/" the moment it arrives, at any timing.
+local openedBySlash = false
 
 local function submitMessage()
         if submitting then return end
@@ -375,6 +378,16 @@ local function submitMessage()
 end
 
 inputBox:GetPropertyChangedSignal("Text"):Connect(function()
+        -- Drop the "/" that Roblox replays into the box when it was used as
+        -- the hotkey to open chat. Clear the flag once handled (or once any
+        -- real text lands) so normal "/" typing works from that point on.
+        if openedBySlash then
+                openedBySlash = false
+                if inputBox.Text == "/" then
+                        inputBox.Text = ""
+                        return
+                end
+        end
         local dirty = inputBox.Text:find("[\n\r]")
         if dirty then
                 local c = inputBox.Text:gsub("[\n\r]", "")
@@ -398,23 +411,8 @@ inputFrame.InputBegan:Connect(function(inp)
 end)
 
 inputBox.FocusLost:Connect(function(enterPressed)
+        openedBySlash = false
         if enterPressed then submitMessage() end
-end)
-
--- Roblox can replay the "/" keystroke that opened the chat box into the box
--- itself once it gains focus, even though ChatOpenSlash sinks the input.
--- Strip a lone leading "/" so the box always opens empty.
-inputBox.Focused:Connect(function()
-        if inputBox.Text == "/" then
-                inputBox.Text = ""
-        end
-        -- the replayed keystroke can land a frame after Focused fires, so
-        -- double-check once more on the next frame
-        task.defer(function()
-                if inputBox.Text == "/" then
-                        inputBox.Text = ""
-                end
-        end)
 end)
 
 ContextActionService:BindAction(
@@ -423,14 +421,16 @@ ContextActionService:BindAction(
                 if UserInputService:GetFocusedTextBox() == inputBox then
                         return Enum.ContextActionResult.Pass
                 end
-                -- Capture focus on key *release* so the "/" is no longer held
-                -- when the TextBox gains focus. Roblox only replays held keys
-                -- into a newly-focused TextBox, so releasing first prevents
-                -- the stray "/" from appearing in the input box.
-                if state ~= Enum.UserInputState.End then
+                -- Open on key press for instant response. The openedBySlash flag
+                -- tells the text-change handler to swallow the "/" that Roblox
+                -- replays into the box, no matter when it arrives.
+                if state ~= Enum.UserInputState.Begin then
                         return Enum.ContextActionResult.Sink
                 end
-                inputBox:CaptureFocus()
+                openedBySlash = true
+                task.defer(function()
+                        inputBox:CaptureFocus()
+                end)
                 return Enum.ContextActionResult.Sink
         end,
         false,
