@@ -10,30 +10,32 @@ local CommandRegistry = require(ReplicatedStorage:WaitForChild("CommandRegistry"
 local LP   = Players.LocalPlayer
 local PGui = LP:WaitForChild("PlayerGui")
 
-local TIER_ORDER = { Everyone = 0, Helper = 1, Moderator = 2, Admin = 3, Owner = 4, Staff = 99 }
-
 local COMMANDS = {}
 
 -- Tracks whether Staff Mode is currently active for this client.  Set by the
 -- StaffMode remote; used to reapply Staff commands if Permissions fires again.
 local staffModeEnabled = false
 
-CommandRemotes.Permissions.OnClientEvent:Connect(function(tier: string)
-	if typeof(tier) ~= "string" then return end
-	local myLevel = TIER_ORDER[tier] or 0
+-- The server is the real authority on what a player can run (see
+-- PermissionManager.lua) -- this just mirrors that into the autocomplete
+-- list. `allowedCommands` is the explicit list of command names the player's
+-- group role unlocks; `isStaff` is true for any staff role at all.
+CommandRemotes.Permissions.OnClientEvent:Connect(function(allowedCommands: { string }, isStaff: boolean)
+	if typeof(allowedCommands) ~= "table" then return end
+	local allowedSet = {}
+	for _, name in allowedCommands do allowedSet[name] = true end
 
 	local keepLanguage = COMMANDS["language"]
 
 	for k in pairs(COMMANDS) do COMMANDS[k] = nil end
 
-	if myLevel >= TIER_ORDER["Admin"] then
+	if isStaff then
 		COMMANDS["chatlogs"] = { args = {}, description = "Open / close chat logs" }
 	end
 
 	for name, def in pairs(CommandRegistry.COMMANDS) do
 		if name ~= "language" and def.permission ~= "Staff" then
-			local required = TIER_ORDER[def.permission] or 0
-			if myLevel >= required then
+			if def.permission == "Everyone" or allowedSet[name] then
 				COMMANDS[name] = { args = def.args, description = def.description }
 			end
 		end

@@ -10,6 +10,7 @@ local LanguageManager   = require(script.Parent:WaitForChild("LanguageManager") 
 local VolumeManager     = require(script.Parent:WaitForChild("VolumeManager")       :: ModuleScript)
 local FilterState       = require(script.Parent:WaitForChild("FilterState")         :: ModuleScript)
 local LanguageData      = require(ReplicatedStorage:WaitForChild("LanguageData")    :: ModuleScript)
+local PermissionManager = require(script.Parent:WaitForChild("PermissionManager")   :: ModuleScript)
 local Workspace          = game:GetService("Workspace")
 local TeleportService    = game:GetService("TeleportService")
 local MessagingService   = game:GetService("MessagingService")
@@ -20,24 +21,14 @@ local SERVERBRING_TOPIC      = "ImperiumServerbring_" .. game.PlaceId
 local SERVERJOIN_QUERY_TOPIC = "ImperiumServerjoinQ_" .. game.PlaceId
 local SERVERJOIN_REPLY_TOPIC = "ImperiumServerjoinR_" .. game.PlaceId
 
-local STAFF_IDS = {
-	[1872507151] = "Owner",
-}
-
-local TIER_ORDER = { Helper = 1, Moderator = 2, Admin = 3, Owner = 4, Staff = 99 }
-
-local function getTier(player: Player): string?
-	if IS_STUDIO then return "Owner" end
-	if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
-		return "Owner"
-	end
-	return STAFF_IDS[player.UserId]
-end
-
 -- Declared here, before hasPermission, so the function can close over it as an
 -- upvalue.  Populated by HANDLERS["staffmode"].
 local staffModeActive = {}  -- [userId] = true while Staff Mode is on for that player
 
+-- `required` here is a command's `permission` field from CommandRegistry.
+-- "Everyone" and "Staff" are special capability gates unrelated to group
+-- role; everything else is resolved by PermissionManager's per-role command
+-- allow-lists (see PermissionManager.lua for the actual rules).
 local function hasPermission(player: Player, required: string): boolean
 	if required == "Everyone" then return true end
 	-- "Staff" is a capability gate, not a tier level.  It is satisfied only
@@ -45,9 +36,7 @@ local function hasPermission(player: Player, required: string): boolean
 	if required == "Staff" then
 		return staffModeActive[player.UserId] == true
 	end
-	local tier = getTier(player)
-	if not tier then return false end
-	return (TIER_ORDER[tier] or 0) >= (TIER_ORDER[required] or 99)
+	return false
 end
 
 local function ok(player: Player, msg: string)
@@ -207,11 +196,17 @@ local function attachHealthMonitor(player: Player)
 	end)
 end
 
--- push the player's permission tier to their client on join so CommandBar
--- knows which commands to show in autocomplete
+-- push the player's allowed command list (+ staff flag) to their client on
+-- join so CommandBar knows which commands to show in autocomplete. The
+-- server-side dispatch below is the real authority -- this is UX only.
 local function pushPermissions(player: Player)
-	local tier = getTier(player) or "Everyone"
-	CommandRemotes.Permissions:FireClient(player, tier)
+	local allowed = {}
+	for name in pairs(CommandRegistry.COMMANDS) do
+		if PermissionManager.canUseCommand(player, name) then
+			table.insert(allowed, name)
+		end
+	end
+	CommandRemotes.Permissions:FireClient(player, allowed, PermissionManager.isStaff(player))
 end
 
 -- push the player's saved (or default) volume so their client applies it
@@ -892,7 +887,7 @@ HANDLERS["help"] = function(executor, args)
 	}
 
 	for _, player in Players:GetPlayers() do
-		if hasPermission(player, "Admin") and helpUIEnabled[player.UserId] ~= false then
+		if PermissionManager.canUseCommand(player, "helpui") and helpUIEnabled[player.UserId] ~= false then
 			CommandRemotes.HelpRequest:FireClient(player, payload)
 		end
 	end
@@ -1701,7 +1696,7 @@ CommandRemotes.MusicCommand.OnServerEvent:Connect(function(player: Player, actio
 		return
 	end
 
-	if not hasPermission(player, "Admin") then return end
+	if not PermissionManager.canUseCommand(player, "music") then return end
 
 	if action == "play" then
 		if typeof(data) ~= "string" or not data:match("^%d+$") then return end
@@ -2135,7 +2130,7 @@ end
 
 -- PrivateServerReserve: admin requests a new reserved server slot
 CommandRemotes.PrivateServerReserve.OnServerEvent:Connect(function(player: Player)
-	if not hasPermission(player, "Admin") then return end
+	if not PermissionManager.canUseCommand(player, "privateserver") then return end
 	local uid = player.UserId
 
 	-- Block while a reservation is in-flight, or if one is already active
@@ -2167,7 +2162,7 @@ end)
 
 -- PrivateServerSend: admin sends queued players to the reserved server
 CommandRemotes.PrivateServerSend.OnServerEvent:Connect(function(player: Player, userIds: { number })
-	if not hasPermission(player, "Admin") then return end
+	if not PermissionManager.canUseCommand(player, "privateserver") then return end
 	if typeof(userIds) ~= "table" then return end
 
 	local state = privateServerState[player.UserId]
@@ -2206,7 +2201,7 @@ end)
 
 -- PrivateServerCancel: admin cancels their reserved server
 CommandRemotes.PrivateServerCancel.OnServerEvent:Connect(function(player: Player)
-	if not hasPermission(player, "Admin") then return end
+	if not PermissionManager.canUseCommand(player, "privateserver") then return end
 	privateServerState[player.UserId] = nil
 	CommandRemotes.PrivateServerStatus:FireClient(player, "cancelled")
 end)
@@ -2229,8 +2224,15 @@ CommandRemotes.CommandExecuted.OnServerEvent:Connect(function(executor: Player, 
 		return
 	end
 
-	if not hasPermission(executor, definition.permission) then
-		fail(executor, 'No permission for "' .. cmdName .. '" (requires ' .. definition.permission .. ').')
+	-- "Everyone" and "Staff" are capability gates unrelated to group role
+	-- (see hasPermission); everything else is resolved by PermissionManager's
+	-- per-role command allow-lists, keyed by the command name itself rather
+	-- than the registry's legacy `permission` label.
+	local allowed = (definition.permission == "Everyone" or definition.permission == "Staff")
+		and hasPermission(executor, definition.permission)
+		or PermissionManager.canUseCommand(executor, cmdName)
+	if not allowed then
+		fail(executor, 'No permission for "' .. cmdName .. '".')
 		return
 	end
 

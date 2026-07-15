@@ -16,27 +16,19 @@ end)
 local ChatRemotes     = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 local LanguageManager = require(script.Parent:WaitForChild("LanguageManager") :: ModuleScript)
 local LanguageData    = require(ReplicatedStorage:WaitForChild("LanguageData") :: ModuleScript)
-local FilterState     = require(script.Parent:WaitForChild("FilterState") :: ModuleScript)
-local BadWordFilter   = require(script.Parent:WaitForChild("BadWordFilter") :: ModuleScript)
+local FilterState       = require(script.Parent:WaitForChild("FilterState") :: ModuleScript)
+local BadWordFilter     = require(script.Parent:WaitForChild("BadWordFilter") :: ModuleScript)
+local PermissionManager = require(script.Parent:WaitForChild("PermissionManager") :: ModuleScript)
 
 local MAX_MESSAGE_LENGTH = 200
 
 local IS_STUDIO = RunService:IsStudio()
 
-local STAFF_IDS = {
-	[1872507151] = "Owner",
-}
-
-local function getTier(player: Player): string?
-	if IS_STUDIO then return "Owner" end
-	if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
-		return "Owner"
-	end
-	return STAFF_IDS[player.UserId]
-end
-
+-- Who can see the /t "Thoughts" channel: any player with a staff role in the
+-- group (or the Studio/creator/override cases PermissionManager grants ALL
+-- to) -- see PermissionManager.lua for the actual rules.
 local function isAdmin(player: Player): boolean
-	return getTier(player) ~= nil
+	return PermissionManager.isStaff(player)
 end
 
 local NAME_COLORS = {

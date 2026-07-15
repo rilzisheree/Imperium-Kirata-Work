@@ -1,31 +1,17 @@
 local Players           = game:GetService("Players")
 local Lighting          = game:GetService("Lighting")
 local TweenService      = game:GetService("TweenService")
-local RunService        = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace         = game:GetService("Workspace")
 
-local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
+local CommandRemotes    = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
+local PermissionManager = require(script.Parent:WaitForChild("PermissionManager") :: ModuleScript)
 
-local IS_STUDIO = RunService:IsStudio()
-
-local STAFF_IDS = {
-	[1872507151] = "Owner",
-}
-local TIER_ORDER = { Helper = 1, Moderator = 2, Admin = 3, Owner = 4 }
-
-local function getTier(player)
-	if IS_STUDIO then return "Owner" end
-	if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
-		return "Owner"
-	end
-	return STAFF_IDS[player.UserId]
-end
-
-local function hasPermission(player, required)
-	local tier = getTier(player)
-	if not tier then return false end
-	return (TIER_ORDER[tier] or 0) >= (TIER_ORDER[required] or 99)
+-- All weather panel actions are gated behind the "weather" command's
+-- permission (see PermissionManager.lua) -- kept as a local alias so the
+-- call sites below don't need to change beyond the require above.
+local function hasPermission(player)
+	return PermissionManager.canUseCommand(player, "weather")
 end
 
 local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
