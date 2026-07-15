@@ -32,6 +32,7 @@ local SECTIONS = {
 			{ id = "89891313789297",  title = "Living Room — Blue Lock OST"             },
 			{ id = "110395238223034", title = "Bedroom — Blue Lock OST"                 },
 			{ id = "95497960463962",  title = "???"                                      },
+			{ id = "129128626355798", title = "I really want to stay at your house", speed = 0.89 },
 		},
 	},
 	{
@@ -492,6 +493,19 @@ pitchHintR.TextXAlignment     = Enum.TextXAlignment.Right
 pitchHintR.Text               = "2.00× faster"
 pitchHintR.ZIndex             = 12
 
+-- Sets pitch by value and updates all slider visuals. Used by the drag
+-- handler and by updateHighlight when a track has a preferred speed.
+local function setPitch(pitch: number)
+	pitch                    = math.clamp(pitch, PITCH_MIN, PITCH_MAX)
+	local ratio              = (pitch - PITCH_MIN) / (PITCH_MAX - PITCH_MIN)
+	currentPitch             = pitch
+	pitchFill.Size           = UDim2.new(ratio, 0, 1, 0)
+	pitchThumb.Position      = UDim2.new(ratio, 0, 0.5, 0)
+	pitchValLbl.Text         = string.format("%.2f×", pitch)
+	local sound = getSound()
+	if sound then sound.PlaybackSpeed = pitch end
+end
+
 local function applyPitchX(posX: number)
 	local abs = pitchTrack.AbsolutePosition
 	local sz  = pitchTrack.AbsoluteSize
@@ -500,13 +514,7 @@ local function applyPitchX(posX: number)
 	-- Snap to 1.0× when very close (within ±3% of slider width)
 	local snapRatio = (1.0 - PITCH_MIN) / (PITCH_MAX - PITCH_MIN)
 	if math.abs(ratio - snapRatio) < 0.03 then ratio = snapRatio end
-	local pitch = PITCH_MIN + ratio * (PITCH_MAX - PITCH_MIN)
-	currentPitch             = pitch
-	pitchFill.Size           = UDim2.new(ratio, 0, 1, 0)
-	pitchThumb.Position      = UDim2.new(ratio, 0, 0.5, 0)
-	pitchValLbl.Text         = string.format("%.2f×", pitch)
-	local sound = getSound()
-	if sound then sound.PlaybackSpeed = pitch end
+	setPitch(PITCH_MIN + ratio * (PITCH_MAX - PITCH_MIN))
 end
 
 pitchThumb.InputBegan:Connect(function(input)
@@ -676,9 +684,11 @@ local sectionMeta = {}  -- { header, arrowLbl, rows, collapsed }
 local searchQuery = ""
 
 local idToTitle = {}
+local idToSpeed = {}   -- tracks that have a preferred default playback speed
 for _, sec in ipairs(SECTIONS) do
 	for _, t in ipairs(sec.tracks) do
 		idToTitle[t.id] = t.title
+		if t.speed then idToSpeed[t.id] = t.speed end
 	end
 end
 
@@ -834,6 +844,9 @@ local function updateHighlight(id: string?)
 		footStatus.Text          = title
 		setSeekActive(true)
 		seekTimeLbl.Text = "0:00 / –:––"
+		-- Auto-apply preferred speed for tracks that have one defined.
+		local preferredSpeed = idToSpeed[id]
+		if preferredSpeed then setPitch(preferredSpeed) end
 	else
 		nowDot.BackgroundColor3  = C_DIM
 		nowLabel.TextColor3      = C_DIM
