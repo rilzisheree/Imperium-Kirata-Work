@@ -54,13 +54,15 @@ local function getNameColor(player: Player): Color3
 	return NAME_COLORS[(player.UserId % #NAME_COLORS) + 1]
 end
 
--- Applies Roblox's text filter for broadcast, then a custom bad-word pass on
+-- Applies Roblox's text filter for broadcast, then a custom bad-word check on
 -- top of it. Roblox's own filter is tuned for age-rating/legal compliance —
 -- it deliberately allows plenty of language through and can occasionally
 -- fail to return a result — so it alone isn't enough to keep profanity out
--- of chat. The custom pass runs on Roblox's result when available, and on
--- the raw text as a fallback when the filter call itself fails, so a message
--- is never sent completely uncensored.
+-- of chat. If our own blocklist catches anything (checked against the raw
+-- text, since Roblox's filter may already have altered/removed the word),
+-- the ENTIRE message is replaced with a run of "#", the same way Roblox's
+-- own filter blanks out messages it considers unacceptable — never just the
+-- offending word.
 local function filterMessage(sender: Player, text: string): string
 	local ok2, result = pcall(function()
 		local filterResult = TextService:FilterStringAsync(text, sender.UserId)
@@ -70,7 +72,11 @@ local function filterMessage(sender: Player, text: string): string
 		warn("[ChatFilter] FilterStringAsync FAILED for", sender.Name, "| error:", tostring(result))
 	end
 	local robloxFiltered = (ok2 and type(result) == "string" and result ~= "") and result or text
-	return BadWordFilter.censor(robloxFiltered)
+
+	if BadWordFilter.containsBadWord(text) or BadWordFilter.containsBadWord(robloxFiltered) then
+		return string.rep("#", #text)
+	end
+	return robloxFiltered
 end
 
 -- Capitalises the first letter and appends a period when the message has no ending punctuation.

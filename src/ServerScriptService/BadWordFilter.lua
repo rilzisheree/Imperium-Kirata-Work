@@ -36,8 +36,21 @@ for _, word in BAD_WORDS do
 	BAD_WORD_SET[word] = true
 end
 
+-- Returns true if any whole word in the text matches the blocklist
+-- (case-insensitive).
+function BadWordFilter.containsBadWord(text: string): boolean
+	if text == "" then return false end
+	for word in text:gmatch("%f[%a][%a']+%f[%A]") do
+		if BAD_WORD_SET[word:lower()] then
+			return true
+		end
+	end
+	return false
+end
+
 -- Replaces every whole-word match (case-insensitive) with asterisks of the
--- same length, preserving message length/spacing.
+-- same length, preserving message length/spacing. Kept for callers that want
+-- per-word masking instead of blocking the whole message.
 function BadWordFilter.censor(text: string): string
 	if text == "" then return text end
 	local censored = text:gsub("%f[%a][%a']+%f[%A]", function(word: string)
