@@ -27,6 +27,7 @@ local REMOTES = {
 	Anxiety              = "CmdAnxiety",
 	Blind                = "CmdBlind",
 	Unblind              = "CmdUnblind",
+	Concussion           = "CmdConcussion",
 	HelpRequest          = "CmdHelpRequest",
 	HelpUIToggle         = "CmdHelpUIToggle",
 	Notif                = "CmdNotif",

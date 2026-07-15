@@ -26,6 +26,11 @@ CommandRegistry.COMMANDS = {
 		args = { "player|all" },
 		permission = "Admin",
 	},
+	concussion = {
+		description = "apply a concussion effect (screen blur, tinnitus, dizziness, slowed movement) to a player, optional duration in seconds (default 15)",
+		args = { "player|all", "[duration]" },
+		permission = "Admin",
+	},
 	createcorpse = {
 		description = "spawn a corpse at a player's location, optional lifetime in seconds",
 		args = { "player|all", "[lifetime]" },

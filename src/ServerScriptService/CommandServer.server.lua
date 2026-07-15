@@ -87,6 +87,13 @@ local serverjoinCallbacks = {}
 -- freeze state: [userId] = { character, frozenParts, walkSpeed, jumpPower, connections }
 local freezeData = {}
 
+-- concussion state: [userId] = { character, originalWalkSpeed, connections, token }
+-- `token` guards the delayed auto-clear below: refreshing the duration bumps
+-- the token so the *previous* delayed clear becomes a no-op instead of ending
+-- the effect early.
+local concussionData = {}
+local CONCUSSION_WALKSPEED_MULT = 0.7  -- "slightly reduce" — matches the client's moderate effect
+
 
 local activePrivateServerCode: string? = nil
 
@@ -163,6 +170,13 @@ Players.PlayerRemoving:Connect(function(player)
 	if fData then
 		for _, conn in fData.connections do conn:Disconnect() end
 		freezeData[player.UserId] = nil
+	end
+	-- clear any active concussion the same way (character + WalkSpeed go away
+	-- with the player, so only tracking state needs clearing)
+	local cData = concussionData[player.UserId]
+	if cData then
+		for _, conn in cData.connections do conn:Disconnect() end
+		concussionData[player.UserId] = nil
 	end
 	staffModeActive[player.UserId] = nil
 	FilterState.filterBypass[player.UserId] = nil
@@ -651,6 +665,47 @@ HANDLERS["unblind"] = function(executor, args)
 	end
 	local recipient = #targets == 1 and targets[1].DisplayName or "everyone"
 	ok(executor, "Unblinded " .. recipient .. ".")
+end
+
+local DEFAULT_CONCUSSION_DURATION = 15
+local MIN_CONCUSSION_DURATION     = 1
+local MAX_CONCUSSION_DURATION     = 120  -- same cap as blind
+
+HANDLERS["concussion"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: concussion <player|all> [duration]") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	local duration = DEFAULT_CONCUSSION_DURATION
+	if args[2] then
+		local d = tonumber(args[2])
+		if not d or d < MIN_CONCUSSION_DURATION or d > MAX_CONCUSSION_DURATION then
+			fail(executor, "Duration must be " .. MIN_CONCUSSION_DURATION .. "–" .. MAX_CONCUSSION_DURATION .. " seconds.")
+			return
+		end
+		duration = math.floor(d)
+	end
+
+	local affected, failures = {}, {}
+	for _, target in targets do
+		local success, result = applyConcussion(target, duration)
+		if success then
+			table.insert(affected, result)
+		else
+			table.insert(failures, result)
+		end
+	end
+
+	if #affected == 0 then
+		fail(executor, "No players concussed: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
+
+	local msg = "Concussed " .. table.concat(affected, ", ") .. " for " .. duration .. "s."
+	if #failures > 0 then
+		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
+	end
+	ok(executor, msg)
 end
 
 HANDLERS["createcorpse"] = function(executor, args)
@@ -1293,6 +1348,92 @@ local function removeFreeze(target: Player): (boolean, string)
 		humanoid.JumpPower = data.jumpPower
 	end
 
+	return true, target.DisplayName
+end
+
+-- restores the WalkSpeed reduction applied by applyConcussion below. Purely
+-- server-side (like freeze) — the visual/audio side is handled entirely by
+-- the client from the CommandRemotes.Concussion fire and simply fades out on
+-- its own timer, so nothing needs to be sent to the client here.
+local function clearConcussion(target: Player)
+	local data = concussionData[target.UserId]
+	if not data then return end
+	concussionData[target.UserId] = nil
+
+	for _, conn in data.connections do
+		conn:Disconnect()
+	end
+
+	local character = data.character
+	if character and character.Parent then
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.WalkSpeed = data.originalWalkSpeed
+		end
+	end
+end
+
+-- Applies a concussion effect to `target` for `duration` seconds: a moderate
+-- server-side WalkSpeed reduction plus a client-driven blur/tinnitus/dizziness
+-- effect (see ConcussionEffects.client.lua). If `target` is already
+-- concussed, this refreshes the duration instead of stacking a second
+-- WalkSpeed reduction on top of the first.
+-- Returns (true, displayName) on success or (false, reason) on failure.
+local function applyConcussion(target: Player, duration: number): (boolean, string)
+	local character = target.Character
+	local humanoid  = character and character:FindFirstChildOfClass("Humanoid")
+	if not character or not humanoid or humanoid.Health <= 0 then
+		return false, target.DisplayName .. " has no active character"
+	end
+
+	local data = concussionData[target.UserId]
+	if data then
+		-- Already concussed on this same character: just extend the timer.
+		data.token += 1
+		local myToken = data.token
+		task.delay(duration, function()
+			local d = concussionData[target.UserId]
+			if d and d.token == myToken then
+				clearConcussion(target)
+			end
+		end)
+		CommandRemotes.Concussion:FireClient(target, duration)
+		return true, target.DisplayName
+	end
+
+	local originalWalkSpeed = humanoid.WalkSpeed
+	humanoid.WalkSpeed = originalWalkSpeed * CONCUSSION_WALKSPEED_MULT
+
+	-- Auto-clean state when the character is removed (death / respawn / re
+	-- command), same pattern as applyFreeze above.
+	local connections = {}
+	local charRemoving
+	charRemoving = character.AncestryChanged:Connect(function(_, newParent)
+		if newParent ~= nil then return end
+		charRemoving:Disconnect()
+		local d = concussionData[target.UserId]
+		if d and d.character == character then
+			concussionData[target.UserId] = nil
+		end
+	end)
+	table.insert(connections, charRemoving)
+
+	local token = 1
+	concussionData[target.UserId] = {
+		character         = character,
+		originalWalkSpeed = originalWalkSpeed,
+		connections       = connections,
+		token             = token,
+	}
+
+	task.delay(duration, function()
+		local d = concussionData[target.UserId]
+		if d and d.token == token then
+			clearConcussion(target)
+		end
+	end)
+
+	CommandRemotes.Concussion:FireClient(target, duration)
 	return true, target.DisplayName
 end
 
