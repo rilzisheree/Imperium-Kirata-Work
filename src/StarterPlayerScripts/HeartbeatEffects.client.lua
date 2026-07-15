@@ -4,8 +4,6 @@ local TweenService      = game:GetService("TweenService")
 local Lighting          = game:GetService("Lighting")
 local SoundService      = game:GetService("SoundService")
 
--- Required at the top so runLoops() can reference HeartbeatIMBridge as a
--- normal upvalue. By the time any remote fires, this module is fully loaded.
 local CommandRemotes = require(ReplicatedStorage:WaitForChild("CommandRemotes"))
 
 local LocalPlayer = Players.LocalPlayer
@@ -35,22 +33,6 @@ local BEAT_REST_MAX      = 0.90
 
 -- Small camera shake on the strong beat only
 local SHAKE_AMP = 0.004
-
--- IM messages sent via the HeartbeatIMBridge every 3–6 seconds
-local IM_MESSAGES = {
-	"My heart won't slow down...",
-	"Stay calm...",
-	"I can hear my heartbeat...",
-	"Something isn't right...",
-	"Focus...",
-	"Breathe...",
-	"I need to keep moving...",
-	"Don't panic...",
-	"Why is my heart racing?",
-	"Keep it together...",
-}
-local IM_INTERVAL_MIN = 3
-local IM_INTERVAL_MAX = 6
 
 local function tw(obj, t, props, style, dir)
 	style = style or Enum.EasingStyle.Quad
@@ -154,7 +136,7 @@ local function teardown(myState, animated: boolean)
 end
 
 -- All loops key off object identity (state == myState) so a token refresh
--- never restarts them — only the end-timer and IM interval are bumped.
+-- never restarts them — only the end-timer is bumped.
 local function runLoops(myState)
 	-- ── Lub-dub heartbeat loop ────────────────────────────────────────────────
 	task.spawn(function()
@@ -196,21 +178,6 @@ local function runLoops(myState)
 
 			-- Rest between cycles
 			task.wait(BEAT_REST_MIN + rng:NextNumber() * (BEAT_REST_MAX - BEAT_REST_MIN))
-		end
-	end)
-
-	-- ── IM loop ───────────────────────────────────────────────────────────────
-	-- Fires random red-coloured thoughts via the HeartbeatIMBridge so they
-	-- appear in CommandEffects.showIM — the same UI as admin `im` messages.
-	-- Purely client-side: no server round-trip, only visible to this player.
-	task.spawn(function()
-		local bridge = CommandRemotes.HeartbeatIMBridge
-		if not bridge then return end
-
-		while state == myState do
-			task.wait(rng:NextNumber() * (IM_INTERVAL_MAX - IM_INTERVAL_MIN) + IM_INTERVAL_MIN)
-			if state ~= myState then break end
-			bridge:Fire(IM_MESSAGES[rng:NextInteger(1, #IM_MESSAGES)], "red")
 		end
 	end)
 end

@@ -10,16 +10,17 @@ local Camera         = workspace.CurrentCamera
 local MarkdownParser = require(ReplicatedStorage:WaitForChild("MarkdownParser"))
 
 local COLOR_MAP = {
-        red    = Color3.fromRGB(255,  90,  90),
-        blue   = Color3.fromRGB(110, 160, 255),
-        green  = Color3.fromRGB( 90, 220,  90),
-        yellow = Color3.fromRGB(255, 230,  80),
-        orange = Color3.fromRGB(255, 160,  60),
-        purple = Color3.fromRGB(190, 110, 255),
-        pink   = Color3.fromRGB(255, 140, 210),
-        white  = Color3.fromRGB(255, 255, 255),
-        cyan   = Color3.fromRGB( 90, 225, 255),
-        lime   = Color3.fromRGB(140, 255,  90),
+        red     = Color3.fromRGB(255,  90,  90),
+        darkred = Color3.fromRGB(180,  25,  25),
+        blue    = Color3.fromRGB(110, 160, 255),
+        green   = Color3.fromRGB( 90, 220,  90),
+        yellow  = Color3.fromRGB(255, 230,  80),
+        orange  = Color3.fromRGB(255, 160,  60),
+        purple  = Color3.fromRGB(190, 110, 255),
+        pink    = Color3.fromRGB(255, 140, 210),
+        white   = Color3.fromRGB(255, 255, 255),
+        cyan    = Color3.fromRGB( 90, 225, 255),
+        lime    = Color3.fromRGB(140, 255,  90),
 }
 local DEFAULT_COLOR = Color3.fromRGB(255, 255, 255)
 
@@ -527,15 +528,6 @@ if CommandRemotes.IM then
         end)
 end
 
--- HeartbeatEffects drives its own IM loop client-side and fires this bridge
--- so IMs appear through the same UI without going through the server.
-if CommandRemotes.HeartbeatIMBridge then
-        CommandRemotes.HeartbeatIMBridge.Event:Connect(function(message: string, colorName: string?)
-                if typeof(message) == "string" and message ~= "" then
-                        showIM(message, colorName)
-                end
-        end)
-end
 
 if CommandRemotes.LowHealthIM then
         CommandRemotes.LowHealthIM.OnClientEvent:Connect(function(message: string, isCritical: boolean?)
