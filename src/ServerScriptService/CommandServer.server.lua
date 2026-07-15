@@ -94,6 +94,27 @@ local freezeData = {}
 local concussionData = {}
 local CONCUSSION_WALKSPEED_MULT = 0.7  -- "slightly reduce" — matches the client's moderate effect
 
+-- heartbeat state: [userId] = { character, connections, token }
+-- No server-side stat changes; server only tracks state for cleanup and drives
+-- the IM loop that fires private messages to the affected player.
+local heartbeatData = {}
+
+local HEARTBEAT_IMS = {
+	"My heart won't slow down...",
+	"Stay calm...",
+	"I can hear my heartbeat...",
+	"Something isn't right...",
+	"Focus...",
+	"Breathe...",
+	"I need to keep moving...",
+	"Don't panic...",
+	"Why is my heart racing?",
+	"Keep it together...",
+}
+local DEFAULT_HEARTBEAT_DURATION = 15
+local MIN_HEARTBEAT_DURATION     = 1
+local MAX_HEARTBEAT_DURATION     = 120
+
 
 local activePrivateServerCode: string? = nil
 
@@ -177,6 +198,12 @@ Players.PlayerRemoving:Connect(function(player)
 	if cData then
 		for _, conn in cData.connections do conn:Disconnect() end
 		concussionData[player.UserId] = nil
+	end
+	-- clear any active heartbeat (no stat changes to restore; just drop state)
+	local hData = heartbeatData[player.UserId]
+	if hData then
+		for _, conn in hData.connections do conn:Disconnect() end
+		heartbeatData[player.UserId] = nil
 	end
 	staffModeActive[player.UserId] = nil
 	FilterState.filterBypass[player.UserId] = nil
@@ -1310,6 +1337,106 @@ local function removeFreeze(target: Player): (boolean, string)
 	return true, target.DisplayName
 end
 
+-- Stops a heartbeat effect early (PlayerRemoving / respawn cleanup).
+-- The visual/audio teardown is handled entirely client-side; the server only
+-- needs to nil out state and disconnect the AncestryChanged guard.
+local function clearHeartbeat(target: Player)
+	local data = heartbeatData[target.UserId]
+	if not data then return end
+	heartbeatData[target.UserId] = nil
+	for _, conn in data.connections do
+		conn:Disconnect()
+	end
+end
+
+-- Applies (or refreshes) a heartbeat effect on `target` for `duration` seconds.
+-- The server drives a private IM loop; all visuals/audio are client-side only.
+-- Returns (true, displayName) on success or (false, reason) on failure.
+local function applyHeartbeat(target: Player, duration: number): (boolean, string)
+	local character = target.Character
+	local humanoid  = character and character:FindFirstChildOfClass("Humanoid")
+	if not character or not humanoid or humanoid.Health <= 0 then
+		return false, target.DisplayName .. " has no active character"
+	end
+
+	local data = heartbeatData[target.UserId]
+	if data then
+		-- Already active: bump token so old end-timer becomes a no-op, then
+		-- restart both the end-timer and the IM loop with the fresh token.
+		data.token += 1
+		local myToken = data.token
+		task.delay(duration, function()
+			local d = heartbeatData[target.UserId]
+			if d and d.token == myToken then
+				clearHeartbeat(target)
+			end
+		end)
+		-- Restart IM loop with new token so it runs for the refreshed duration.
+		task.spawn(function()
+			local imRng   = Random.new()
+			local elapsed = 0
+			while true do
+				local interval = imRng:NextNumber() * 3 + 3  -- 3–6 s
+				task.wait(interval)
+				elapsed += interval
+				local d = heartbeatData[target.UserId]
+				if not d or d.token ~= myToken then break end
+				if elapsed >= duration then break end
+				local msg = HEARTBEAT_IMS[imRng:NextInteger(1, #HEARTBEAT_IMS)]
+				CommandRemotes.IM:FireClient(target, msg, "red")
+			end
+		end)
+		CommandRemotes.Heartbeat:FireClient(target, duration)
+		return true, target.DisplayName
+	end
+
+	-- ── New effect ────────────────────────────────────────────────────────────
+	local connections = {}
+	local charRemoving
+	charRemoving = character.AncestryChanged:Connect(function(_, newParent)
+		if newParent ~= nil then return end
+		charRemoving:Disconnect()
+		local d = heartbeatData[target.UserId]
+		if d and d.character == character then
+			heartbeatData[target.UserId] = nil
+		end
+	end)
+	table.insert(connections, charRemoving)
+
+	local token = 1
+	heartbeatData[target.UserId] = {
+		character   = character,
+		connections = connections,
+		token       = token,
+	}
+
+	-- Private IM loop: fires a random heartbeat message every 3–6 seconds.
+	task.spawn(function()
+		local imRng   = Random.new()
+		local elapsed = 0
+		while true do
+			local interval = imRng:NextNumber() * 3 + 3  -- 3–6 s
+			task.wait(interval)
+			elapsed += interval
+			local d = heartbeatData[target.UserId]
+			if not d or d.token ~= token then break end
+			if elapsed >= duration then break end
+			local msg = HEARTBEAT_IMS[imRng:NextInteger(1, #HEARTBEAT_IMS)]
+			CommandRemotes.IM:FireClient(target, msg, "red")
+		end
+	end)
+
+	task.delay(duration, function()
+		local d = heartbeatData[target.UserId]
+		if d and d.token == token then
+			clearHeartbeat(target)
+		end
+	end)
+
+	CommandRemotes.Heartbeat:FireClient(target, duration)
+	return true, target.DisplayName
+end
+
 -- restores the WalkSpeed reduction applied by applyConcussion below. Purely
 -- server-side (like freeze) — the visual/audio side is handled entirely by
 -- the client from the CommandRemotes.Concussion fire and simply fades out on
@@ -1431,6 +1558,43 @@ HANDLERS["concussion"] = function(executor, args)
 	end
 
 	local msg = "Concussed " .. table.concat(affected, ", ") .. " for " .. duration .. "s."
+	if #failures > 0 then
+		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
+	end
+	ok(executor, msg)
+end
+
+HANDLERS["heartbeat"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: heartbeat <player|all> [duration]") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	local duration = DEFAULT_HEARTBEAT_DURATION
+	if args[2] then
+		local d = tonumber(args[2])
+		if not d or d < MIN_HEARTBEAT_DURATION or d > MAX_HEARTBEAT_DURATION then
+			fail(executor, "Duration must be " .. MIN_HEARTBEAT_DURATION .. "–" .. MAX_HEARTBEAT_DURATION .. " seconds.")
+			return
+		end
+		duration = math.floor(d)
+	end
+
+	local affected, failures = {}, {}
+	for _, target in targets do
+		local success, result = applyHeartbeat(target, duration)
+		if success then
+			table.insert(affected, result)
+		else
+			table.insert(failures, result)
+		end
+	end
+
+	if #affected == 0 then
+		fail(executor, "No players affected: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
+
+	local msg = "Heartbeat applied to " .. table.concat(affected, ", ") .. " for " .. duration .. "s."
 	if #failures > 0 then
 		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
 	end

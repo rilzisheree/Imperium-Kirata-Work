@@ -1,0 +1,57 @@
+Before making any changes, thoroughly read and understand my existing admin command system, effect system, IM system, UI, sound handling, RemoteEvents, and coding style. Reuse the current architecture and only add the functionality described below.
+
+Create a new admin command:
+
+heartbeat <target> [duration]
+
+Description:
+- Applies an intense heartbeat/stress effect to the specified player(s).
+
+Usage:
+heartbeat <target>
+heartbeat <target> <duration>
+
+Examples:
+heartbeat Kirata
+heartbeat Kirata 20
+heartbeat all 15
+
+Requirements:
+- Follow the existing admin command framework and coding style.
+- Support all existing target selectors (username, me, all, team selectors, etc.).
+- If no duration is provided, default to 15 seconds.
+- Apply the effect immediately.
+
+Effects:
+- Play a looping heartbeat sound that gradually becomes louder and then quieter, simulating a real heartbeat.
+- Add subtle red flashes around the edges of the player's screen synchronized with each heartbeat.
+- Slightly darken the player's vision while the effect is active.
+- Occasionally apply a very small camera shake on stronger heartbeats.
+- Randomly send red-colored IMs using the existing IM system every 3–6 seconds.
+
+Example IMs:
+- "My heart won't slow down..."
+- "Stay calm..."
+- "I can hear my heartbeat..."
+- "Something isn't right..."
+- "Focus..."
+- "Breathe..."
+- "I need to keep moving..."
+- "Don't panic..."
+- "Why is my heart racing?"
+- "Keep it together..."
+
+Behavior:
+- IMs should only be visible to the affected player using the existing IM UI.
+- The heartbeat audio, flashes, and IMs should only affect the targeted player.
+- The effect should fade in smoothly over about 1 second.
+- Fade out smoothly when the duration ends.
+- Prevent multiple heartbeat effects from stacking.
+- If the command is used again while active, simply refresh the duration.
+- Cleanly stop all sounds, camera effects, screen effects, IM timers, and event connections when the effect ends.
+- Remove the effect automatically if the player respawns.
+
+General Requirements:
+- Integrate seamlessly into the existing admin effect and IM systems without duplicating code.
+- Follow the existing coding style and project architecture.
+- Keep the implementation optimized and avoid memory leaks.

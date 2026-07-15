@@ -221,6 +221,11 @@ CommandRegistry.COMMANDS = {
 		args = { "0-100" },
 		permission = "Everyone",
 	},
+	heartbeat = {
+		description = "apply an intense heartbeat/stress effect to a player, optional duration in seconds (default 15)",
+		args = { "player|all", "[duration]" },
+		permission = "Admin",
+	},
 }
 
 return CommandRegistry
