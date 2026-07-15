@@ -81,11 +81,14 @@ local THUMB_S  = 14
 local ROW_H    = 34
 local SEC_H    = 26
 
+local PITCH_H = SLIDER_H   -- same row height as the volume slider
+
 local MENU_H = HEADER_H + DIV_H
              + NOW_H    + DIV_H
              + SEEK_H   + DIV_H
              + SEARCH_H + DIV_H
-             + SLIDER_H + DIV_H
+             + SLIDER_H + DIV_H   -- volume
+             + PITCH_H  + DIV_H   -- speed / pitch
              + CYCLE_H  + DIV_H
              + LIST_H   + DIV_H
              + FOOTER_H
@@ -93,6 +96,7 @@ local MENU_H = HEADER_H + DIV_H
 local isOpen          = false
 local currentId       = nil   -- currently playing audio ID string (or nil)
 local currentVolume   = 1     -- 0–1
+local currentPitch    = 1     -- PlaybackSpeed: 0.5–2.0, default 1.0 (client-only)
 local cycleOn         = false -- auto-cycle state
 local activeSliderFn  = nil   -- position handler for whichever slider is being dragged
 local seekIsDragging  = false -- pause heartbeat polling while seek thumb is held
@@ -426,6 +430,99 @@ end)
 
 rowY += SLIDER_H; makeDivider(frame, rowY); rowY += DIV_H
 
+-- ── Speed / Pitch row ─────────────────────────────────────────────────────────
+local pitchRow = Instance.new("Frame", frame)
+pitchRow.Name                   = "PitchRow"
+pitchRow.Size                   = UDim2.new(1, 0, 0, PITCH_H)
+pitchRow.Position               = UDim2.new(0, 0, 0, rowY)
+pitchRow.BackgroundTransparency = 1
+pitchRow.BorderSizePixel        = 0
+pitchRow.ZIndex                 = 11
+
+local pitchLabel = Instance.new("TextLabel", pitchRow)
+pitchLabel.Size               = UDim2.new(0, 80, 0, 20)
+pitchLabel.Position           = UDim2.new(0, PAD, 0, 4)
+pitchLabel.BackgroundTransparency = 1
+pitchLabel.Font               = Enum.Font.Gotham
+pitchLabel.TextSize           = 12
+pitchLabel.TextColor3         = C_TXT
+pitchLabel.TextXAlignment     = Enum.TextXAlignment.Left
+pitchLabel.Text               = "Speed"
+pitchLabel.ZIndex             = 12
+
+local pitchValLbl = Instance.new("TextLabel", pitchRow)
+pitchValLbl.AnchorPoint      = Vector2.new(1, 0)
+pitchValLbl.Position         = UDim2.new(1, -PAD, 0, 4)
+pitchValLbl.Size             = UDim2.new(0, 52, 0, 20)
+pitchValLbl.BackgroundTransparency = 1
+pitchValLbl.Font             = Enum.Font.GothamMedium
+pitchValLbl.TextSize         = 12
+pitchValLbl.TextColor3       = C_ACC
+pitchValLbl.TextXAlignment   = Enum.TextXAlignment.Right
+pitchValLbl.Text             = "1.00×"
+pitchValLbl.ZIndex           = 12
+
+-- Pitch slider: 0.5× (left) → 2.0× (right). 1.0× sits at ratio ≈ 0.333.
+local PITCH_MIN, PITCH_MAX = 0.5, 2.0
+local pitchTrack, pitchFill, pitchThumb = makeSliderTrack(pitchRow, 32)
+local defaultPitchRatio = (1.0 - PITCH_MIN) / (PITCH_MAX - PITCH_MIN)  -- ≈ 0.333
+pitchFill.Size      = UDim2.new(defaultPitchRatio, 0, 1, 0)
+pitchThumb.Position = UDim2.new(defaultPitchRatio, 0, 0.5, 0)
+
+-- Subtle hint below the slider: left / right labels
+local pitchHintL = Instance.new("TextLabel", pitchRow)
+pitchHintL.Size               = UDim2.new(0.5, 0, 0, 14)
+pitchHintL.Position           = UDim2.new(0, PAD, 0, PITCH_H - 14)
+pitchHintL.BackgroundTransparency = 1
+pitchHintL.Font               = Enum.Font.Gotham
+pitchHintL.TextSize           = 10
+pitchHintL.TextColor3         = C_DIM
+pitchHintL.TextXAlignment     = Enum.TextXAlignment.Left
+pitchHintL.Text               = "0.50× slower"
+pitchHintL.ZIndex             = 12
+
+local pitchHintR = Instance.new("TextLabel", pitchRow)
+pitchHintR.Size               = UDim2.new(0.5, -PAD, 0, 14)
+pitchHintR.Position           = UDim2.new(0.5, 0, 0, PITCH_H - 14)
+pitchHintR.BackgroundTransparency = 1
+pitchHintR.Font               = Enum.Font.Gotham
+pitchHintR.TextSize           = 10
+pitchHintR.TextColor3         = C_DIM
+pitchHintR.TextXAlignment     = Enum.TextXAlignment.Right
+pitchHintR.Text               = "2.00× faster"
+pitchHintR.ZIndex             = 12
+
+local function applyPitchX(posX: number)
+	local abs = pitchTrack.AbsolutePosition
+	local sz  = pitchTrack.AbsoluteSize
+	if sz.X == 0 then return end
+	local ratio = math.clamp((posX - abs.X) / sz.X, 0, 1)
+	-- Snap to 1.0× when very close (within ±3% of slider width)
+	local snapRatio = (1.0 - PITCH_MIN) / (PITCH_MAX - PITCH_MIN)
+	if math.abs(ratio - snapRatio) < 0.03 then ratio = snapRatio end
+	local pitch = PITCH_MIN + ratio * (PITCH_MAX - PITCH_MIN)
+	currentPitch             = pitch
+	pitchFill.Size           = UDim2.new(ratio, 0, 1, 0)
+	pitchThumb.Position      = UDim2.new(ratio, 0, 0.5, 0)
+	pitchValLbl.Text         = string.format("%.2f×", pitch)
+	local sound = getSound()
+	if sound then sound.PlaybackSpeed = pitch end
+end
+
+pitchThumb.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		activeSliderFn = applyPitchX
+	end
+end)
+pitchTrack.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		activeSliderFn = applyPitchX
+		applyPitchX(input.Position.X)
+	end
+end)
+
+rowY += PITCH_H; makeDivider(frame, rowY); rowY += DIV_H
+
 local cycleRow = Instance.new("Frame", frame)
 cycleRow.Name                   = "CycleRow"
 cycleRow.Size                   = UDim2.new(1, 0, 0, CYCLE_H)
@@ -752,8 +849,14 @@ local function updateHighlight(id: string?)
 end
 
 RunService.Heartbeat:Connect(function()
-	if not isOpen or seekIsDragging then return end
 	local sound = getSound()
+	-- Enforce pitch on every sound, even ones created mid-session by MusicClient.
+	-- PlaybackSpeed = 1 is the Roblox default, so skip the write when at normal speed.
+	if sound and sound.PlaybackSpeed ~= currentPitch then
+		sound.PlaybackSpeed = currentPitch
+	end
+
+	if not isOpen or seekIsDragging then return end
 	if not sound or not sound.IsLoaded or sound.TimeLength == 0 then return end
 	local tl    = sound.TimeLength
 	local tp    = sound.TimePosition
