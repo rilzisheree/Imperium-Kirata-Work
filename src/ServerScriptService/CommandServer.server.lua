@@ -95,22 +95,11 @@ local concussionData = {}
 local CONCUSSION_WALKSPEED_MULT = 0.7  -- "slightly reduce" — matches the client's moderate effect
 
 -- heartbeat state: [userId] = { character, connections, token }
--- No server-side stat changes; server only tracks state for cleanup and drives
--- the IM loop that fires private messages to the affected player.
+-- No server-side stat changes. The IM loop runs entirely client-side via the
+-- HeartbeatIMBridge BindableEvent, so the server only tracks state for
+-- cleanup and fires the duration to the client.
 local heartbeatData = {}
 
-local HEARTBEAT_IMS = {
-	"My heart won't slow down...",
-	"Stay calm...",
-	"I can hear my heartbeat...",
-	"Something isn't right...",
-	"Focus...",
-	"Breathe...",
-	"I need to keep moving...",
-	"Don't panic...",
-	"Why is my heart racing?",
-	"Keep it together...",
-}
 local DEFAULT_HEARTBEAT_DURATION = 15
 local MIN_HEARTBEAT_DURATION     = 1
 local MAX_HEARTBEAT_DURATION     = 120
@@ -1361,29 +1350,15 @@ local function applyHeartbeat(target: Player, duration: number): (boolean, strin
 
 	local data = heartbeatData[target.UserId]
 	if data then
-		-- Already active: bump token so old end-timer becomes a no-op, then
-		-- restart both the end-timer and the IM loop with the fresh token.
+		-- Already active: bump token so the old end-timer becomes a no-op,
+		-- then start a fresh one. The client-side IM loop is keyed off the
+		-- Heartbeat remote re-fire, so it restarts automatically there.
 		data.token += 1
 		local myToken = data.token
 		task.delay(duration, function()
 			local d = heartbeatData[target.UserId]
 			if d and d.token == myToken then
 				clearHeartbeat(target)
-			end
-		end)
-		-- Restart IM loop with new token so it runs for the refreshed duration.
-		task.spawn(function()
-			local imRng   = Random.new()
-			local elapsed = 0
-			while true do
-				local interval = imRng:NextNumber() * 3 + 3  -- 3–6 s
-				task.wait(interval)
-				elapsed += interval
-				local d = heartbeatData[target.UserId]
-				if not d or d.token ~= myToken then break end
-				if elapsed >= duration then break end
-				local msg = HEARTBEAT_IMS[imRng:NextInteger(1, #HEARTBEAT_IMS)]
-				CommandRemotes.IM:FireClient(target, msg, "red")
 			end
 		end)
 		CommandRemotes.Heartbeat:FireClient(target, duration)
@@ -1409,22 +1384,6 @@ local function applyHeartbeat(target: Player, duration: number): (boolean, strin
 		connections = connections,
 		token       = token,
 	}
-
-	-- Private IM loop: fires a random heartbeat message every 3–6 seconds.
-	task.spawn(function()
-		local imRng   = Random.new()
-		local elapsed = 0
-		while true do
-			local interval = imRng:NextNumber() * 3 + 3  -- 3–6 s
-			task.wait(interval)
-			elapsed += interval
-			local d = heartbeatData[target.UserId]
-			if not d or d.token ~= token then break end
-			if elapsed >= duration then break end
-			local msg = HEARTBEAT_IMS[imRng:NextInteger(1, #HEARTBEAT_IMS)]
-			CommandRemotes.IM:FireClient(target, msg, "red")
-		end
-	end)
 
 	task.delay(duration, function()
 		local d = heartbeatData[target.UserId]

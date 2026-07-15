@@ -527,6 +527,16 @@ if CommandRemotes.IM then
         end)
 end
 
+-- HeartbeatEffects drives its own IM loop client-side and fires this bridge
+-- so IMs appear through the same UI without going through the server.
+if CommandRemotes.HeartbeatIMBridge then
+        CommandRemotes.HeartbeatIMBridge.Event:Connect(function(message: string, colorName: string?)
+                if typeof(message) == "string" and message ~= "" then
+                        showIM(message, colorName)
+                end
+        end)
+end
+
 if CommandRemotes.LowHealthIM then
         CommandRemotes.LowHealthIM.OnClientEvent:Connect(function(message: string, isCritical: boolean?)
                 if typeof(message) == "string" and message ~= "" then

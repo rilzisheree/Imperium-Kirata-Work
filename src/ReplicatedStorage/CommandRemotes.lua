@@ -78,4 +78,12 @@ for key, name in REMOTES do
 	CommandRemotes[key] = fn(name)
 end
 
+-- Client-only BindableEvent: HeartbeatEffects fires this to display an IM
+-- through CommandEffects.showIM without a server round-trip. ModuleScript
+-- caching means every require() on the same client gets the same table, so
+-- Fire() in one script is heard by the Event listener in the other.
+if not RunService:IsServer() then
+	CommandRemotes.HeartbeatIMBridge = Instance.new("BindableEvent")
+end
+
 return CommandRemotes
