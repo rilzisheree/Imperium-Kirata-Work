@@ -667,47 +667,6 @@ HANDLERS["unblind"] = function(executor, args)
 	ok(executor, "Unblinded " .. recipient .. ".")
 end
 
-local DEFAULT_CONCUSSION_DURATION = 15
-local MIN_CONCUSSION_DURATION     = 1
-local MAX_CONCUSSION_DURATION     = 120  -- same cap as blind
-
-HANDLERS["concussion"] = function(executor, args)
-	if #args < 1 then fail(executor, "Usage: concussion <player|all> [duration]") return end
-	local targets = resolveTargets(executor, args[1])
-	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
-
-	local duration = DEFAULT_CONCUSSION_DURATION
-	if args[2] then
-		local d = tonumber(args[2])
-		if not d or d < MIN_CONCUSSION_DURATION or d > MAX_CONCUSSION_DURATION then
-			fail(executor, "Duration must be " .. MIN_CONCUSSION_DURATION .. "–" .. MAX_CONCUSSION_DURATION .. " seconds.")
-			return
-		end
-		duration = math.floor(d)
-	end
-
-	local affected, failures = {}, {}
-	for _, target in targets do
-		local success, result = applyConcussion(target, duration)
-		if success then
-			table.insert(affected, result)
-		else
-			table.insert(failures, result)
-		end
-	end
-
-	if #affected == 0 then
-		fail(executor, "No players concussed: " .. table.concat(failures, "; ") .. ".")
-		return
-	end
-
-	local msg = "Concussed " .. table.concat(affected, ", ") .. " for " .. duration .. "s."
-	if #failures > 0 then
-		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
-	end
-	ok(executor, msg)
-end
-
 HANDLERS["createcorpse"] = function(executor, args)
 	if #args < 1 then fail(executor, "Usage: createcorpse <player|all> [lifetime seconds]") return end
 	local targets = resolveTargets(executor, args[1])
@@ -1435,6 +1394,47 @@ local function applyConcussion(target: Player, duration: number): (boolean, stri
 
 	CommandRemotes.Concussion:FireClient(target, duration)
 	return true, target.DisplayName
+end
+
+local DEFAULT_CONCUSSION_DURATION = 15
+local MIN_CONCUSSION_DURATION     = 1
+local MAX_CONCUSSION_DURATION     = 120  -- same cap as blind
+
+HANDLERS["concussion"] = function(executor, args)
+	if #args < 1 then fail(executor, "Usage: concussion <player|all> [duration]") return end
+	local targets = resolveTargets(executor, args[1])
+	if not targets then fail(executor, 'Player "' .. args[1] .. '" not found.') return end
+
+	local duration = DEFAULT_CONCUSSION_DURATION
+	if args[2] then
+		local d = tonumber(args[2])
+		if not d or d < MIN_CONCUSSION_DURATION or d > MAX_CONCUSSION_DURATION then
+			fail(executor, "Duration must be " .. MIN_CONCUSSION_DURATION .. "–" .. MAX_CONCUSSION_DURATION .. " seconds.")
+			return
+		end
+		duration = math.floor(d)
+	end
+
+	local affected, failures = {}, {}
+	for _, target in targets do
+		local success, result = applyConcussion(target, duration)
+		if success then
+			table.insert(affected, result)
+		else
+			table.insert(failures, result)
+		end
+	end
+
+	if #affected == 0 then
+		fail(executor, "No players concussed: " .. table.concat(failures, "; ") .. ".")
+		return
+	end
+
+	local msg = "Concussed " .. table.concat(affected, ", ") .. " for " .. duration .. "s."
+	if #failures > 0 then
+		msg = msg .. " (" .. #failures .. " skipped: " .. table.concat(failures, "; ") .. ")"
+	end
+	ok(executor, msg)
 end
 
 HANDLERS["invis"] = function(executor, args)
