@@ -825,6 +825,11 @@ for si, sec in ipairs(SECTIONS) do
 end
 
 local function updateHighlight(id: string?)
+	-- If the outgoing track had a preferred speed and a different track is
+	-- starting, restore normal speed so it doesn't bleed into the next song.
+	if currentId and currentId ~= id and idToSpeed[currentId] then
+		setPitch(1.0)
+	end
 	currentId = id
 	for _, row in ipairs(allRows) do
 		local active = (row.id == id)
