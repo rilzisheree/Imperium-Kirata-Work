@@ -1377,9 +1377,6 @@ local function applyHeartbeat(target: Player, duration: number): (boolean, strin
 		task.spawn(function()
 			local elapsed = 0
 			while true do
-				local interval = imRng:NextNumber() * 3 + 3  -- 3–6 s
-				task.wait(interval)
-				elapsed += interval
 				local d = heartbeatData[target.UserId]
 				if not d or d.token ~= myToken then break end
 				if elapsed >= duration then break end
@@ -1388,6 +1385,8 @@ local function applyHeartbeat(target: Player, duration: number): (boolean, strin
 					HEARTBEAT_IMS[imRng:NextInteger(1, #HEARTBEAT_IMS)],
 					"darkred"
 				)
+				task.wait(3)
+				elapsed += 3
 			end
 		end)
 		CommandRemotes.Heartbeat:FireClient(target, duration)
@@ -1414,16 +1413,13 @@ local function applyHeartbeat(target: Player, duration: number): (boolean, strin
 		token       = token,
 	}
 
-	-- IM loop: fires one of the heartbeat messages to the affected player
-	-- every 3–6 seconds via CommandRemotes.IM — identical to an admin running
+	-- IM loop: fires one of the heartbeat messages immediately, then every 3 s,
+	-- via CommandRemotes.IM — identical to an admin running
 	-- `im <player> <message> darkred`, only visible to that player.
 	local imRng = Random.new()
 	task.spawn(function()
 		local elapsed = 0
 		while true do
-			local interval = imRng:NextNumber() * 3 + 3  -- 3–6 s
-			task.wait(interval)
-			elapsed += interval
 			local d = heartbeatData[target.UserId]
 			if not d or d.token ~= token then break end
 			if elapsed >= duration then break end
@@ -1432,6 +1428,8 @@ local function applyHeartbeat(target: Player, duration: number): (boolean, strin
 				HEARTBEAT_IMS[imRng:NextInteger(1, #HEARTBEAT_IMS)],
 				"darkred"
 			)
+			task.wait(3)
+			elapsed += 3
 		end
 	end)
 
