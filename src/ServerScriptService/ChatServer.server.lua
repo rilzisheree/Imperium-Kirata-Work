@@ -17,6 +17,7 @@ local ChatRemotes     = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 local LanguageManager = require(script.Parent:WaitForChild("LanguageManager") :: ModuleScript)
 local LanguageData    = require(ReplicatedStorage:WaitForChild("LanguageData") :: ModuleScript)
 local FilterState     = require(script.Parent:WaitForChild("FilterState") :: ModuleScript)
+local BadWordFilter   = require(script.Parent:WaitForChild("BadWordFilter") :: ModuleScript)
 
 local MAX_MESSAGE_LENGTH = 200
 
@@ -53,25 +54,23 @@ local function getNameColor(player: Player): Color3
 	return NAME_COLORS[(player.UserId % #NAME_COLORS) + 1]
 end
 
--- Applies Roblox's text filter for broadcast. Always returns a string —
--- falls back to the raw text if the service call fails for any reason
--- (network error, Studio, empty result, etc.) so chat is never silently broken.
+-- Applies Roblox's text filter for broadcast, then a custom bad-word pass on
+-- top of it. Roblox's own filter is tuned for age-rating/legal compliance —
+-- it deliberately allows plenty of language through and can occasionally
+-- fail to return a result — so it alone isn't enough to keep profanity out
+-- of chat. The custom pass runs on Roblox's result when available, and on
+-- the raw text as a fallback when the filter call itself fails, so a message
+-- is never sent completely uncensored.
 local function filterMessage(sender: Player, text: string): string
 	local ok2, result = pcall(function()
 		local filterResult = TextService:FilterStringAsync(text, sender.UserId)
 		return filterResult:GetNonChatStringForBroadcastAsync()
 	end)
-	if IS_STUDIO then
-		if not ok2 then
-			warn("[ChatFilter] FilterStringAsync FAILED for", sender.Name, "| error:", tostring(result))
-		else
-			warn("[ChatFilter] FilterStringAsync OK for", sender.Name, "| input:", text, "| result:", tostring(result), "| type:", type(result), "| len:", type(result)=="string" and #result or "N/A")
-		end
+	if IS_STUDIO and not ok2 then
+		warn("[ChatFilter] FilterStringAsync FAILED for", sender.Name, "| error:", tostring(result))
 	end
-	if ok2 and type(result) == "string" and result ~= "" then
-		return result
-	end
-	return text
+	local robloxFiltered = (ok2 and type(result) == "string" and result ~= "") and result or text
+	return BadWordFilter.censor(robloxFiltered)
 end
 
 -- Capitalises the first letter and appends a period when the message has no ending punctuation.
