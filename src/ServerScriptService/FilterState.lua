@@ -1,6 +1,6 @@
--- Shared chat-filter state required by both ChatServer and CommandServer.
--- filterBypass[userId] = true  →  chat filter is OFF for that player.
--- The table is the shared mutable reference; never replace it with a new table.
+-- Shared between ChatServer and CommandServer.
+-- filterBypass[userId] = true means the chat filter is OFF for that player.
+-- Both modules require this same table reference — never replace it.
 local FilterState = {}
-FilterState.filterBypass = {}  -- [userId] = true when filter is bypassed
+FilterState.filterBypass = {}
 return FilterState

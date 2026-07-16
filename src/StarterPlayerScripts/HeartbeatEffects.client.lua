@@ -12,27 +12,23 @@ local Camera      = workspace.CurrentCamera
 
 local rng = Random.new()
 
--- ── Tuning ───────────────────────────────────────────────────────────────────
 local FADE_IN_TIME    = 1.0
 local FADE_OUT_TIME   = 1.2
 
--- Red vignette transparency (higher = more transparent / less visible)
+-- red vignette transparency levels
 local VIG_BASE_TRANS  = 0.78   -- resting state after fade-in
 local VIG_BEAT_TRANS  = 0.52   -- strong beat flash
 local VIG_ECHO_TRANS  = 0.67   -- echo beat flash
 
--- Slight darkening/tint while active
 local ACTIVE_BRIGHTNESS = -0.07
 local ACTIVE_TINT       = Color3.new(1, 0.88, 0.88)
 
--- Heartbeat sound
 local BEAT_VOLUME_STRONG = 0.70
 local BEAT_VOLUME_ECHO   = 0.38
 local BEAT_REST_MIN      = 0.60   -- seconds between full lub-dub cycles
 local BEAT_REST_MAX      = 0.90
 
--- Small camera shake on the strong beat only
-local SHAKE_AMP = 0.004
+local SHAKE_AMP = 0.004   -- small camera shake on the strong beat only
 
 local function tw(obj, t, props, style, dir)
 	style = style or Enum.EasingStyle.Quad
@@ -40,8 +36,7 @@ local function tw(obj, t, props, style, dir)
 	TweenService:Create(obj, TweenInfo.new(t, style, dir), props):Play()
 end
 
--- Only one heartbeat instance can be alive at a time for this client.
--- Re-applying while active just refreshes the timer (loops keep running).
+-- only one instance can be alive at a time; re-applying refreshes the timer
 local state = nil :: {
 	gui:             ScreenGui,
 	vigFrames:       { Frame },
@@ -54,11 +49,11 @@ local function buildEffect(): typeof(state)
 	local gui = Instance.new("ScreenGui")
 	gui.Name           = "HeartbeatEffect"
 	gui.DisplayOrder   = 96
-	gui.ResetOnSpawn   = false   -- respawn cleanup handled explicitly below
+	gui.ResetOnSpawn   = false
 	gui.IgnoreGuiInset = true
 	gui.Parent         = PlayerGui
 
-	-- Four red gradient frames radiating inward from each screen edge.
+	-- four red gradient frames radiating inward from each screen edge
 	local vigFrames = {}
 	local vigData = {
 		{ UDim2.new(1, 0, 0.42, 0), UDim2.new(0, 0, 0,    0), 90  },
@@ -71,7 +66,7 @@ local function buildEffect(): typeof(state)
 		f.Size                   = data[1]
 		f.Position               = data[2]
 		f.BackgroundColor3       = Color3.fromRGB(180, 0, 0)
-		f.BackgroundTransparency = 1   -- invisible until fade-in
+		f.BackgroundTransparency = 1
 		f.BorderSizePixel        = 0
 		f.ZIndex                 = 3
 		f.Parent                 = gui
@@ -93,7 +88,7 @@ local function buildEffect(): typeof(state)
 	colorCorrection.TintColor  = Color3.new(1, 1, 1)
 	colorCorrection.Parent     = Lighting
 
-	-- Reuse the same heartbeat SFX asset already used by AnxietyEffects.
+	-- reuse the same heartbeat SFX asset used by AnxietyEffects
 	local sound = Instance.new("Sound")
 	sound.Name               = "HeartbeatSound"
 	sound.SoundId            = "rbxassetid://7188240609"
@@ -111,8 +106,6 @@ local function buildEffect(): typeof(state)
 	} :: any
 end
 
--- Tears down every resource. `animated` = tween out; false = cut instantly
--- (used on respawn so nothing carries into the new life).
 local function teardown(myState, animated: boolean)
 	if animated then
 		for _, f in myState.vigFrames do
@@ -135,20 +128,19 @@ local function teardown(myState, animated: boolean)
 	end
 end
 
--- All loops key off object identity (state == myState) so a token refresh
--- never restarts them — only the end-timer is bumped.
+-- loops key off object identity (state == myState) so a token refresh never
+-- restarts them — only the end-timer is bumped
 local function runLoops(myState)
-	-- ── Lub-dub heartbeat loop ────────────────────────────────────────────────
+	-- lub-dub heartbeat loop
 	task.spawn(function()
 		while state == myState do
-			-- Strong beat (LUB)
+			-- strong beat (LUB)
 			for _, f in myState.vigFrames do
 				tw(f, 0.07, { BackgroundTransparency = VIG_BEAT_TRANS }, Enum.EasingStyle.Quad)
 			end
 			myState.sound.Volume = BEAT_VOLUME_STRONG
 			myState.sound:Play()
 
-			-- Small camera shake on the strong beat
 			task.spawn(function()
 				if state ~= myState then return end
 				local rx = (rng:NextNumber() * 2 - 1) * SHAKE_AMP
@@ -164,7 +156,7 @@ local function runLoops(myState)
 
 			if state ~= myState then break end
 
-			-- Echo beat (DUB)
+			-- echo beat (DUB)
 			for _, f in myState.vigFrames do
 				tw(f, 0.06, { BackgroundTransparency = VIG_ECHO_TRANS }, Enum.EasingStyle.Quad)
 			end
@@ -176,17 +168,15 @@ local function runLoops(myState)
 				tw(f, 0.30, { BackgroundTransparency = VIG_BASE_TRANS }, Enum.EasingStyle.Quad)
 			end
 
-			-- Rest between cycles
 			task.wait(BEAT_REST_MIN + rng:NextNumber() * (BEAT_REST_MAX - BEAT_REST_MIN))
 		end
 	end)
 end
 
--- Applies (or refreshes) the heartbeat effect for `duration` seconds.
 local function applyHeartbeat(duration: number)
 	if state then
-		-- Already active: bump token so the previous end-timer becomes a no-op,
-		-- then start a fresh one. Loops keep running uninterrupted.
+		-- already active: bump token so the previous end-timer becomes a no-op,
+		-- then start a fresh one — loops keep running uninterrupted
 		state.token += 1
 		local myToken = state.token
 		task.delay(duration, function()
@@ -201,7 +191,6 @@ local function applyHeartbeat(duration: number)
 	local myState = buildEffect()
 	state = myState
 
-	-- Smooth fade in
 	for _, f in myState.vigFrames do
 		tw(f, FADE_IN_TIME, { BackgroundTransparency = VIG_BASE_TRANS })
 	end
@@ -221,8 +210,8 @@ local function applyHeartbeat(duration: number)
 	end)
 end
 
--- Hard-stops everything immediately — used on respawn so no tint or vignette
--- bleeds into the new life.
+-- instant stop with no fade — used on respawn so tint and vignette don't
+-- bleed into the new life
 local function hardStopHeartbeat()
 	if not state then return end
 	local myState = state
@@ -237,5 +226,4 @@ if CommandRemotes.Heartbeat then
 		if typeof(duration) ~= "number" or duration <= 0 then return end
 		applyHeartbeat(duration)
 	end)
-	print("[HeartbeatEffects] Ready.")
 end

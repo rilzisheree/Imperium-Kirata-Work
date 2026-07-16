@@ -11,8 +11,6 @@ local Camera      = workspace.CurrentCamera
 
 local rng = Random.new()
 
--- Tuning knobs — kept moderate per the design brief ("do not completely
--- blind the player").
 local FADE_IN_TIME    = 1.0
 local FADE_OUT_TIME   = 1.2
 local BLUR_SIZE       = 9
@@ -22,7 +20,7 @@ local SWAY_AMPLITUDE  = 0.028   -- occasional bigger sway on top of the shake
 local SWAY_INTERVAL   = { 2.5, 5.0 }
 local SWAY_TIME        = 0.9
 local DARK_FLASH_INTERVAL = { 4, 9 }
-local DARK_FLASH_TRANSPARENCY = 0.55  -- how dark the split-second flash gets
+local DARK_FLASH_TRANSPARENCY = 0.55
 local TINNITUS_VOLUME = 0.35
 
 local function tw(obj, t, props, style, dir)
@@ -31,9 +29,8 @@ local function tw(obj, t, props, style, dir)
 	TweenService:Create(obj, TweenInfo.new(t, style, dir), props):Play()
 end
 
--- Only one concussion effect instance can ever be alive at a time for this
--- client (state below). Re-applying while active just refreshes the timer
--- instead of building a second copy — see applyConcussion.
+-- only one instance can be alive at a time; re-applying just refreshes the
+-- timer instead of building a second copy — see applyConcussion below
 local state = nil :: {
 	gui: ScreenGui,
 	blur: BlurEffect,
@@ -43,8 +40,8 @@ local state = nil :: {
 	token: number,
 }?
 
--- Smoothly walks `state.swayOffset` toward `target` over `time` seconds
--- without blocking, so the constant shake loop can keep layering on top of it.
+-- smoothly walks state.swayOffset toward target over time seconds without
+-- blocking, so the constant shake loop can keep layering on top of it
 local function swayTo(myState, target: CFrame, time: number)
 	task.spawn(function()
 		local start = myState.swayOffset
@@ -61,7 +58,7 @@ local function buildEffect(): typeof(state)
 	local gui = Instance.new("ScreenGui")
 	gui.Name           = "ConcussionEffect"
 	gui.DisplayOrder   = 95
-	gui.ResetOnSpawn   = false  -- respawn cleanup is handled explicitly below
+	gui.ResetOnSpawn   = false
 	gui.IgnoreGuiInset = true
 	gui.Parent         = PlayerGui
 
@@ -103,10 +100,8 @@ local function buildEffect(): typeof(state)
 	} :: any
 end
 
--- Tears down every effect resource, including the RenderStepped shake
--- connection — always routed through here so no path can leak it, whether
--- teardown happens via the normal end-of-duration timer or a hard respawn
--- stop. `animated` controls whether we tween out first or cut instantly.
+-- always go through here so no path can leak the RenderStepped connection,
+-- whether teardown is via the duration timer or a hard respawn stop
 local function teardown(myState, animated: boolean)
 	if myState.shakeConn then
 		myState.shakeConn:Disconnect()
@@ -132,14 +127,12 @@ local function teardown(myState, animated: boolean)
 	end
 end
 
--- All three loops below key off object identity (`state == myState`), NOT
--- the refresh token — a duration refresh (concussion re-applied while
--- already active) only bumps the token so the *end* timer restarts; these
--- ambient loops should keep running uninterrupted across a refresh.
+-- loops key off object identity (state == myState), NOT the token — a duration
+-- refresh only bumps the token so the end-timer restarts; these ambient loops
+-- keep running uninterrupted across a refresh
 local function runLoops(myState)
-	-- Constant subtle shake + whatever sway offset is currently active.
-	-- Stored on myState so teardown() can always find and disconnect it,
-	-- regardless of which code path (duration end vs. respawn) tears down.
+	-- constant subtle shake + whatever sway offset is currently active;
+	-- stored on myState so teardown() can always find and disconnect it
 	myState.shakeConn = RunService.RenderStepped:Connect(function()
 		if state ~= myState then return end
 		local rx = (rng:NextNumber() * 2 - 1) * SHAKE_AMPLITUDE
@@ -147,7 +140,7 @@ local function runLoops(myState)
 		Camera.CFrame = Camera.CFrame * myState.swayOffset * CFrame.Angles(rx, ry, 0)
 	end)
 
-	-- Occasional bigger sway, simulating a dizzy lean to one side and back.
+	-- occasional bigger sway, simulating a dizzy lean to one side and back
 	task.spawn(function()
 		while state == myState do
 			task.wait(rng:NextNumber() * (SWAY_INTERVAL[2] - SWAY_INTERVAL[1]) + SWAY_INTERVAL[1])
@@ -161,7 +154,7 @@ local function runLoops(myState)
 		end
 	end)
 
-	-- Occasional split-second darkening to simulate disorientation.
+	-- occasional split-second darkening to simulate disorientation
 	task.spawn(function()
 		while state == myState do
 			task.wait(rng:NextNumber() * (DARK_FLASH_INTERVAL[2] - DARK_FLASH_INTERVAL[1]) + DARK_FLASH_INTERVAL[1])
@@ -170,17 +163,14 @@ local function runLoops(myState)
 			tw(myState.darkFrame, 0.35, { BackgroundTransparency = 1 })
 		end
 	end)
-
 end
 
--- Applies (or refreshes) the concussion effect for `duration` seconds. The
 -- server drives the actual WalkSpeed reduction; this is the visual/audio side
--- only, and it is entirely local so nothing here is visible to other players.
+-- only, entirely local so nothing here is visible to other players
 local function applyConcussion(duration: number)
 	if state then
-		-- Already concussed: bump the token so the previous end-timer becomes
-		-- a no-op, then start a fresh one — this is the "refresh" behaviour,
-		-- no rebuilding of the GUI/sound/camera hooks needed.
+		-- already active: bump the token so the previous end-timer becomes a
+		-- no-op, then start a fresh one — loops keep running uninterrupted
 		state.token += 1
 		local myToken = state.token
 		task.delay(duration, function()
@@ -210,8 +200,8 @@ local function applyConcussion(duration: number)
 	end)
 end
 
--- Hard-stops everything immediately (no fade) — used on respawn, where the
--- lingering camera offset / GUI would otherwise carry over to the new life.
+-- instant stop with no fade — used on respawn so the camera offset and GUI
+-- don't carry over into the new life
 local function hardStopConcussion()
 	if not state then return end
 	local myState = state
