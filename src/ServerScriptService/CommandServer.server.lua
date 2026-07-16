@@ -21,23 +21,8 @@ local SERVERBRING_TOPIC      = "ImperiumServerbring_" .. game.PlaceId
 local SERVERJOIN_QUERY_TOPIC = "ImperiumServerjoinQ_" .. game.PlaceId
 local SERVERJOIN_REPLY_TOPIC = "ImperiumServerjoinR_" .. game.PlaceId
 
--- Declared here, before hasPermission, so the function can close over it as an
--- upvalue.  Populated by HANDLERS["staffmode"].
+-- Populated by HANDLERS["staffmode"].
 local staffModeActive = {}  -- [userId] = true while Staff Mode is on for that player
-
--- `required` here is a command's `permission` field from CommandRegistry.
--- "Everyone" and "Staff" are special capability gates unrelated to group
--- role; everything else is resolved by PermissionManager's per-role command
--- allow-lists (see PermissionManager.lua for the actual rules).
-local function hasPermission(player: Player, required: string): boolean
-	if required == "Everyone" then return true end
-	-- "Staff" is a capability gate, not a tier level.  It is satisfied only
-	-- when the player has explicitly activated Staff Mode this session.
-	if required == "Staff" then
-		return staffModeActive[player.UserId] == true
-	end
-	return false
-end
 
 local function ok(player: Player, msg: string)
 	CommandRemotes.CommandFeedback:FireClient(player, true, msg)
@@ -2536,14 +2521,7 @@ CommandRemotes.CommandExecuted.OnServerEvent:Connect(function(executor: Player, 
 		return
 	end
 
-	-- "Everyone" and "Staff" are capability gates unrelated to group role
-	-- (see hasPermission); everything else is resolved by PermissionManager's
-	-- per-role command allow-lists, keyed by the command name itself rather
-	-- than the registry's legacy `permission` label.
-	local allowed = (definition.permission == "Everyone" or definition.permission == "Staff")
-		and hasPermission(executor, definition.permission)
-		or PermissionManager.canUseCommand(executor, cmdName)
-	if not allowed then
+	if not PermissionManager.canUseCommand(executor, cmdName) then
 		fail(executor, 'No permission for "' .. cmdName .. '".')
 		return
 	end

@@ -34,25 +34,13 @@ CommandRemotes.Permissions.OnClientEvent:Connect(function(allowedCommands: { str
 	end
 
 	for name, def in pairs(CommandRegistry.COMMANDS) do
-		if name ~= "language" and def.permission ~= "Staff" then
-			if def.permission == "Everyone" or allowedSet[name] then
-				COMMANDS[name] = { args = def.args, description = def.description }
-			end
+		if name ~= "language" and allowedSet[name] then
+			COMMANDS[name] = { args = def.args, description = def.description }
 		end
 	end
 
 	if keepLanguage then
 		COMMANDS["language"] = keepLanguage
-	end
-
-	-- If Staff Mode is active, re-add Staff commands so a mid-session
-	-- Permissions push does not silently wipe them from the list.
-	if staffModeEnabled then
-		for name, def in pairs(CommandRegistry.COMMANDS) do
-			if def.permission == "Staff" then
-				COMMANDS[name] = { args = def.args, description = def.description }
-			end
-		end
 	end
 end)
 
@@ -67,17 +55,6 @@ end)
 
 CommandRemotes.StaffMode.OnClientEvent:Connect(function(enabled: boolean)
 	staffModeEnabled = enabled
-	-- Add or remove every Staff-permission command from the active COMMANDS table
-	-- so autocomplete and access reflect the new state immediately.
-	for name, def in pairs(CommandRegistry.COMMANDS) do
-		if def.permission == "Staff" then
-			if enabled then
-				COMMANDS[name] = { args = def.args, description = def.description }
-			else
-				COMMANDS[name] = nil
-			end
-		end
-	end
 end)
 
 local toggleChatLogs = Instance.new("BindableEvent")

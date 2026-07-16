@@ -21,6 +21,9 @@ local OVERRIDE_USER_IDS: { [number]: boolean } = {
 -- commands are automatically covered without touching this file.
 local ALL = "ALL"
 
+-- Commands available to everyone regardless of group role.
+local EVERYONE_COMMANDS = newSet({ "help", "language", "volume" })
+
 local function newSet(list: { string }): { [string]: boolean }
 	local set = {}
 	for _, v in list do set[v] = true end
@@ -104,6 +107,7 @@ local function getAllowed(player: Player): { [string]: boolean } | string | fals
 end
 
 function PermissionManager.canUseCommand(player: Player, commandName: string): boolean
+	if EVERYONE_COMMANDS[commandName] then return true end
 	local allowed = getAllowed(player)
 	if allowed == ALL then return true end
 	if allowed == false then return false end
