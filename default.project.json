@@ -5,12 +5,14 @@
 
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
-      "$path": "src/ReplicatedStorage"
+      "$path": "src/ReplicatedStorage",
+      "$ignoreUnknownInstances": true
     },
 
     "ServerScriptService": {
       "$className": "ServerScriptService",
-      "$path": "src/ServerScriptService"
+      "$path": "src/ServerScriptService",
+      "$ignoreUnknownInstances": true
     },
 
     "TextChatService": {
@@ -36,12 +38,14 @@
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
-        "$path": "src/StarterPlayerScripts"
+        "$path": "src/StarterPlayerScripts",
+        "$ignoreUnknownInstances": true
       }
     },
 
     "SoundService": {
       "$className": "SoundService",
+      "$ignoreUnknownInstances": true,
       "rainOutside": {
         "$className": "Sound",
         "$properties": {
@@ -65,6 +69,7 @@
 
     "Workspace": {
       "$className": "Workspace",
+      "$ignoreUnknownInstances": true,
       "rainPart": {
         "$className": "Part",
         "$properties": {
