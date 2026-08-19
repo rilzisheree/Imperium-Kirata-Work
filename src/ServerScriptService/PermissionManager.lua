@@ -21,14 +21,14 @@ local OVERRIDE_USER_IDS: { [number]: boolean } = {
 -- commands are automatically covered without touching this file.
 local ALL = "ALL"
 
--- Commands available to everyone regardless of group role.
-local EVERYONE_COMMANDS = newSet({ "help", "language", "volume" })
-
 local function newSet(list: { string }): { [string]: boolean }
 	local set = {}
 	for _, v in list do set[v] = true end
 	return set
 end
+
+-- Commands available to everyone regardless of group role.
+local EVERYONE_COMMANDS = newSet({ "help", "language", "volume" })
 
 local function addAll(set: { [string]: boolean }, list: { string })
 	for _, v in list do set[v] = true end

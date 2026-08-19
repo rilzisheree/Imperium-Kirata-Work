@@ -17,7 +17,7 @@ local ChatRemotes     = require(ReplicatedStorage:WaitForChild("ChatRemotes"))
 local LanguageManager = require(script.Parent:WaitForChild("LanguageManager") :: ModuleScript)
 local LanguageData    = require(ReplicatedStorage:WaitForChild("LanguageData") :: ModuleScript)
 local FilterState       = require(script.Parent:WaitForChild("FilterState") :: ModuleScript)
-local BadWordFilter     = require(script.Parent:WaitForChild("BadWordFilter") :: ModuleScript)
+local BadWordFilter     = require(script.Parent:WaitForChild("ChatFilter") :: ModuleScript)
 local PermissionManager = require(script.Parent:WaitForChild("PermissionManager") :: ModuleScript)
 
 local MAX_MESSAGE_LENGTH = 200
