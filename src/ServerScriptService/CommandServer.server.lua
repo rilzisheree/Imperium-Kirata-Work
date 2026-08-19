@@ -103,6 +103,8 @@ local MAX_HEARTBEAT_DURATION     = 120
 
 
 local activePrivateServerCode: string? = nil
+local activeViewersByTarget = {} -- [targetUserId] = { [viewerUserId] = true }
+local viewTargetByViewer = {}    -- [viewerUserId] = targetUserId
 
 -- music state: the currently playing audio ID (or nil) and volume (0–1)
 local currentMusicId     = nil
@@ -1140,50 +1142,84 @@ end
 
 HANDLERS["view"] = function(executor, args)
 	if #args < 1 then
-		fail(executor, "Usage: view <player|me> [all|me]")
+		fail(executor, "Usage: view <player|me> [audience|all]")
 		return
 	end
 
-	-- One argument means everybody watches the selected player.
-	-- With two arguments, either order is accepted:
-	--   view all Player  /  view me Player
-	--   view Player all  /  view Player me
-	local first  = args[1]:lower()
-	local second = args[2] and args[2]:lower()
-	local audience = "all"
-	local targetName = args[1]
-
-	if second == "all" or second == "me" then
-		audience = second
-	elseif first == "all" or first == "me" then
-		audience = first
-		targetName = args[2] or ""
-	end
-
-	if targetName == "" then
-		fail(executor, "Usage: view <player|me> [all|me]")
-		return
-	end
-
-	local target = resolvePlayer(executor, targetName)
+	-- The first argument is always the person being viewed. With no second
+	-- argument, everyone views them; otherwise the second argument selects the
+	-- audience: "all", "me", or one specific player.
+	local target = resolvePlayer(executor, args[1])
 	if not target then
-		fail(executor, 'Player "' .. targetName .. '" not found.')
+		fail(executor, 'Player "' .. args[1] .. '" not found.')
 		return
 	end
 
-	local viewers
-	if audience == "me" then
-		viewers = { executor }
-	else
+	local viewers = {}
+	local audienceName = "everyone"
+	if not args[2] or args[2]:lower() == "all" then
 		viewers = Players:GetPlayers()
+	elseif args[2]:lower() == "me" then
+		viewers = { executor }
+		audienceName = "you"
+	else
+		local viewer = resolvePlayer(executor, args[2])
+		if not viewer then
+			fail(executor, 'Player "' .. args[2] .. '" not found.')
+			return
+		end
+		viewers = { viewer }
+		audienceName = viewer.DisplayName
 	end
 
+	activeViewersByTarget[target.UserId] = activeViewersByTarget[target.UserId] or {}
 	for _, viewer in viewers do
+		local previousTargetId = viewTargetByViewer[viewer.UserId]
+		if previousTargetId then
+			local previousViewers = activeViewersByTarget[previousTargetId]
+			if previousViewers then
+				previousViewers[viewer.UserId] = nil
+			end
+			CommandRemotes.ViewStop:FireClient(viewer)
+		end
+		viewTargetByViewer[viewer.UserId] = target.UserId
+		activeViewersByTarget[target.UserId][viewer.UserId] = true
 		CommandRemotes.ViewStart:FireClient(viewer, target)
 	end
 
-	local audienceLabel = audience == "me" and "you" or "everyone"
-	ok(executor, audienceLabel .. " now viewing " .. target.DisplayName .. ".")
+	ok(executor, audienceName .. " now viewing " .. target.DisplayName .. ".")
+end
+
+HANDLERS["unview"] = function(executor, args)
+	if #args < 1 then
+		fail(executor, "Usage: unview <player|me>")
+		return
+	end
+
+	local target = resolvePlayer(executor, args[1])
+	if not target then
+		fail(executor, 'Player "' .. args[1] .. '" not found.')
+		return
+	end
+
+	local viewers = activeViewersByTarget[target.UserId]
+	if not viewers then
+		ok(executor, "Nobody is viewing " .. target.DisplayName .. ".")
+		return
+	end
+
+	local stopped = 0
+	for viewerUserId in viewers do
+		local viewer = Players:GetPlayerByUserId(viewerUserId)
+		if viewer then
+			CommandRemotes.ViewStop:FireClient(viewer)
+			stopped += 1
+		end
+		viewTargetByViewer[viewerUserId] = nil
+	end
+	activeViewersByTarget[target.UserId] = nil
+
+	ok(executor, "Stopped " .. stopped .. " player(s) from viewing " .. target.DisplayName .. ".")
 end
 
 HANDLERS["fly"] = function(executor, args)

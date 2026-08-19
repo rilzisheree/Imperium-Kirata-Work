@@ -30,6 +30,26 @@ watchLabel.TextStrokeTransparency = 0.4
 watchLabel.ZIndex                 = 10
 watchLabel.Parent                 = watchGui
 
+local topBar = Instance.new("Frame")
+topBar.Name                   = "CinematicTopBar"
+topBar.Size                   = UDim2.new(1, 0, 0, 86)
+topBar.Position               = UDim2.new(0, 0, 0, 0)
+topBar.BackgroundColor3       = Color3.new(0, 0, 0)
+topBar.BorderSizePixel        = 0
+topBar.Visible                = false
+topBar.ZIndex                 = 20
+topBar.Parent                 = watchGui
+
+local bottomBar = Instance.new("Frame")
+bottomBar.Name                   = "CinematicBottomBar"
+bottomBar.Size                   = UDim2.new(1, 0, 0, 86)
+bottomBar.Position               = UDim2.new(0, 0, 1, -86)
+bottomBar.BackgroundColor3       = Color3.new(0, 0, 0)
+bottomBar.BorderSizePixel        = 0
+bottomBar.Visible                = false
+bottomBar.ZIndex                 = 20
+bottomBar.Parent                 = watchGui
+
 local watchedPlayer      = nil :: Player?
 local savedCameraType    = nil :: Enum.CameraType?
 local savedCameraSubject = nil :: Instance?
@@ -71,6 +91,8 @@ local function stopWatch(leftMsg: string?)
 	savedCameraType    = nil
 	savedCameraSubject = nil
 	cinematicMode      = false
+	topBar.Visible      = false
+	bottomBar.Visible   = false
 
 	-- hide indicator, or briefly show the reason the session ended
 	if leftMsg then
@@ -95,6 +117,8 @@ local function startWatch(target: Player)
 
 	watchedPlayer = target
 	cinematicMode = false
+	topBar.Visible = false
+	bottomBar.Visible = false
 
 	local cam            = getCamera()
 	savedCameraType      = cam.CameraType
@@ -169,8 +193,10 @@ local function startCinematicView(target: Player)
 		stopWatch()
 	end)
 
-	watchLabel.Text  = "Viewing: " .. target.DisplayName .. " (@" .. target.Name .. ")"
+	watchLabel.Text  = ""
 	watchGui.Enabled = true
+	topBar.Visible = true
+	bottomBar.Visible = true
 end
 
 if CommandRemotes.WatchStart then
@@ -192,5 +218,11 @@ if CommandRemotes.ViewStart then
 		if typeof(target) == "Instance" and target:IsA("Player") then
 			startCinematicView(target)
 		end
+	end)
+end
+
+if CommandRemotes.ViewStop then
+	CommandRemotes.ViewStop.OnClientEvent:Connect(function()
+		stopWatch()
 	end)
 end
