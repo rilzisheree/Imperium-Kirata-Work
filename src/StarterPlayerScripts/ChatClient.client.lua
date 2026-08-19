@@ -260,7 +260,11 @@ local function createBubble(character, text)
         data.count += 1
 
         local lockedInaudible = false
-        if character.Name ~= LocalPlayer.Name then
+		local cinematicTargetId = LocalPlayer:GetAttribute("CinematicViewTargetUserId")
+		local characterPlayer = Players:FindFirstChild(character.Name)
+		local isCinematicTarget = characterPlayer
+			and characterPlayer.UserId == cinematicTargetId
+		if character.Name ~= LocalPlayer.Name and not isCinematicTarget then
                 local localRoot  = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 local senderRoot = character:FindFirstChild("HumanoidRootPart")
                 if localRoot and senderRoot then
