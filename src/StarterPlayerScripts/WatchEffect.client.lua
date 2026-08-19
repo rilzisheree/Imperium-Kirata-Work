@@ -174,7 +174,7 @@ local function startCinematicView(target: Player)
 		if not root then return end
 
 		local focus = root.Position + Vector3.new(0, 2.2, 0)
-		local desiredPosition = root.Position - root.CFrame.LookVector * 10 + Vector3.new(0, 5, 0)
+		local desiredPosition = root.Position + root.CFrame.LookVector * 10 + Vector3.new(0, 5, 0)
 		local desired = CFrame.lookAt(desiredPosition, focus)
 		local blend = 1 - math.exp(-dt * 6)
 		cam.CFrame = cam.CFrame:Lerp(desired, blend)
