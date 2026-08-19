@@ -242,14 +242,14 @@ local SCRIPT_DEFS = {
 		ratio = 1.0,
 	},
 
-	-- Text-style hand symbols for gameplay. The variation selector requests
-	-- monochrome text presentation; this is not a real signed-language
-	-- translation.
+	-- Monochrome gesture-like symbol output for gameplay. Each glyph is a
+	-- compact two-character pattern so the result has a consistent visual
+	-- rhythm; this is not a real signed-language translation.
 	["Sign Language"] = {
 		chars = {
-			"☝︎", "✋︎", "☞", "☜", "✌︎", "☟", "👋︎", "🤟︎", "🤘︎", "🤙︎",
+			"><", "<>", "^v", "v^", "/\\", "\\/", "|o", "o|", "||", "~~", "xx",
 		},
-		ratio = 0.8,
+		ratio = 0.7,
 	},
 
 	Turkish = {
