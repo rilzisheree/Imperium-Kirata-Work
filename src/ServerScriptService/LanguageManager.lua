@@ -242,11 +242,11 @@ local SCRIPT_DEFS = {
 		ratio = 1.0,
 	},
 
-	-- Symbolic gesture-like output for gameplay; this is not a real
+	-- Hand-gesture emoji output for gameplay; this is not a real
 	-- signed-language translation.
 	["Sign Language"] = {
 		chars = {
-			"><", "<>", "^", "v", "|", "/", "\\", "o",
+			"👋", "🤟", "🤘", "🤙", "🖐️", "✋", "☝️", "👉", "👈", "🤞",
 		},
 		ratio = 0.8,
 	},
