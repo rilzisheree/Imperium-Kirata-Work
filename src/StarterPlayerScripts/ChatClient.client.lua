@@ -211,9 +211,18 @@ RunService.Heartbeat:Connect(function()
 
                 local head    = gui.Parent
                 local isLocal = (pname == LocalPlayer.Name)
-                local showFull = isLocal
+				local cinematicTargetId = LocalPlayer:GetAttribute("CinematicViewTargetUserId")
+				local isCinematicTarget = cinematicTargetId ~= nil
+					and Players:FindFirstChild(pname)
+					and Players[pname].UserId == cinematicTargetId
+				local showFull = isLocal or isCinematicTarget
 
                 if not isLocal then
+						if isCinematicTarget then
+								gui.Enabled = true
+								showFull    = true
+								continue
+						end
                         if not localRoot then
                                 gui.Enabled = false
                                 continue
@@ -340,7 +349,7 @@ ChatRemotes.MessageReceived.OnClientEvent:Connect(function(payload)
         end
         local character = sender.Character
         if character then
-                createBubble(character, msg)
+			createBubble(character, msg)
         else
                 task.spawn(function()
                         local done, conn = false, nil

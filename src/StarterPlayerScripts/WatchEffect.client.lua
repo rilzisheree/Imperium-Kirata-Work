@@ -74,6 +74,7 @@ end
 local function stopWatch(leftMsg: string?)
 	if not watchedPlayer then return end
 	watchedPlayer = nil
+	LocalPlayer:SetAttribute("CinematicViewTargetUserId", nil)
 
 	-- disconnect all event connections
 	if charAddedConn      then charAddedConn:Disconnect();      charAddedConn      = nil end
@@ -117,6 +118,7 @@ local function startWatch(target: Player)
 
 	watchedPlayer = target
 	cinematicMode = false
+	LocalPlayer:SetAttribute("CinematicViewTargetUserId", nil)
 	topBar.Visible = false
 	bottomBar.Visible = false
 
@@ -159,6 +161,7 @@ local function startCinematicView(target: Player)
 
 	watchedPlayer = target
 	cinematicMode = true
+	LocalPlayer:SetAttribute("CinematicViewTargetUserId", target.UserId)
 
 	local cam            = getCamera()
 	savedCameraType      = cam.CameraType
