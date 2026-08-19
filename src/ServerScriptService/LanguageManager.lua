@@ -242,11 +242,12 @@ local SCRIPT_DEFS = {
 		ratio = 1.0,
 	},
 
-	-- Hand-gesture emoji output for gameplay; this is not a real
-	-- signed-language translation.
+	-- Text-style hand symbols for gameplay. The variation selector requests
+	-- monochrome text presentation; this is not a real signed-language
+	-- translation.
 	["Sign Language"] = {
 		chars = {
-			"👋", "🤟", "🤘", "🤙", "🖐️", "✋", "☝️", "👉", "👈", "🤞",
+			"☝︎", "✋︎", "☞", "☜", "✌︎", "☟", "👋︎", "🤟︎", "🤘︎", "🤙︎",
 		},
 		ratio = 0.8,
 	},
