@@ -37,6 +37,8 @@ local savedCameraSubject = nil :: Instance?
 local charAddedConn      = nil :: RBXScriptConnection?
 local playerRemovingConn = nil :: RBXScriptConnection?
 local adminRespawnConn   = nil :: RBXScriptConnection?
+local cinematicConn      = nil :: RBXScriptConnection?
+local cinematicMode      = false
 
 local function getCamera(): Camera
 	return Workspace.CurrentCamera
@@ -57,6 +59,7 @@ local function stopWatch(leftMsg: string?)
 	if charAddedConn      then charAddedConn:Disconnect();      charAddedConn      = nil end
 	if playerRemovingConn then playerRemovingConn:Disconnect(); playerRemovingConn = nil end
 	if adminRespawnConn   then adminRespawnConn:Disconnect();   adminRespawnConn   = nil end
+	if cinematicConn      then cinematicConn:Disconnect();      cinematicConn      = nil end
 
 	-- restore camera — prefer the admin's current humanoid over the stale saved subject
 	local cam           = getCamera()
@@ -67,6 +70,7 @@ local function stopWatch(leftMsg: string?)
 
 	savedCameraType    = nil
 	savedCameraSubject = nil
+	cinematicMode      = false
 
 	-- hide indicator, or briefly show the reason the session ended
 	if leftMsg then
@@ -90,6 +94,7 @@ local function startWatch(target: Player)
 	stopWatch()
 
 	watchedPlayer = target
+	cinematicMode = false
 
 	local cam            = getCamera()
 	savedCameraType      = cam.CameraType
@@ -125,6 +130,49 @@ local function startWatch(target: Player)
 	watchGui.Enabled = true
 end
 
+local function startCinematicView(target: Player)
+	stopWatch()
+
+	watchedPlayer = target
+	cinematicMode = true
+
+	local cam            = getCamera()
+	savedCameraType      = cam.CameraType
+	savedCameraSubject   = cam.CameraSubject
+	cam.CameraType       = Enum.CameraType.Scriptable
+
+	-- Smoothly follow from behind and above the target, keeping the target's
+	-- upper body in frame for a cinematic spectator-style shot.
+	cinematicConn = RunService.RenderStepped:Connect(function(dt)
+		if watchedPlayer ~= target then return end
+		local character = target.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not root then return end
+
+		local focus = root.Position + Vector3.new(0, 2.2, 0)
+		local desiredPosition = root.Position - root.CFrame.LookVector * 10 + Vector3.new(0, 5, 0)
+		local desired = CFrame.lookAt(desiredPosition, focus)
+		local blend = 1 - math.exp(-dt * 6)
+		cam.CFrame = cam.CFrame:Lerp(desired, blend)
+	end)
+
+	charAddedConn = target.CharacterAdded:Connect(function()
+		-- RenderStepped will pick up the new root automatically.
+	end)
+
+	playerRemovingConn = Players.PlayerRemoving:Connect(function(player)
+		if player ~= watchedPlayer then return end
+		stopWatch(target.DisplayName .. " (@" .. target.Name .. ") left the game.")
+	end)
+
+	adminRespawnConn = LocalPlayer.CharacterAdded:Connect(function()
+		stopWatch()
+	end)
+
+	watchLabel.Text  = "Viewing: " .. target.DisplayName .. " (@" .. target.Name .. ")"
+	watchGui.Enabled = true
+end
+
 if CommandRemotes.WatchStart then
 	CommandRemotes.WatchStart.OnClientEvent:Connect(function(target: Player)
 		if typeof(target) == "Instance" and target:IsA("Player") then
@@ -136,5 +184,13 @@ end
 if CommandRemotes.WatchStop then
 	CommandRemotes.WatchStop.OnClientEvent:Connect(function()
 		stopWatch()
+	end)
+end
+
+if CommandRemotes.ViewStart then
+	CommandRemotes.ViewStart.OnClientEvent:Connect(function(target: Player)
+		if typeof(target) == "Instance" and target:IsA("Player") then
+			startCinematicView(target)
+		end
 	end)
 end

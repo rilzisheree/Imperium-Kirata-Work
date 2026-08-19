@@ -1138,6 +1138,54 @@ HANDLERS["unwatch"] = function(executor, args)
 	ok(executor, "Stopped watching.")
 end
 
+HANDLERS["view"] = function(executor, args)
+	if #args < 1 then
+		fail(executor, "Usage: view <player|me> [all|me]")
+		return
+	end
+
+	-- One argument means everybody watches the selected player.
+	-- With two arguments, either order is accepted:
+	--   view all Player  /  view me Player
+	--   view Player all  /  view Player me
+	local first  = args[1]:lower()
+	local second = args[2] and args[2]:lower()
+	local audience = "all"
+	local targetName = args[1]
+
+	if second == "all" or second == "me" then
+		audience = second
+	elseif first == "all" or first == "me" then
+		audience = first
+		targetName = args[2] or ""
+	end
+
+	if targetName == "" then
+		fail(executor, "Usage: view <player|me> [all|me]")
+		return
+	end
+
+	local target = resolvePlayer(executor, targetName)
+	if not target then
+		fail(executor, 'Player "' .. targetName .. '" not found.')
+		return
+	end
+
+	local viewers
+	if audience == "me" then
+		viewers = { executor }
+	else
+		viewers = Players:GetPlayers()
+	end
+
+	for _, viewer in viewers do
+		CommandRemotes.ViewStart:FireClient(viewer, target)
+	end
+
+	local audienceLabel = audience == "me" and "you" or "everyone"
+	ok(executor, audienceLabel .. " now viewing " .. target.DisplayName .. ".")
+end
+
 HANDLERS["fly"] = function(executor, args)
 	if #args < 1 then fail(executor, "Usage: fly <player|all> [speed]") return end
 	local targets = resolveTargets(executor, args[1])

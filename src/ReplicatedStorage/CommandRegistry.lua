@@ -85,6 +85,10 @@ CommandRegistry.COMMANDS = {
 		description = "stop spectating and restore your camera",
 		args = {},
 	},
+	view = {
+		description = "force players to watch a player with a cinematic camera",
+		args = { "player|all", "[audience: all|me]" },
+	},
 	invis = {
 		description = "make a player invisible",
 		args = { "player|all" },

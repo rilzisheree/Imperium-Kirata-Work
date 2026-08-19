@@ -50,6 +50,7 @@ local REMOTES = {
 	FlyDisable           = "CmdFlyDisable",
 	WatchStart           = "CmdWatchStart",
 	WatchStop            = "CmdWatchStop",
+	ViewStart            = "CmdViewStart",
 	Shutdown             = "CmdShutdown",
 	MusicOpen            = "CmdMusicOpen",
 	MusicPlay            = "CmdMusicPlay",
