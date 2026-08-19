@@ -13,6 +13,7 @@ LanguageData.LANGUAGES = {
 	{ name = "Turkish",    tag = "TR" },
 	{ name = "Portuguese", tag = "PT" },
 	{ name = "Italian",    tag = "IT" },
+	{ name = "Sign Language", tag = "SL" },
 }
 
 LanguageData.BY_NAME = {}
